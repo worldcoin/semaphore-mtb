@@ -4,7 +4,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 )
 
-var RC = [][64]frontend.Variable{
+var RC = [24][64]frontend.Variable{
 	toBits(0x0000000000000001),
 	toBits(0x0000000000008082),
 	toBits(0x800000000000808A),
@@ -31,7 +31,6 @@ var RC = [][64]frontend.Variable{
 	toBits(0x8000000080008008),
 }
 
-// TODO: props to copilot, double check this
 var R = [5][5]int{
 	{0, 36, 3, 41, 18},
 	{1, 44, 10, 45, 2},
