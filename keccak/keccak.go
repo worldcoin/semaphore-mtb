@@ -13,6 +13,15 @@ const blockSize = 1088
 const d = 0x01
 const outSize = 256
 
+func rev(a []frontend.Variable) []frontend.Variable {
+	numbers := make([]frontend.Variable, len(a))
+	copy(numbers, a)
+	for i, j := 0, len(numbers)-1; i < j; i, j = i+1, j-1 {
+		numbers[i], numbers[j] = numbers[j], numbers[i]
+	}
+	return numbers
+}
+
 func keccakf(api frontend.API, A [stateSize][stateSize][laneSize]frontend.Variable) [stateSize][stateSize][laneSize]frontend.Variable {
 	for i := 0; i < 24; i += 1 {
 		A = round(api, A, RC[i])
@@ -34,11 +43,7 @@ func round(api frontend.API, A [stateSize][stateSize][laneSize]frontend.Variable
 	var D [stateSize][laneSize]frontend.Variable
 	for x := 0; x < stateSize; x += 1 {
 		tmp := rot(api, C[(x+1)%stateSize], 1)
-		xx := x
-		if x == 0 {
-			xx = 5
-		}
-		D[x] = xor(api, C[(xx-1)%stateSize], tmp)
+		D[x] = xor(api, C[(x+4)%stateSize], tmp)
 	}
 
 	// A[x,y] = A[x,y] xor D[x], for x in 0…4 and y in 0…4
@@ -49,7 +54,7 @@ func round(api frontend.API, A [stateSize][stateSize][laneSize]frontend.Variable
 	}
 
 	// B[y,2*x+3*y] = rot(A[x,y], r[x,y]), for (x,y) in (0…4,0…4)
-	var B [stateSize][5 * stateSize][laneSize]frontend.Variable
+	var B [stateSize][stateSize][laneSize]frontend.Variable
 	for x := 0; x < stateSize; x += 1 {
 		for y := 0; y < stateSize; y += 1 {
 			B[y][(2*x+3*y)%stateSize] = rot(api, A[x][y], R[x][y])
@@ -73,27 +78,32 @@ func round(api frontend.API, A [stateSize][stateSize][laneSize]frontend.Variable
 func Keccak(api frontend.API, inputBits []frontend.Variable) [outSize]frontend.Variable {
 	// Padding
 	// api.Println(len(inputBits))
-	P := make([]frontend.Variable, len(inputBits)+(blockSize-len(inputBits)%blockSize))
-	for i := 0; i < len(inputBits); i += 1 {
-		P[i] = inputBits[i]
+	P := make([]frontend.Variable, blockSize)
+	P[0] = 0
+	P[1] = 0
+	P[2] = 0
+	P[3] = 0
+	P[4] = 0
+	P[5] = 0
+	P[6] = 0
+	P[7] = 0
+
+	// for i := 0; i < len(inputBits); i += 1 {
+	// 	P[i] = inputBits[i]
+	// }
+
+	// if len(inputBits)%blockSize != 0 {
+	for i := 8; i < len(P); i += 1 {
+		P[i] = 0
 	}
-
-	if len(inputBits)%blockSize != 0 {
-		for i := len(inputBits); i < len(P); i += 1 {
-			P[i] = 0
-		}
-		P[len(inputBits)+7] = 1
-	}
-
-	api.Println("Padded input", len(P))
-
-	// api.Println("P", P)
+	P[8] = 1
+	// }
 
 	tmp := make([]frontend.Variable, len(P))
 	for i := 0; i < len(P); i += 1 {
 		tmp[i] = 0
 	}
-	tmp[len(P)-8] = 0
+	tmp[len(P)-1] = 1
 
 	for i := 0; i < len(P); i += 1 {
 		P[i] = api.Xor(P[i], tmp[i])
@@ -115,12 +125,14 @@ func Keccak(api frontend.API, inputBits []frontend.Variable) [outSize]frontend.V
 			for y := 0; y < stateSize; y += 1 {
 				if x+5*y < blockSize/laneSize {
 					var Pi [laneSize]frontend.Variable
-					copy(Pi[:], P[i+(x+5*y)*laneSize:i+(x+5*y+1)*laneSize])
+					for k := i + (x+5*y)*laneSize; k < i+(x+5*y+1)*laneSize; k += 1 {
+						Pi[k-(i+(x+5*y)*laneSize)] = P[k]
+					}
 					S[x][y] = xor(api, S[x][y], Pi)
 				}
 			}
 		}
-		// fmt.Println("S", S[0][0])
+		// api.Println(S[1][3][:]...)
 		S = keccakf(api, S)
 	}
 
@@ -131,14 +143,13 @@ func Keccak(api frontend.API, inputBits []frontend.Variable) [outSize]frontend.V
 		for x := 0; x < stateSize; x += 1 {
 			for y := 0; y < stateSize; y += 1 {
 				if i < outSize && x+5*y < blockSize/laneSize {
-					copy(Z[i:], S[x][y][:])
+					copy(Z[i:], S[y][x][:])
 					i += laneSize
 				}
 			}
 		}
-		S = keccakf(api, S)
 	}
-
+	api.Println(rev(Z[:])...)
 	return Z
 }
 
@@ -157,7 +168,7 @@ func xor(api frontend.API, a, b [laneSize]frontend.Variable) [laneSize]frontend.
 func rot(api frontend.API, a [laneSize]frontend.Variable, r int) [laneSize]frontend.Variable {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(a); i += 1 {
-		c[i] = a[(i+r)%len(a)]
+		c[i] = a[(i+(laneSize-r))%len(a)]
 	}
 	return c
 }
