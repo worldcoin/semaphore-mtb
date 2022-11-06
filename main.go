@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
@@ -9,6 +11,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func fromHex(s string) big.Int {
@@ -17,8 +20,15 @@ func fromHex(s string) big.Int {
 	return bi
 }
 
+func toBytesLE(b []byte) []byte {
+	for i := 0; i < len(b)/2; i++ {
+		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
+	}
+	return b
+}
+
 func main() {
-	startIndex := 0
+	var startIndex uint32 = 1
 	dummyIdComm := fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
 	dummyProof := [20]frontend.Variable{
 		fromHex("0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -53,8 +63,30 @@ func main() {
 		proofs[i] = dummyProof
 	}
 
-	preRoot := fromHex("0x2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e_U256")
-	postRoot := fromHex("0x2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e_U256")
+	preRoot := fromHex("0x2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e")
+	postRoot := fromHex("0x2134e76ac5d21aab186c2be1dd8f84ee880a1e46eaf712f9d371b6df22191f3e")
+
+	// hash public inputs
+	data := []byte{}
+	// startIndex
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, startIndex)
+	data = append(data, buf.Bytes()...)
+	// pre and post root
+	data = append(data, toBytesLE(preRoot.Bytes())...)
+	data = append(data, toBytesLE(postRoot.Bytes())...)
+	// idComms
+	for i := 0; i < batchSize; i++ {
+		tmp := toBytesLE(dummyIdComm.Bytes())
+		// extend to 32 bytes if necessary
+		if len(dummyIdComm.Bytes()) < 32 {
+			tmp = append(tmp, make([]byte, 32-len(dummyIdComm.Bytes()))...)
+		}
+		data = append(data, tmp...)
+	}
+	hashBytes := toBytesLE(crypto.Keccak256Hash(data).Bytes())
+	var hash big.Int
+	hash.SetBytes(hashBytes)
 
 	// compiles our circuit into a R1CS
 	var circuit MbuCircuit
@@ -65,13 +97,16 @@ func main() {
 
 	// witness definition
 	assignment := MbuCircuit{
-		// public
+		// public inputs
+		InputHash: hash,
+
+		// hashed private inputs
 		StartIndex: startIndex,
 		PreRoot:    preRoot,
 		PostRoot:   postRoot,
 		IdComms:    idComms,
 
-		// private
+		// private inputs
 		MerkleProofs: proofs,
 	}
 
