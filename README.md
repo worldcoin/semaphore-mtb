@@ -7,6 +7,14 @@ SMTB is a service for batch processing of Merkle tree updates. It is designed to
 - [x] Merkle tree batch update in gnark
 - [x] Poseidon Hash in gnark
 - [x] Keccak / sha3 in gnark (for aggregation of public inputs)
-- [ ] Full batch update circuit
+- [x] Full batch update circuit
 - [ ] REST API
 - [ ] Proving service
+
+## Benchmarks
+
+Batch size: `100`
+Tree depth: `20`
+```
+DBG prover done backend=groth16 curve=BN254 nbConstraints=6370011 took=11094.363542
+```
