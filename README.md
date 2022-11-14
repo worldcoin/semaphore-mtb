@@ -10,6 +10,7 @@ SMTB is a service for batch processing of Merkle tree updates. It is designed to
 - [x] Full batch update circuit
 - [ ] REST API
 - [ ] Proving service
+- [ ] Serialize circuit and proving key 
 
 ## Benchmarks
 

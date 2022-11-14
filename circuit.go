@@ -47,7 +47,7 @@ func nodeSum(api frontend.API, h poseidon.Poseidon, a, b frontend.Variable) fron
 
 func (circuit *MbuCircuit) Define(api frontend.API) error {
 	// Hash private inputs.
-	// We kaccak hash all input to save verification gas. Inputs are arranged as follows:
+	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
 	//     32	  ||   256   ||   256    ||    256     ||    256     || ... ||     256 bits
 
@@ -65,15 +65,22 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 	var root frontend.Variable
 	ph := poseidon.NewPoseidon2(api)
 
-	// Empty proof for start.
-	root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[0][:]...), api.ToBinary(circuit.StartIndex, depth))
-	api.AssertIsEqual(root, circuit.PreRoot)
+	prevRoot := circuit.PreRoot
 
 	// Individual insertions.
 	for i := 0; i < batchSize; i += 1 {
 		currentIndex := api.Add(circuit.StartIndex, i)
-		merkleProof := append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...)
-		root = VerifyProof(api, ph, merkleProof, api.ToBinary(currentIndex, depth))
+		currentPath := api.ToBinary(currentIndex, depth)
+
+		// Verify proof for empty leaf.
+		root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		api.AssertIsEqual(root, prevRoot)
+
+		// Verify proof for idComm.
+		root = VerifyProof(api, ph, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
+
+		// Set root for next iteration.
+		prevRoot = root
 	}
 
 	// Final root needs to match.
