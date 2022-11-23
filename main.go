@@ -1,18 +1,25 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/consensys/gnark/logger"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog"
+	"github.com/urfave/cli/v2"
 )
+
+var log = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 func fromHex(s string) big.Int {
 	var bi big.Int
@@ -27,7 +34,9 @@ func toBytesLE(b []byte) []byte {
 	return b
 }
 
-func main() {
+func test() {
+	logger.Set(logger.Logger().Level(-1))
+	log := logger.Logger()
 	var startIndex uint32 = 1
 	dummyIdComm := fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
 	dummyProof := [20]frontend.Variable{
@@ -88,9 +97,13 @@ func main() {
 	var hash big.Int
 	hash.SetBytes(hashBytes)
 
+	log.Debug().Msg("Compiling circuit")
+
 	// compiles our circuit into a R1CS
 	var circuit MbuCircuit
 	ccs, _ := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
+
+	log.Debug().Msg("Setting up circuit")
 
 	// groth16 zkSNARK: Setup
 	pk, _, _ := groth16.Setup(ccs)
@@ -110,6 +123,8 @@ func main() {
 		MerkleProofs: proofs,
 	}
 
+	log.Debug().Msg("Proving")
+
 	start := time.Now()
 	witness, _ := frontend.NewWitness(&assignment, ecc.BN254)
 	_, err := witness.Public()
@@ -127,4 +142,73 @@ func main() {
 	}
 
 	// groth16.Verify(proof, vk, publicWitness)
+}
+
+func setup(proverKeyFile string, verifierKeyFile string) error {
+	var circuit MbuCircuit
+	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
+	if err != nil {
+		return err
+	}
+	pk, vk, err := groth16.Setup(ccs)
+	if err != nil {
+		return err
+	}
+
+	proverFile, err := os.Create(proverKeyFile)
+	if err != nil {
+		return err
+	}
+	proverWriter := bufio.NewWriter(proverFile)
+	proverSize, err := pk.WriteTo(proverWriter)
+	if err != nil {
+		return err
+	}
+	if err = proverWriter.Flush(); err != nil {
+		return err
+	}
+	if err = proverFile.Close(); err != nil {
+		return err
+	}
+	log.Info().Msgf("Prover key bytes written: %d ", proverSize)
+
+	verifierFile, err := os.Create(verifierKeyFile)
+	if err != nil {
+		return err
+	}
+	verifierWriter := bufio.NewWriter(verifierFile)
+	verifierSize, err := vk.WriteTo(verifierWriter)
+	if err != nil {
+		return err
+	}
+	if err = verifierWriter.Flush(); err != nil {
+		return err
+	}
+	if err = verifierFile.Close(); err != nil {
+		return err
+	}
+	log.Info().Msgf("Verifier key bytes written: %d", verifierSize)
+
+	return nil
+}
+
+func main() {
+	app := cli.App{
+		Commands: []*cli.Command{
+			{
+				Name: "setup",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "prover-key-file", Usage: "Output prover key file", Required: true},
+					&cli.StringFlag{Name: "verifier-key-file", Usage: "Output verifier key file", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					return setup(context.String("prover-key-file"), context.String("verifier-key-file"))
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal().Err(err).Msg("App failed.")
+	}
 }
