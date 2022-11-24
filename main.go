@@ -19,7 +19,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var log = zerolog.New(os.Stdout).With().Timestamp().Logger()
+var log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "20:32:55"}).With().Timestamp().Logger()
 
 func fromHex(s string) big.Int {
 	var bi big.Int
@@ -170,7 +170,7 @@ func setup(proverKeyFile string, verifierKeyFile string) error {
 	if err = proverFile.Close(); err != nil {
 		return err
 	}
-	log.Info().Msgf("Prover key bytes written: %d ", proverSize)
+	log.Info().Int64("bytesWritten", proverSize).Msg("prover key written")
 
 	verifierFile, err := os.Create(verifierKeyFile)
 	if err != nil {
@@ -187,7 +187,7 @@ func setup(proverKeyFile string, verifierKeyFile string) error {
 	if err = verifierFile.Close(); err != nil {
 		return err
 	}
-	log.Info().Msgf("Verifier key bytes written: %d", verifierSize)
+	log.Info().Int64("bytesWritten", verifierSize).Msg("verifier key written")
 
 	return nil
 }
