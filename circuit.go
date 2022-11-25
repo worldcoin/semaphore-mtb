@@ -8,8 +8,6 @@ import (
 )
 
 const (
-	batchSize = 100
-	depth     = 20
 	emptyLeaf = 0
 )
 
@@ -18,13 +16,16 @@ type MbuCircuit struct {
 	InputHash frontend.Variable `gnark:",public"`
 
 	// private inputs, but used as public inputs
-	StartIndex frontend.Variable            `gnark:"input"`
-	PreRoot    frontend.Variable            `gnark:"input"`
-	PostRoot   frontend.Variable            `gnark:"input"`
-	IdComms    [batchSize]frontend.Variable `gnark:"input"`
+	StartIndex frontend.Variable   `gnark:"input"`
+	PreRoot    frontend.Variable   `gnark:"input"`
+	PostRoot   frontend.Variable   `gnark:"input"`
+	IdComms    []frontend.Variable `gnark:"input"`
 
 	// private inputs
-	MerkleProofs [batchSize][depth]frontend.Variable `gnark:"input"`
+	MerkleProofs [][]frontend.Variable `gnark:"input"`
+
+	BatchSize int
+	Depth     int
 }
 
 func VerifyProof(api frontend.API, h poseidon.Poseidon, proofSet, helper []frontend.Variable) frontend.Variable {
@@ -51,11 +52,11 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
 	//     32	  ||   256   ||   256    ||    256     ||    256     || ... ||     256 bits
 
-	kh := keccak.NewKeccak256(api, (batchSize+2)*256+32)
+	kh := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32)
 	kh.Write(api.ToBinary(circuit.StartIndex, 32)...)
 	kh.Write(api.ToBinary(circuit.PreRoot, 256)...)
 	kh.Write(api.ToBinary(circuit.PostRoot, 256)...)
-	for i := 0; i < batchSize; i++ {
+	for i := 0; i < circuit.BatchSize; i++ {
 		kh.Write(api.ToBinary(circuit.IdComms[i], 256)...)
 	}
 	sum := api.FromBinary(kh.Sum()...)
@@ -68,9 +69,9 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 	prevRoot := circuit.PreRoot
 
 	// Individual insertions.
-	for i := 0; i < batchSize; i += 1 {
+	for i := 0; i < circuit.BatchSize; i += 1 {
 		currentIndex := api.Add(circuit.StartIndex, i)
-		currentPath := api.ToBinary(currentIndex, depth)
+		currentPath := api.ToBinary(currentIndex, circuit.Depth)
 
 		// Verify proof for empty leaf.
 		root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
