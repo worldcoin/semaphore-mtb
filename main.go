@@ -231,8 +231,27 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	return totalRead, nil
 }
 
+func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
+	return ps.VerifyingKey.ExportSolidity(writer)
+}
+
+func ReadSystemFromFile(path string) (*ProvingSystem, error) {
+	system := NewProvingSystem()
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	_, err = system.UnsafeReadFrom(file)
+	if err != nil {
+		return nil, err
+	}
+	return &system, nil
+}
+
 func main() {
 	app := cli.App{
+		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			{
 				Name: "setup",
@@ -258,6 +277,32 @@ func main() {
 					}
 					log.Info().Int64("bytesWritten", written).Msg("proving system written to file")
 					return nil
+				},
+			},
+			{
+				Name: "export-solidity",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "keys-file", Usage: "prover system file", Required: true},
+					&cli.StringFlag{Name: "output", Usage: "prover system file", Required: false},
+				},
+				Action: func(context *cli.Context) error {
+					keys := context.String("keys-file")
+					ps, err := ReadSystemFromFile(keys)
+					if err != nil {
+						return err
+					}
+					var output io.Writer
+					if outPath := context.String("output"); outPath != "" {
+						file, err := os.Create(outPath)
+						defer file.Close()
+						if err != nil {
+							return err
+						}
+						output = file
+					} else {
+						output = os.Stdout
+					}
+					return ps.ExportSolidity(output)
 				},
 			},
 			{
