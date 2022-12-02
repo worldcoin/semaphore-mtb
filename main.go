@@ -1,25 +1,19 @@
 package main
 
 import (
-	"encoding/binary"
-	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend/groth16"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/rs/zerolog"
+	"fmt"
 	"github.com/urfave/cli/v2"
 	"io"
+	"math/big"
 	"os"
 )
-
-var log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}).With().Timestamp().Logger()
 
 //func fromHex(s string) big.Int {
 //	var bi big.Int
 //	bi.SetString(s, 0)
 //	return bi
 //}
-//
+
 //func toBytesLE(b []byte) []byte {
 //	for i := 0; i < len(b)/2; i++ {
 //		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
@@ -90,13 +84,13 @@ var log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:0
 //	var hash big.Int
 //	hash.SetBytes(hashBytes)
 //
-//	log.Debug().Msg("Compiling circuit")
+//	Logger().Debug().Msg("Compiling circuit")
 //
 //	// compiles our circuit into a R1CS
 //	var circuit MbuCircuit
 //	ccs, _ := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
 //
-//	log.Debug().Msg("Setting up circuit")
+//	Logger().Debug().Msg("Setting up circuit")
 //
 //	// groth16 zkSNARK: Setup
 //	_, _, _ = groth16.Setup(ccs)
@@ -116,7 +110,7 @@ var log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:0
 //	//	MerkleProofs: proofs,
 //	//}
 //	//
-//	//log.Debug().Msg("Proving")
+//	//Logger().Debug().Msg("Proving")
 //	//
 //	//start := time.Now()
 //	//witness, _ := frontend.NewWitness(&assignment, ecc.BN254)
@@ -137,118 +131,6 @@ var log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:0
 //	// groth16.Verify(proof, vk, publicWitness)
 //}
 
-type ProvingSystem struct {
-	TreeDepth    uint32
-	BatchSize    uint32
-	ProvingKey   groth16.ProvingKey
-	VerifyingKey groth16.VerifyingKey
-}
-
-func NewProvingSystem() ProvingSystem {
-	return ProvingSystem{
-		TreeDepth:    0,
-		BatchSize:    0,
-		ProvingKey:   groth16.NewProvingKey(ecc.BN254),
-		VerifyingKey: groth16.NewVerifyingKey(ecc.BN254),
-	}
-}
-
-func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
-	proofs := make([][]frontend.Variable, batchSize)
-	for i := 0; i < 10; i++ {
-		proofs[i] = make([]frontend.Variable, treeDepth)
-	}
-	circuit := MbuCircuit{
-		Depth:        int(treeDepth),
-		BatchSize:    int(batchSize),
-		IdComms:      make([]frontend.Variable, batchSize),
-		MerkleProofs: proofs,
-	}
-	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
-	if err != nil {
-		return nil, err
-	}
-	pk, vk, err := groth16.Setup(ccs)
-	if err != nil {
-		return nil, err
-	}
-	return &ProvingSystem{treeDepth, batchSize, pk, vk}, nil
-}
-
-func (ps *ProvingSystem) WriteTo(w io.Writer) (int64, error) {
-	var totalWritten int64 = 0
-	var intBuf [4]byte
-	binary.BigEndian.PutUint32(intBuf[:], ps.TreeDepth)
-	written, err := w.Write(intBuf[:])
-	totalWritten += int64(written)
-	if err != nil {
-		return totalWritten, err
-	}
-	binary.BigEndian.PutUint32(intBuf[:], ps.BatchSize)
-	written, err = w.Write(intBuf[:])
-	totalWritten += int64(written)
-	if err != nil {
-		return totalWritten, err
-	}
-	keyWritten, err := ps.ProvingKey.WriteTo(w)
-	totalWritten += keyWritten
-	if err != nil {
-		return totalWritten, err
-	}
-	keyWritten, err = ps.VerifyingKey.WriteTo(w)
-	totalWritten += keyWritten
-	if err != nil {
-		return totalWritten, err
-	}
-	return totalWritten, nil
-}
-
-func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
-	var totalRead int64 = 0
-	var intBuf [4]byte
-	read, err := io.ReadFull(r, intBuf[:])
-	totalRead += int64(read)
-	if err != nil {
-		return totalRead, err
-	}
-	ps.TreeDepth = binary.BigEndian.Uint32(intBuf[:])
-	read, err = io.ReadFull(r, intBuf[:])
-	totalRead += int64(read)
-	if err != nil {
-		return totalRead, err
-	}
-	ps.BatchSize = binary.BigEndian.Uint32(intBuf[:])
-	keyRead, err := ps.ProvingKey.UnsafeReadFrom(r)
-	totalRead += keyRead
-	if err != nil {
-		return totalRead, err
-	}
-	keyRead, err = ps.VerifyingKey.UnsafeReadFrom(r)
-	totalRead += keyRead
-	if err != nil {
-		return totalRead, err
-	}
-	return totalRead, nil
-}
-
-func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
-	return ps.VerifyingKey.ExportSolidity(writer)
-}
-
-func ReadSystemFromFile(path string) (*ProvingSystem, error) {
-	system := NewProvingSystem()
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	_, err = system.UnsafeReadFrom(file)
-	if err != nil {
-		return nil, err
-	}
-	return &system, nil
-}
-
 func main() {
 	app := cli.App{
 		EnableBashCompletion: true,
@@ -264,7 +146,7 @@ func main() {
 					path := context.String("output")
 					treeDepth := uint32(context.Uint("tree-depth"))
 					batchSize := uint32(context.Uint("batch-size"))
-					log.Info().Msg("Running setup")
+					Logger().Info().Msg("Running setup")
 					system, err := Setup(treeDepth, batchSize)
 					file, err := os.Create(path)
 					defer file.Close()
@@ -275,15 +157,15 @@ func main() {
 					if err != nil {
 						return err
 					}
-					log.Info().Int64("bytesWritten", written).Msg("proving system written to file")
+					Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
 					return nil
 				},
 			},
 			{
 				Name: "export-solidity",
 				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "keys-file", Usage: "prover system file", Required: true},
-					&cli.StringFlag{Name: "output", Usage: "prover system file", Required: false},
+					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+					&cli.StringFlag{Name: "output", Usage: "solidity output (will write to stdout if not provided)", Required: false},
 				},
 				Action: func(context *cli.Context) error {
 					keys := context.String("keys-file")
@@ -306,35 +188,48 @@ func main() {
 				},
 			},
 			{
-				Name: "read",
+				Name: "gen-test-params",
 				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "file", Usage: "prover system file", Required: true},
+					&cli.UintFlag{Name: "tree-depth", Usage: "depth of the mock tree", Required: true},
+					&cli.UintFlag{Name: "batch-size", Usage: "batch size", Required: true},
 				},
 				Action: func(context *cli.Context) error {
-					path := context.String("file")
-					system := NewProvingSystem()
-					file, err := os.Open(path)
-					if err != nil {
-						return err
+					treeDepth := context.Int("tree-depth")
+					//batchSize := uint32(context.Uint("batch-size"))
+					Logger().Info().Msg("Generating test params")
+
+					tree := NewTree(treeDepth)
+					println(len(tree.Contents))
+					println(toHex(&tree.Contents[1]))
+					r := tree.Update(0, big.Int{})
+					println(len(r))
+					sr := make([]string, len(r))
+					for i, v := range r {
+						sr[i] = toHex(&v)
+						fmt.Println(sr[i])
 					}
-					defer file.Close()
-					read, err := system.UnsafeReadFrom(file)
-					if err != nil {
-						return err
-					}
-					log.
-						Info().
-						Int64("bytesRead", read).
-						Uint32("treeDepth", system.TreeDepth).
-						Uint32("batchSize", system.BatchSize).
-						Msg("proving system read from file")
 					return nil
 				},
 			},
+			//{
+			//	Name: "prove",
+			//	Flags: []cli.Flag{
+			//		&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+			//	},
+			//	Action: func(context *cli.Context) error {
+			//		keys := context.String("keys-file")
+			//		ps, err := ReadSystemFromFile(keys)
+			//		if err != nil {
+			//			return err
+			//		}
+			//		Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
+			//
+			//	},
+			//},
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal().Err(err).Msg("App failed.")
+		Logger().Fatal().Err(err).Msg("App failed.")
 	}
 }

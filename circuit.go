@@ -7,9 +7,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 )
 
-const (
-	emptyLeaf = 0
-)
+const emptyLeaf = 0
 
 type MbuCircuit struct {
 	// single public input
