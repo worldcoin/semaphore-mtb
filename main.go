@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"io"
@@ -195,37 +196,59 @@ func main() {
 				},
 				Action: func(context *cli.Context) error {
 					treeDepth := context.Int("tree-depth")
-					//batchSize := uint32(context.Uint("batch-size"))
+					batchSize := uint32(context.Uint("batch-size"))
 					Logger().Info().Msg("Generating test params")
 
+					params := Parameters{}
 					tree := NewTree(treeDepth)
-					println(len(tree.Contents))
-					println(toHex(&tree.Contents[1]))
-					r := tree.Update(0, big.Int{})
-					println(len(r))
-					sr := make([]string, len(r))
-					for i, v := range r {
-						sr[i] = toHex(&v)
-						fmt.Println(sr[i])
+
+					params.StartIndex = 0
+					params.PreRoot = tree.Root()
+					params.IdComms = make([]big.Int, batchSize)
+					params.MerkleProofs = make([][]big.Int, batchSize)
+					for i := 0; i < int(batchSize); i++ {
+						params.IdComms[i] = *new(big.Int).SetUint64(uint64(i))
+						params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 					}
+					params.PostRoot = tree.Root()
+					params.ComputeInputHash()
+					r, _ := json.Marshal(&params)
+					fmt.Println(string(r))
 					return nil
 				},
 			},
-			//{
-			//	Name: "prove",
-			//	Flags: []cli.Flag{
-			//		&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
-			//	},
-			//	Action: func(context *cli.Context) error {
-			//		keys := context.String("keys-file")
-			//		ps, err := ReadSystemFromFile(keys)
-			//		if err != nil {
-			//			return err
-			//		}
-			//		Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
-			//
-			//	},
-			//},
+			{
+				Name: "prove",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					keys := context.String("keys-file")
+					ps, err := ReadSystemFromFile(keys)
+					if err != nil {
+						return err
+					}
+					Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
+					Logger().Info().Msg("reading params from stdin")
+					bytes, err := io.ReadAll(os.Stdin)
+					if err != nil {
+						return err
+					}
+					var params Parameters
+					err = json.Unmarshal(bytes, &params)
+					if err != nil {
+						return err
+					}
+					Logger().Info().Msg("params read successfully")
+					proof, err := ps.Prove(&params)
+					if err != nil {
+						return err
+					}
+					r, _ := json.Marshal(&proof)
+					println(string(r))
+					return nil
+				},
+			},
 		},
 	}
 

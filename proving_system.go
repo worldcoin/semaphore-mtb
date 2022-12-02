@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
+	"github.com/iden3/go-iden3-crypto/keccak256"
 	"io"
 	"math/big"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 type Parameters struct {
 	InputHash    big.Int
-	StartIndex   uint64
+	StartIndex   uint32
 	PreRoot      big.Int
 	PostRoot     big.Int
 	IdComms      []big.Int
@@ -39,7 +40,7 @@ func (p *Parameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
 }
 
 func fromHex(i *big.Int, s string) error {
-	_, ok := i.SetString(s, 16)
+	_, ok := i.SetString(s, 0)
 	if !ok {
 		return fmt.Errorf("invalid number: %s", s)
 	}
@@ -50,15 +51,63 @@ func toHex(i *big.Int) string {
 	return fmt.Sprintf("0x%s", i.Text(16))
 }
 
-func (p *Parameters) UnmarshalJSON(data []byte) error {
-	type ParametersJSON struct {
-		InputHash    string     `json:"inputHash"`
-		StartIndex   uint64     `json:"startIndex"`
-		PreRoot      string     `json:"preRoot"`
-		PostRoot     string     `json:"postRoot"`
-		IdComms      []string   `json:"identityCommitments"`
-		MerkleProofs [][]string `json:"merkleProofs"`
+type ParametersJSON struct {
+	InputHash    string     `json:"inputHash"`
+	StartIndex   uint32     `json:"startIndex"`
+	PreRoot      string     `json:"preRoot"`
+	PostRoot     string     `json:"postRoot"`
+	IdComms      []string   `json:"identityCommitments"`
+	MerkleProofs [][]string `json:"merkleProofs"`
+}
+
+func toBytesLE(b []byte) []byte {
+	for i := 0; i < len(b)/2; i++ {
+		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
 	}
+	return b
+}
+
+func (p *Parameters) ComputeInputHash() {
+	var data []byte
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, p.StartIndex)
+	data = append(data, buf.Bytes()...)
+	data = append(data, toBytesLE(p.PreRoot.Bytes())...)
+	data = append(data, toBytesLE(p.PostRoot.Bytes())...)
+	// TODO Errors and val reuse
+	for _, v := range p.IdComms {
+		tmp := toBytesLE(v.Bytes())
+		// extend to 32 bytes if necessary
+		if len(v.Bytes()) < 32 {
+			tmp = append(tmp, make([]byte, 32-len(v.Bytes()))...)
+		}
+		data = append(data, tmp...)
+	}
+	hashBytes := toBytesLE(keccak256.Hash(data))
+	p.InputHash.SetBytes(hashBytes)
+}
+
+func (p *Parameters) MarshalJSON() ([]byte, error) {
+	paramsJson := ParametersJSON{}
+	paramsJson.InputHash = toHex(&p.InputHash)
+	paramsJson.StartIndex = p.StartIndex
+	paramsJson.PreRoot = toHex(&p.PreRoot)
+	paramsJson.PostRoot = toHex(&p.PostRoot)
+	paramsJson.IdComms = make([]string, len(p.IdComms))
+	for i := 0; i < len(p.IdComms); i++ {
+		paramsJson.IdComms[i] = toHex(&p.IdComms[i])
+	}
+	paramsJson.MerkleProofs = make([][]string, len(p.MerkleProofs))
+	for i := 0; i < len(p.MerkleProofs); i++ {
+		paramsJson.MerkleProofs[i] = make([]string, len(p.MerkleProofs[i]))
+		for j := 0; j < len(p.MerkleProofs[i]); j++ {
+			paramsJson.MerkleProofs[i][j] = toHex(&p.MerkleProofs[i][j])
+		}
+	}
+	return json.Marshal(paramsJson)
+}
+
+func (p *Parameters) UnmarshalJSON(data []byte) error {
 
 	var params ParametersJSON
 
@@ -189,7 +238,7 @@ func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
 
 func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	proofs := make([][]frontend.Variable, batchSize)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < int(batchSize); i++ {
 		proofs[i] = make([]frontend.Variable, treeDepth)
 	}
 	circuit := MbuCircuit{
