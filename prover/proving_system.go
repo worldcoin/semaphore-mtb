@@ -68,8 +68,7 @@ func (p *Parameters) ComputeInputHash() error {
 	data = append(data, toBytesLE(p.PreRoot.Bytes())...)
 	data = append(data, toBytesLE(p.PostRoot.Bytes())...)
 	for _, v := range p.IdComms {
-		bytes := v.Bytes()
-		bytes = toBytesLE(bytes)
+		bytes := toBytesLE(v.Bytes())
 		// extend to 32 bytes if necessary
 		if len(bytes) < 32 {
 			bytes = append(bytes, make([]byte, 32-len(bytes))...)

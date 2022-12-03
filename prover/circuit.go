@@ -32,12 +32,12 @@ func VerifyProof(api frontend.API, h poseidon.Poseidon, proofSet, helper []front
 		api.AssertIsBoolean(helper[i-1])
 		d1 := api.Select(helper[i-1], proofSet[i], sum)
 		d2 := api.Select(helper[i-1], sum, proofSet[i])
-		sum = nodeSum(api, h, d1, d2)
+		sum = nodeSum(h, d1, d2)
 	}
 	return sum
 }
 
-func nodeSum(api frontend.API, h poseidon.Poseidon, a, b frontend.Variable) frontend.Variable {
+func nodeSum(h poseidon.Poseidon, a, b frontend.Variable) frontend.Variable {
 	h.Write(a, b)
 	res := h.Sum()
 	h.Reset()
