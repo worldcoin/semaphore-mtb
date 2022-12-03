@@ -155,35 +155,17 @@ func (p *Parameters) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-//func (params *ParametersJSON) ToParameters() (*Parameters, error) {
-//	var p = Parameters{}
-//	p.InputHash = big.Int{}
-//	_, success = p.InputHash.SetString(params.InputHash, 0)
-//	if !success {
-//		return nil, fmt.Errorf("invalid number: %s", params.InputHash)
-//	}
-//	p.StartIndex = params.StartIndex
-//	p.PreRoot, err = big.NewInt(0).SetString(params.PreRoot, 10)
-//	if err != nil {
-//		return p, err
-//	}
-//	p.PostRoot, err = big.NewInt(0).SetString(params.PostRoot, 10)
-//	if err != nil {
-//		return p, err
-//	}
-//}
-
 type Proof struct {
 	Proof groth16.Proof
 }
 
-func (p *Proof) MarshalJSON() ([]byte, error) {
-	type ProofJSON struct {
-		Ar  [2]string    `json:"ar"`
-		Bs  [2][2]string `json:"bs"`
-		Krs [2]string    `json:"krs"`
-	}
+type ProofJSON struct {
+	Ar  [2]string    `json:"ar"`
+	Bs  [2][2]string `json:"bs"`
+	Krs [2]string    `json:"krs"`
+}
 
+func (p *Proof) MarshalJSON() ([]byte, error) {
 	const fpSize = 32
 	var buf bytes.Buffer
 	_, err := p.Proof.WriteRawTo(&buf)
@@ -205,6 +187,44 @@ func (p *Proof) MarshalJSON() ([]byte, error) {
 	proofJson.Krs = [2]string{proofHexNumbers[6], proofHexNumbers[7]}
 
 	return json.Marshal(proofJson)
+}
+
+func (p *Proof) UnmarshalJSON(data []byte) error {
+	var proofJson ProofJSON
+	err := json.Unmarshal(data, &proofJson)
+	if err != nil {
+		return err
+	}
+	proofHexNumbers := [8]string{
+		proofJson.Ar[0],
+		proofJson.Ar[1],
+		proofJson.Bs[0][0],
+		proofJson.Bs[0][1],
+		proofJson.Bs[1][0],
+		proofJson.Bs[1][1],
+		proofJson.Krs[0],
+		proofJson.Krs[1],
+	}
+	proofInts := [8]big.Int{}
+	for i := 0; i < 8; i++ {
+		err = fromHex(&proofInts[i], proofHexNumbers[i])
+		if err != nil {
+			return err
+		}
+	}
+	const fpSize = 32
+	proofBytes := make([]byte, 8*fpSize)
+	for i := 0; i < 8; i++ {
+		copy(proofBytes[i*fpSize:(i+1)*fpSize], proofInts[i].Bytes())
+	}
+
+	p.Proof = groth16.NewProof(ecc.BN254)
+
+	_, err = p.Proof.ReadFrom(bytes.NewReader(proofBytes))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type ProvingSystem struct {
@@ -377,4 +397,15 @@ func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
 	}
 	Logger().Info().Msg("proof generated successfully")
 	return &Proof{proof}, nil
+}
+
+func (ps *ProvingSystem) Verify(inputHash big.Int, proof *Proof) error {
+	publicAssignment := MbuCircuit{
+		InputHash: inputHash,
+	}
+	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254, frontend.PublicOnly())
+	if err != nil {
+		return err
+	}
+	return groth16.Verify(proof.Proof, ps.VerifyingKey, witness)
 }

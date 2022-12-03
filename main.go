@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	gnarkLogger "github.com/consensys/gnark/logger"
 	"github.com/urfave/cli/v2"
 	"io"
 	"math/big"
@@ -133,6 +134,7 @@ import (
 //}
 
 func main() {
+	gnarkLogger.Set(*Logger())
 	app := cli.App{
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
@@ -245,7 +247,44 @@ func main() {
 						return err
 					}
 					r, _ := json.Marshal(&proof)
-					println(string(r))
+					fmt.Println(string(r))
+					return nil
+				},
+			},
+			{
+				Name: "verify",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					keys := context.String("keys-file")
+					var inputHash big.Int
+					err := fromHex(&inputHash, context.String("input-hash"))
+					if err != nil {
+						return err
+					}
+					ps, err := ReadSystemFromFile(keys)
+					if err != nil {
+						return err
+					}
+					Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
+					Logger().Info().Msg("reading proof from stdin")
+					bytes, err := io.ReadAll(os.Stdin)
+					if err != nil {
+						return err
+					}
+					var proof Proof
+					err = json.Unmarshal(bytes, &proof)
+					if err != nil {
+						return err
+					}
+					Logger().Info().Msg("proof read successfully")
+					err = ps.Verify(inputHash, &proof)
+					if err != nil {
+						return err
+					}
+					Logger().Info().Msg("verification complete")
 					return nil
 				},
 			},

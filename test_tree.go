@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/iden3/go-iden3-crypto/poseidon"
 	"math/big"
 )
-import "github.com/iden3/go-iden3-crypto/poseidon"
 
 type PoseidonTree struct {
 	LeafCount int
@@ -13,7 +13,12 @@ type PoseidonTree struct {
 func NewTree(depth int) PoseidonTree {
 	leafCount := 1 << depth
 	contents := make([]big.Int, 2*leafCount)
-	rehashSubtree(contents, 1)
+	initHashes := make([]big.Int, depth+1)
+	for i := depth - 1; i >= 0; i-- {
+		val, _ := poseidon.Hash([]*big.Int{&initHashes[i+1], &initHashes[i+1]})
+		initHashes[i] = *val
+	}
+	initSubtree(contents, 1, 0, initHashes)
 	return PoseidonTree{leafCount, contents}
 }
 
@@ -41,13 +46,11 @@ func (t *PoseidonTree) Update(index int, value big.Int) []big.Int {
 	return proof
 }
 
-func rehashSubtree(contents []big.Int, index int) big.Int {
+func initSubtree(contents []big.Int, index int, depth int, hashes []big.Int) {
 	if index >= len(contents)/2 {
-		return contents[index]
+		return
 	}
-	left := rehashSubtree(contents, 2*index)
-	right := rehashSubtree(contents, 2*index+1)
-	out, _ := poseidon.Hash([]*big.Int{&left, &right})
-	contents[index] = *out
-	return *out
+	initSubtree(contents, 2*index, depth+1, hashes)
+	initSubtree(contents, 2*index+1, depth+1, hashes)
+	contents[index] = hashes[depth]
 }
