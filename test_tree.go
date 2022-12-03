@@ -5,6 +5,7 @@ import (
 	"math/big"
 )
 
+// PoseidonTree is test-only, don't use in production! Slow, hogs memory and is untested.
 type PoseidonTree struct {
 	LeafCount int
 	Contents  []big.Int

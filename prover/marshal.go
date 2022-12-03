@@ -1,4 +1,4 @@
-package main
+package prover
 
 import (
 	"bytes"
@@ -7,37 +7,10 @@ import (
 	"fmt"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
-	"github.com/consensys/gnark/frontend"
-	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/iden3/go-iden3-crypto/keccak256"
 	"io"
 	"math/big"
 	"os"
 )
-
-type Parameters struct {
-	InputHash    big.Int
-	StartIndex   uint32
-	PreRoot      big.Int
-	PostRoot     big.Int
-	IdComms      []big.Int
-	MerkleProofs [][]big.Int
-}
-
-func (p *Parameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
-	if len(p.IdComms) != int(batchSize) {
-		return fmt.Errorf("wrong number of identity commitments: %d", len(p.IdComms))
-	}
-	if len(p.MerkleProofs) != int(batchSize) {
-		return fmt.Errorf("wrong number of merkle proofs: %d", len(p.MerkleProofs))
-	}
-	for i, proof := range p.MerkleProofs {
-		if len(proof) != int(treeDepth) {
-			return fmt.Errorf("wrong size of merkle proof for proof %d: %d", i, len(proof))
-		}
-	}
-	return nil
-}
 
 func fromHex(i *big.Int, s string) error {
 	_, ok := i.SetString(s, 0)
@@ -58,33 +31,6 @@ type ParametersJSON struct {
 	PostRoot     string     `json:"postRoot"`
 	IdComms      []string   `json:"identityCommitments"`
 	MerkleProofs [][]string `json:"merkleProofs"`
-}
-
-func toBytesLE(b []byte) []byte {
-	for i := 0; i < len(b)/2; i++ {
-		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
-	}
-	return b
-}
-
-func (p *Parameters) ComputeInputHash() {
-	var data []byte
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, p.StartIndex)
-	data = append(data, buf.Bytes()...)
-	data = append(data, toBytesLE(p.PreRoot.Bytes())...)
-	data = append(data, toBytesLE(p.PostRoot.Bytes())...)
-	// TODO Errors and val reuse
-	for _, v := range p.IdComms {
-		tmp := toBytesLE(v.Bytes())
-		// extend to 32 bytes if necessary
-		if len(v.Bytes()) < 32 {
-			tmp = append(tmp, make([]byte, 32-len(v.Bytes()))...)
-		}
-		data = append(data, tmp...)
-	}
-	hashBytes := toBytesLE(keccak256.Hash(data))
-	p.InputHash.SetBytes(hashBytes)
 }
 
 func (p *Parameters) MarshalJSON() ([]byte, error) {
@@ -155,10 +101,6 @@ func (p *Parameters) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Proof struct {
-	Proof groth16.Proof
-}
-
 type ProofJSON struct {
 	Ar  [2]string    `json:"ar"`
 	Bs  [2][2]string `json:"bs"`
@@ -225,57 +167,6 @@ func (p *Proof) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return nil
-}
-
-type ProvingSystem struct {
-	TreeDepth        uint32
-	BatchSize        uint32
-	ProvingKey       groth16.ProvingKey
-	VerifyingKey     groth16.VerifyingKey
-	ConstraintSystem frontend.CompiledConstraintSystem
-}
-
-func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
-	ps = new(ProvingSystem)
-	file, err := os.Open(path)
-	if err != nil {
-		return
-	}
-
-	defer func() {
-		closeErr := file.Close()
-		if closeErr != nil && err == nil {
-			err = closeErr
-		}
-	}()
-
-	_, err = ps.UnsafeReadFrom(file)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
-	proofs := make([][]frontend.Variable, batchSize)
-	for i := 0; i < int(batchSize); i++ {
-		proofs[i] = make([]frontend.Variable, treeDepth)
-	}
-	circuit := MbuCircuit{
-		Depth:        int(treeDepth),
-		BatchSize:    int(batchSize),
-		IdComms:      make([]frontend.Variable, batchSize),
-		MerkleProofs: proofs,
-	}
-	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
-	if err != nil {
-		return nil, err
-	}
-	pk, vk, err := groth16.Setup(ccs)
-	if err != nil {
-		return nil, err
-	}
-	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
 func (ps *ProvingSystem) WriteTo(w io.Writer) (int64, error) {
@@ -359,53 +250,23 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	return totalRead, nil
 }
 
-func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
-	return ps.VerifyingKey.ExportSolidity(writer)
-}
+func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
+	ps = new(ProvingSystem)
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
 
-func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
-	if err := params.ValidateShape(ps.TreeDepth, ps.BatchSize); err != nil {
-		return nil, err
-	}
-	idComms := make([]frontend.Variable, ps.BatchSize)
-	for i := 0; i < int(ps.BatchSize); i++ {
-		idComms[i] = params.IdComms[i]
-	}
-	proofs := make([][]frontend.Variable, ps.BatchSize)
-	for i := 0; i < int(ps.BatchSize); i++ {
-		proofs[i] = make([]frontend.Variable, ps.TreeDepth)
-		for j := 0; j < int(ps.TreeDepth); j++ {
-			proofs[i][j] = params.MerkleProofs[i][j]
+	defer func() {
+		closeErr := file.Close()
+		if closeErr != nil && err == nil {
+			err = closeErr
 		}
-	}
-	assignment := MbuCircuit{
-		InputHash:    params.InputHash,
-		StartIndex:   params.StartIndex,
-		PreRoot:      params.PreRoot,
-		PostRoot:     params.PostRoot,
-		IdComms:      idComms,
-		MerkleProofs: proofs,
-	}
-	witness, err := frontend.NewWitness(&assignment, ecc.BN254)
-	if err != nil {
-		return nil, err
-	}
-	Logger().Info().Msg("generating proof")
-	proof, err := groth16.Prove(ps.ConstraintSystem, ps.ProvingKey, witness)
-	if err != nil {
-		return nil, err
-	}
-	Logger().Info().Msg("proof generated successfully")
-	return &Proof{proof}, nil
-}
+	}()
 
-func (ps *ProvingSystem) Verify(inputHash big.Int, proof *Proof) error {
-	publicAssignment := MbuCircuit{
-		InputHash: inputHash,
-	}
-	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254, frontend.PublicOnly())
+	_, err = ps.UnsafeReadFrom(file)
 	if err != nil {
-		return err
+		return
 	}
-	return groth16.Verify(proof.Proof, ps.VerifyingKey, witness)
+	return
 }

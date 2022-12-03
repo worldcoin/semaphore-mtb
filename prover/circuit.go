@@ -1,8 +1,8 @@
-package main
+package prover
 
 import (
-	"worldcoin/gnark-mbu/keccak"
-	"worldcoin/gnark-mbu/poseidon"
+	"worldcoin/gnark-mbu/prover/keccak"
+	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark/frontend"
 )
