@@ -145,6 +145,7 @@ func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
 func (ps *ProvingSystem) Verify(inputHash big.Int, proof *Proof) error {
 	publicAssignment := MbuCircuit{
 		InputHash: inputHash,
+		IdComms:   make([]frontend.Variable, ps.BatchSize),
 	}
 	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254, frontend.PublicOnly())
 	if err != nil {
