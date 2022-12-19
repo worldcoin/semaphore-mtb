@@ -57,25 +57,30 @@ func toBytesLE(b []byte) []byte {
 	return b
 }
 
+// ComputeInputHash computes the input hash to the prover and verifier.
+//
+// It uses big-endian byte ordering (network ordering) in order to agree with
+// Solidity and avoid the need to perform the byte swapping operations on-chain
+// where they would increase our gas cost.
 func (p *Parameters) ComputeInputHash() error {
 	var data []byte
 	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, p.StartIndex)
+	err := binary.Write(buf, binary.BigEndian, p.StartIndex)
 	if err != nil {
 		return err
 	}
 	data = append(data, buf.Bytes()...)
-	data = append(data, toBytesLE(p.PreRoot.Bytes())...)
-	data = append(data, toBytesLE(p.PostRoot.Bytes())...)
+	data = append(data, p.PreRoot.Bytes()...)
+	data = append(data, p.PostRoot.Bytes()...)
 	for _, v := range p.IdComms {
-		bytes := toBytesLE(v.Bytes())
-		// extend to 32 bytes if necessary
-		if len(bytes) < 32 {
-			bytes = append(bytes, make([]byte, 32-len(bytes))...)
+		idBytes := v.Bytes()
+		// extend to 32 bytes if necessary, maintaining big-endian ordering
+		if len(idBytes) < 32 {
+			idBytes = append(make([]byte, 32-len(idBytes)), idBytes...)
 		}
-		data = append(data, bytes...)
+		data = append(data, idBytes...)
 	}
-	hashBytes := toBytesLE(keccak256.Hash(data))
+	hashBytes := keccak256.Hash(data)
 	p.InputHash.SetBytes(hashBytes)
 	return nil
 }

@@ -30,6 +30,9 @@ func main() {
 					batchSize := uint32(context.Uint("batch-size"))
 					logging.Logger().Info().Msg("Running setup")
 					system, err := prover.Setup(treeDepth, batchSize)
+					if err != nil {
+						return err
+					}
 					file, err := os.Create(path)
 					defer file.Close()
 					if err != nil {
