@@ -91,7 +91,7 @@ func main() {
 					params.IdComms = make([]big.Int, batchSize)
 					params.MerkleProofs = make([][]big.Int, batchSize)
 					for i := 0; i < int(batchSize); i++ {
-						params.IdComms[i] = *new(big.Int).SetUint64(uint64(i))
+						params.IdComms[i] = *new(big.Int).SetUint64(uint64(i + 1))
 						params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 					}
 					params.PostRoot = tree.Root()
