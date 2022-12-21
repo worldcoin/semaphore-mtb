@@ -30,6 +30,9 @@ func main() {
 					batchSize := uint32(context.Uint("batch-size"))
 					logging.Logger().Info().Msg("Running setup")
 					system, err := prover.Setup(treeDepth, batchSize)
+					if err != nil {
+						return err
+					}
 					file, err := os.Create(path)
 					defer file.Close()
 					if err != nil {
@@ -88,7 +91,7 @@ func main() {
 					params.IdComms = make([]big.Int, batchSize)
 					params.MerkleProofs = make([][]big.Int, batchSize)
 					for i := 0; i < int(batchSize); i++ {
-						params.IdComms[i] = *new(big.Int).SetUint64(uint64(i))
+						params.IdComms[i] = *new(big.Int).SetUint64(uint64(i + 1))
 						params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 					}
 					params.PostRoot = tree.Root()

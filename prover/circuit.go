@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"strconv"
 	"worldcoin/gnark-mbu/prover/keccak"
 	"worldcoin/gnark-mbu/prover/poseidon"
 
@@ -26,6 +27,14 @@ type MbuCircuit struct {
 	Depth     int
 }
 
+type bitPatternLengthError struct {
+	actualLength int
+}
+
+func (e *bitPatternLengthError) Error() string {
+	return "Bit pattern length was " + strconv.Itoa(e.actualLength) + " not a total number of bytes"
+}
+
 func VerifyProof(api frontend.API, h poseidon.Poseidon, proofSet, helper []frontend.Variable) frontend.Variable {
 	sum := proofSet[0]
 	for i := 1; i < len(proofSet); i++ {
@@ -44,6 +53,59 @@ func nodeSum(h poseidon.Poseidon, a, b frontend.Variable) frontend.Variable {
 	return res
 }
 
+// SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
+// returning the result in newBits.
+//
+// It does not introduce any new circuit constraints as it simply moves the
+// variables (that will later be instantiated to bits) around in the slice to
+// change the byte ordering. It has been verified to be a constraint-neutral
+// operation, so please maintain this invariant when modifying it.
+//
+// Raises a bitPatternLengthError if the length of bits is not a multiple of a
+// number of bytes.
+func SwapBitArrayEndianness(bits []frontend.Variable) (newBits []frontend.Variable, err error) {
+	bitPatternLength := len(bits)
+
+	if bitPatternLength%8 != 0 {
+		return nil, &bitPatternLengthError{bitPatternLength}
+	}
+
+	for i := bitPatternLength - 8; i >= 0; i -= 8 {
+		currentBytes := bits[i : i+8]
+		newBits = append(newBits, currentBytes...)
+	}
+
+	if bitPatternLength != len(newBits) {
+		return nil, &bitPatternLengthError{len(newBits)}
+	}
+
+	return newBits, nil
+}
+
+// ToBinaryBigEndian converts the provided variable to the corresponding bit
+// pattern using big-endian byte ordering.
+//
+// Raises a bitPatternLengthError if the number of bits in variable is not a
+// whole number of bytes.
+func ToBinaryBigEndian(variable frontend.Variable, size int, api frontend.API) (bitsBigEndian []frontend.Variable, err error) {
+	bitsLittleEndian := api.ToBinary(variable, size)
+	return SwapBitArrayEndianness(bitsLittleEndian)
+}
+
+// FromBinaryBigEndian converts the provided bit pattern that uses big-endian
+// byte ordering to a variable that uses little-endian byte ordering.
+//
+// Raises a bitPatternLengthError if the number of bits in `bitsBigEndian` is not
+// a whole number of bytes.
+func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api frontend.API) (variable frontend.Variable, err error) {
+	bitsLittleEndian, err := SwapBitArrayEndianness(bitsBigEndian)
+	if err != nil {
+		return nil, err
+	}
+
+	return api.FromBinary(bitsLittleEndian...), nil
+}
+
 func (circuit *MbuCircuit) Define(api frontend.API) error {
 	// Hash private inputs.
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
@@ -51,13 +113,47 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 	//     32	  ||   256   ||   256    ||    256     ||    256     || ... ||     256 bits
 
 	kh := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32)
-	kh.Write(api.ToBinary(circuit.StartIndex, 32)...)
-	kh.Write(api.ToBinary(circuit.PreRoot, 256)...)
-	kh.Write(api.ToBinary(circuit.PostRoot, 256)...)
-	for i := 0; i < circuit.BatchSize; i++ {
-		kh.Write(api.ToBinary(circuit.IdComms[i], 256)...)
+
+	var bits []frontend.Variable
+	var err error
+
+	// We convert all the inputs to the keccak hash to use big-endian (network) byte
+	// ordering so that it agrees with Solidity. This ensures that we don't have to
+	// perform the conversion inside the contract and hence save on gas.
+	bits, err = ToBinaryBigEndian(circuit.StartIndex, 32, api)
+	if err != nil {
+		return err
 	}
-	sum := api.FromBinary(kh.Sum()...)
+	kh.Write(bits...)
+
+	bits, err = ToBinaryBigEndian(circuit.PreRoot, 256, api)
+	if err != nil {
+		return err
+	}
+	kh.Write(bits...)
+
+	bits, err = ToBinaryBigEndian(circuit.PostRoot, 256, api)
+	if err != nil {
+		return err
+	}
+	kh.Write(bits...)
+
+	for i := 0; i < circuit.BatchSize; i++ {
+		bits, err = ToBinaryBigEndian(circuit.IdComms[i], 256, api)
+		if err != nil {
+			return err
+		}
+		kh.Write(bits...)
+	}
+
+	var sum frontend.Variable
+	sum, err = FromBinaryBigEndian(kh.Sum(), api)
+	if err != nil {
+		return err
+	}
+
+	// The same endianness conversion has been performed in the hash generation
+	// externally, so we can safely assert their equality here.
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
