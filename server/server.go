@@ -1,9 +1,7 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
@@ -54,107 +52,53 @@ type Config struct {
 	MetricsAddress string
 }
 
-type RunningServer struct {
-	stop   chan struct{}
-	closed chan struct{}
-}
-
-func (server *RunningServer) RequestStop() {
-	close(server.stop)
-}
-
-func (server *RunningServer) AwaitStop() {
-	<-server.closed
-}
-
-func Run(config *Config, ps *prover.ProvingSystem) RunningServer {
-	stop := make(chan struct{})
-	stopMetrics := make(chan struct{})
-	metricsClosed := make(chan struct{})
-	stopProver := make(chan struct{})
-	proverClosed := make(chan struct{})
-	closed := make(chan struct{})
-	go func() {
-		<-stop
-		close(stopMetrics)
-		close(stopProver)
-		<-metricsClosed
-		<-proverClosed
-		close(closed)
-	}()
-
+func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsServer := &http.Server{Addr: config.MetricsAddress, Handler: metricsMux}
-	go func() {
-		err := metricsServer.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			panic(fmt.Sprintf("prover server failed: %s", err))
-		}
-	}()
-	go func() {
-		<-stopMetrics
-		logging.Logger().Info().Msg("shutting down metrics server")
-		err := metricsServer.Shutdown(context.Background())
-		if err != nil {
-			logging.Logger().Error().Err(err).Msg("error when shutting down metrics server")
-		}
-		logging.Logger().Info().Msg("metrics server shut down")
-		close(metricsClosed)
-	}()
+	metricsJob := spawnServerJob(metricsServer, "metrics server")
 	logging.Logger().Info().Str("addr", config.MetricsAddress).Msg("metrics server started")
 
 	proverMux := http.NewServeMux()
-
-	proverMux.HandleFunc("/prove", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		logging.Logger().Info().Msg("received prove request")
-		buf, err := io.ReadAll(r.Body)
-		if err != nil {
-			malformedBodyError(err).send(w)
-			return
-		}
-		var params prover.Parameters
-		err = json.Unmarshal(buf, &params)
-		if err != nil {
-			malformedBodyError(err).send(w)
-			return
-		}
-		proof, err := ps.Prove(&params)
-		if err != nil {
-			provingError(err).send(w)
-			return
-		}
-		responseBytes, err := json.Marshal(&proof)
-		if err != nil {
-			unexpectedError(err).send(w)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, err = w.Write(responseBytes)
-	})
-
+	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem})
 	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
-	go func() {
-		err := proverServer.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			panic(fmt.Sprintf("prover server failed: %s", err))
-		}
-	}()
+	proverJob := spawnServerJob(proverServer, "prover server")
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
-	go func() {
-		<-stopProver
-		logging.Logger().Info().Msg("shutting down proof server")
-		err := proverServer.Shutdown(context.Background())
-		if err != nil {
-			logging.Logger().Error().Err(err).Msg("error when shutting down proof server")
-		}
-		logging.Logger().Info().Msg("proof server shut down")
-		close(proverClosed)
-	}()
 
-	return RunningServer{stop: stop, closed: closed}
+	return combineJobs(metricsJob, proverJob)
+}
+
+type proveHandler struct {
+	provingSystem *prover.ProvingSystem
+}
+
+func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	logging.Logger().Info().Msg("received prove request")
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		malformedBodyError(err).send(w)
+		return
+	}
+	var params prover.Parameters
+	err = json.Unmarshal(buf, &params)
+	if err != nil {
+		malformedBodyError(err).send(w)
+		return
+	}
+	proof, err := handler.provingSystem.Prove(&params)
+	if err != nil {
+		provingError(err).send(w)
+		return
+	}
+	responseBytes, err := json.Marshal(&proof)
+	if err != nil {
+		unexpectedError(err).send(w)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(responseBytes)
 }
