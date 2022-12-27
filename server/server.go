@@ -69,7 +69,7 @@ func spawnServerJob(server *http.Server, label string) RunningJob {
 		}
 		logging.Logger().Info().Msgf("%s shut down", label)
 	}
-	return spawnJob(start, shutdown)
+	return SpawnJob(start, shutdown)
 }
 
 func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {

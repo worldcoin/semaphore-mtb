@@ -13,7 +13,7 @@ func (server *RunningJob) AwaitStop() {
 	<-server.closed
 }
 
-func spawnJob(start func(), shutdown func()) RunningJob {
+func SpawnJob(start func(), shutdown func()) RunningJob {
 	stop := make(chan struct{})
 	closed := make(chan struct{})
 	go func() {
@@ -35,5 +35,5 @@ func CombineJobs(jobs ...RunningJob) RunningJob {
 			job.AwaitStop()
 		}
 	}
-	return spawnJob(start, shutdown)
+	return SpawnJob(start, shutdown)
 }
