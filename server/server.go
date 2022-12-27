@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
@@ -52,6 +54,24 @@ type Config struct {
 	MetricsAddress string
 }
 
+func spawnServerJob(server *http.Server, label string) RunningJob {
+	start := func() {
+		err := server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			panic(fmt.Sprintf("%s failed: %s", label, err))
+		}
+	}
+	shutdown := func() {
+		logging.Logger().Info().Msgf("shutting down %s", label)
+		err := server.Shutdown(context.Background())
+		if err != nil {
+			logging.Logger().Error().Err(err).Msgf("error when shutting down %s", label)
+		}
+		logging.Logger().Info().Msgf("%s shut down", label)
+	}
+	return spawnJob(start, shutdown)
+}
+
 func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
@@ -65,7 +85,7 @@ func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 	proverJob := spawnServerJob(proverServer, "prover server")
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
 
-	return combineJobs(metricsJob, proverJob)
+	return CombineJobs(metricsJob, proverJob)
 }
 
 type proveHandler struct {
