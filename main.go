@@ -107,6 +107,8 @@ func main() {
 				Name: "start",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
+					&cli.StringFlag{Name: "metrics-address", Usage: "address for the metrics server", Value: "localhost:9998", Required: false},
 				},
 				Action: func(context *cli.Context) error {
 					keys := context.String("keys-file")
@@ -115,14 +117,18 @@ func main() {
 						return err
 					}
 					logging.Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
-					stop, closed := server.Run(ps)
+					config := server.Config{
+						ProverAddress:  context.String("prover-address"),
+						MetricsAddress: context.String("metrics-address"),
+					}
+					instance := server.Run(&config, ps)
 					sigint := make(chan os.Signal, 1)
 					signal.Notify(sigint, os.Interrupt)
 					<-sigint
 					logging.Logger().Info().Msg("Received sigint, shutting down")
-					close(stop)
+					instance.RequestStop()
 					logging.Logger().Info().Msg("Waiting for server to close")
-					<-closed
+					instance.AwaitStop()
 					return nil
 				},
 			},

@@ -48,7 +48,25 @@ func (error *Error) send(w http.ResponseWriter) {
 	}
 }
 
-func Run(ps *prover.ProvingSystem) (chan struct{}, chan struct{}) {
+type Config struct {
+	ProverAddress  string
+	MetricsAddress string
+}
+
+type RunningServer struct {
+	stop   chan struct{}
+	closed chan struct{}
+}
+
+func (server *RunningServer) RequestStop() {
+	close(server.stop)
+}
+
+func (server *RunningServer) AwaitStop() {
+	<-server.closed
+}
+
+func Run(config *Config, ps *prover.ProvingSystem) RunningServer {
 	stop := make(chan struct{})
 	stopMetrics := make(chan struct{})
 	metricsClosed := make(chan struct{})
@@ -66,18 +84,23 @@ func Run(ps *prover.ProvingSystem) (chan struct{}, chan struct{}) {
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
-	metricsServer := &http.Server{Addr: ":9999", Handler: metricsMux}
+	metricsServer := &http.Server{Addr: config.MetricsAddress, Handler: metricsMux}
 	go func() {
-		metricsServer.ListenAndServe()
+		if metricsServer.ListenAndServe() != nil {
+			panic("Could not start metrics server")
+		}
 	}()
 	go func() {
 		<-stopMetrics
 		logging.Logger().Info().Msg("shutting down metrics server")
-		metricsServer.Shutdown(context.Background())
+		err := metricsServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Logger().Error().Err(err).Msg("error when shutting down metrics server")
+		}
 		logging.Logger().Info().Msg("metrics server shut down")
 		close(metricsClosed)
 	}()
-	logging.Logger().Info().Str("addr", ":9999").Msg("metrics server started")
+	logging.Logger().Info().Str("addr", config.MetricsAddress).Msg("metrics server started")
 
 	proverMux := http.NewServeMux()
 
@@ -112,16 +135,24 @@ func Run(ps *prover.ProvingSystem) (chan struct{}, chan struct{}) {
 		_, err = w.Write(responseBytes)
 	})
 
-	proverServer := &http.Server{Addr: ":3000", Handler: proverMux}
-	go proverServer.ListenAndServe()
-	logging.Logger().Info().Str("addr", ":3000").Msg("app server started")
+	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
+	go func() {
+		err := proverServer.ListenAndServe()
+		if err != nil {
+			panic("Could not start prover server")
+		}
+	}()
+	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
 	go func() {
 		<-stopProver
 		logging.Logger().Info().Msg("shutting down proof server")
-		proverServer.Shutdown(context.Background())
+		err := proverServer.Shutdown(context.Background())
+		if err != nil {
+			logging.Logger().Error().Err(err).Msg("error when shutting down proof server")
+		}
 		logging.Logger().Info().Msg("proof server shut down")
 		close(proverClosed)
 	}()
 
-	return stop, closed
+	return RunningServer{stop: stop, closed: closed}
 }
