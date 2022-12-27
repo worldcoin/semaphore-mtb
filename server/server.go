@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
@@ -86,8 +87,9 @@ func Run(config *Config, ps *prover.ProvingSystem) RunningServer {
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsServer := &http.Server{Addr: config.MetricsAddress, Handler: metricsMux}
 	go func() {
-		if metricsServer.ListenAndServe() != nil {
-			panic("Could not start metrics server")
+		err := metricsServer.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			panic(fmt.Sprintf("prover server failed: %s", err))
 		}
 	}()
 	go func() {
@@ -138,8 +140,8 @@ func Run(config *Config, ps *prover.ProvingSystem) RunningServer {
 	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
 	go func() {
 		err := proverServer.ListenAndServe()
-		if err != nil {
-			panic("Could not start prover server")
+		if err != nil && err != http.ErrServerClosed {
+			panic(fmt.Sprintf("prover server failed: %s", err))
 		}
 	}()
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
