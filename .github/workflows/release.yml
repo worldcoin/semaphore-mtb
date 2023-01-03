@@ -17,6 +17,8 @@ jobs:
           tag_name: ${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
   build_and_upload_artifacts:
     runs-on: ubuntu-latest
     needs: create_release
