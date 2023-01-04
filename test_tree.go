@@ -5,53 +5,131 @@ import (
 	"math/big"
 )
 
-// PoseidonTree is test-only, don't use in production! Slow, hogs memory and is untested.
-type PoseidonTree struct {
-	LeafCount int
-	Contents  []big.Int
+type PoseidonNode interface {
+	depth() int
+	value() big.Int
+	withValue(index int, val big.Int) PoseidonNode
+	writeProof(index int, out []big.Int)
 }
 
-func NewTree(depth int) PoseidonTree {
-	leafCount := 1 << depth
-	contents := make([]big.Int, 2*leafCount)
-	initHashes := make([]big.Int, depth+1)
-	for i := depth - 1; i >= 0; i-- {
-		val, _ := poseidon.Hash([]*big.Int{&initHashes[i+1], &initHashes[i+1]})
-		initHashes[i] = *val
+func indexIsLeft(index int, depth int) bool {
+	return index&(1<<(depth-1)) == 0
+}
+
+func (node *PoseidonFullNode) depth() int {
+	return node.dep
+}
+
+func (node *PoseidonEmptyNode) depth() int {
+	return node.dep
+}
+
+func (node *PoseidonFullNode) value() big.Int {
+	return node.val
+}
+
+func (node *PoseidonEmptyNode) value() big.Int {
+	return node.emptyTreeValues[node.depth()]
+}
+
+func (node *PoseidonFullNode) withValue(index int, val big.Int) PoseidonNode {
+	result := PoseidonFullNode{
+		dep:   node.depth(),
+		left:  node.left,
+		right: node.right,
 	}
-	initSubtree(contents, 1, 0, initHashes)
-	return PoseidonTree{leafCount, contents}
-}
-
-func (t *PoseidonTree) Root() big.Int {
-	return t.Contents[1]
-}
-
-func (t *PoseidonTree) Update(index int, value big.Int) []big.Int {
-	index += t.LeafCount
-	t.Contents[index] = value
-	var proof []big.Int
-	for index > 1 {
-		if index%2 == 0 {
-			proof = append(proof, t.Contents[index+1])
+	if node.depth() == 0 {
+		result.val = val
+	} else {
+		if indexIsLeft(index, node.depth()) {
+			result.left = node.left.withValue(index, val)
 		} else {
-			proof = append(proof, t.Contents[index-1])
+			result.right = node.right.withValue(index, val)
 		}
-		index /= 2
-		left := t.Contents[2*index]
-		right := t.Contents[2*index+1]
-		out, _ := poseidon.Hash([]*big.Int{&left, &right})
-		t.Contents[index] = *out
-
+		result.initHash()
 	}
+	return &result
+}
+
+func (node *PoseidonEmptyNode) withValue(index int, val big.Int) PoseidonNode {
+	result := PoseidonFullNode{
+		dep: node.depth(),
+	}
+	if node.depth() == 0 {
+		result.val = val
+	} else {
+		emptyChild := PoseidonEmptyNode{dep: node.depth() - 1, emptyTreeValues: node.emptyTreeValues}
+		initializedChild := emptyChild.withValue(index, val)
+		if indexIsLeft(index, node.depth()) {
+			result.left = initializedChild
+			result.right = &emptyChild
+		} else {
+			result.left = &emptyChild
+			result.right = initializedChild
+		}
+		result.initHash()
+	}
+	return &result
+}
+
+func (node *PoseidonFullNode) writeProof(index int, out []big.Int) {
+	if node.depth() == 0 {
+		return
+	}
+	if indexIsLeft(index, node.depth()) {
+		out[node.depth()-1] = node.right.value()
+		node.left.writeProof(index, out)
+	} else {
+		out[node.depth()-1] = node.left.value()
+		node.right.writeProof(index, out)
+	}
+}
+
+func (node *PoseidonEmptyNode) writeProof(index int, out []big.Int) {
+	for i := 0; i < node.depth(); i++ {
+		out[i] = node.emptyTreeValues[i]
+	}
+}
+
+type PoseidonFullNode struct {
+	dep   int
+	val   big.Int
+	left  PoseidonNode
+	right PoseidonNode
+}
+
+func (node *PoseidonFullNode) initHash() {
+	leftVal := node.left.value()
+	rightVal := node.right.value()
+	newVal, _ := poseidon.Hash([]*big.Int{&leftVal, &rightVal})
+	node.val = *newVal
+}
+
+type PoseidonEmptyNode struct {
+	dep             int
+	emptyTreeValues []big.Int
+}
+
+type PoseidonTree struct {
+	root PoseidonNode
+}
+
+func (tree *PoseidonTree) Root() big.Int {
+	return tree.root.value()
+}
+
+func (tree *PoseidonTree) Update(index int, value big.Int) []big.Int {
+	tree.root = tree.root.withValue(index, value)
+	proof := make([]big.Int, tree.root.depth())
+	tree.root.writeProof(index, proof)
 	return proof
 }
 
-func initSubtree(contents []big.Int, index int, depth int, hashes []big.Int) {
-	if index >= len(contents)/2 {
-		return
+func NewTree(depth int) PoseidonTree {
+	initHashes := make([]big.Int, depth+1)
+	for i := 1; i <= depth; i++ {
+		val, _ := poseidon.Hash([]*big.Int{&initHashes[i-1], &initHashes[i-1]})
+		initHashes[i] = *val
 	}
-	initSubtree(contents, 2*index, depth+1, hashes)
-	initSubtree(contents, 2*index+1, depth+1, hashes)
-	contents[index] = hashes[depth]
+	return PoseidonTree{root: &PoseidonEmptyNode{dep: depth, emptyTreeValues: initHashes}}
 }
