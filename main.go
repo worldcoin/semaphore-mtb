@@ -107,11 +107,16 @@ func main() {
 				Name: "start",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+					&cli.BoolFlag{Name: "json-logging", Usage: "enable JSON logging", Required: false},
 					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
 					&cli.StringFlag{Name: "metrics-address", Usage: "address for the metrics server", Value: "localhost:9998", Required: false},
 				},
 				Action: func(context *cli.Context) error {
+					if context.Bool("json-logging") {
+						logging.SetJSONOutput()
+					}
 					keys := context.String("keys-file")
+					logging.Logger().Info().Msg("Reading proving system from file")
 					ps, err := prover.ReadSystemFromFile(keys)
 					if err != nil {
 						return err
