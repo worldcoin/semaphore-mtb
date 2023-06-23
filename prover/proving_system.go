@@ -85,7 +85,7 @@ func (p *Parameters) ComputeInputHash() error {
 	return nil
 }
 
-func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
+func BuildR1CS(treeDepth uint32, batchSize uint32) (frontend.CompiledConstraintSystem, error) {
 	proofs := make([][]frontend.Variable, batchSize)
 	for i := 0; i < int(batchSize); i++ {
 		proofs[i] = make([]frontend.Variable, treeDepth)
@@ -96,7 +96,11 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 		IdComms:      make([]frontend.Variable, batchSize),
 		MerkleProofs: proofs,
 	}
-	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
+	return frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
+}
+
+func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
+	ccs, err := BuildR1CS(treeDepth, batchSize)
 	if err != nil {
 		return nil, err
 	}
