@@ -3,7 +3,7 @@ module worldcoin/gnark-mbu
 go 1.20
 
 require (
-	github.com/consensys/gnark v0.7.2-0.20230623025405-a75adf0c9918
+	github.com/consensys/gnark v0.8.0
 	github.com/iden3/go-iden3-crypto v0.0.13
 	github.com/prometheus/client_golang v1.14.0
 	github.com/urfave/cli/v2 v2.10.2
@@ -33,7 +33,7 @@ require (
 )
 
 require (
-	github.com/consensys/gnark-crypto v0.11.1-0.20230609175512-0ee617fa6d43
+	github.com/consensys/gnark-crypto v0.9.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
