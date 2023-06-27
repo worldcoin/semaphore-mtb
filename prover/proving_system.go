@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"math/big"
+	"os"
+	"worldcoin/gnark-mbu/logging"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
-	"io"
-	"math/big"
-	"worldcoin/gnark-mbu/logging"
 )
 
 type Parameters struct {
@@ -104,6 +106,64 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	if err != nil {
 		return nil, err
 	}
+	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
+}
+
+// Taken from: https://github.com/bnb-chain/zkbnb/blob/master/common/prove/proof_keys.go#L19
+func LoadProvingKey(filepath string) (pk groth16.ProvingKey, err error) {
+	logging.Logger().Info().Msg("start reading proving key")
+	pk = groth16.NewProvingKey(ecc.BN254)
+	f, _ := os.Open(filepath)
+	_, err = pk.ReadFrom(f)
+	if err != nil {
+		return pk, fmt.Errorf("read file error")
+	}
+	f.Close()
+
+	return pk, nil
+}
+
+// Taken from: https://github.com/bnb-chain/zkbnb/blob/master/common/prove/proof_keys.go#L32
+func LoadVerifyingKey(filepath string) (verifyingKey groth16.VerifyingKey, err error) {
+	logging.Logger().Info().Msg("start reading verifying key")
+	verifyingKey = groth16.NewVerifyingKey(ecc.BN254)
+	f, _ := os.Open(filepath)
+	_, err = verifyingKey.ReadFrom(f)
+	if err != nil {
+		return verifyingKey, fmt.Errorf("read file error")
+	}
+	f.Close()
+
+	return verifyingKey, nil
+}
+func ImportSetup(treeDepth uint32, batchSize uint32, pkPath string, vkPath string) (*ProvingSystem, error) {
+	proofs := make([][]frontend.Variable, batchSize)
+	for i := 0; i < int(batchSize); i++ {
+		proofs[i] = make([]frontend.Variable, treeDepth)
+	}
+	circuit := MbuCircuit{
+		Depth:        int(treeDepth),
+		BatchSize:    int(batchSize),
+		IdComms:      make([]frontend.Variable, batchSize),
+		MerkleProofs: proofs,
+	}
+	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
+	if err != nil {
+		return nil, err
+	}
+
+	pk, err := LoadProvingKey(pkPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	vk, err := LoadVerifyingKey(vkPath)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 

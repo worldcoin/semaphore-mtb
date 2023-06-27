@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	gnarkLogger "github.com/consensys/gnark/logger"
-	"github.com/urfave/cli/v2"
 	"io"
 	"math/big"
 	"os"
@@ -12,6 +10,9 @@ import (
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
+
+	gnarkLogger "github.com/consensys/gnark/logger"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -31,7 +32,42 @@ func main() {
 					treeDepth := uint32(context.Uint("tree-depth"))
 					batchSize := uint32(context.Uint("batch-size"))
 					logging.Logger().Info().Msg("Running setup")
+
 					system, err := prover.Setup(treeDepth, batchSize)
+					if err != nil {
+						return err
+					}
+					file, err := os.Create(path)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					written, err := system.WriteTo(file)
+					if err != nil {
+						return err
+					}
+					logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
+					return nil
+				},
+			},
+			{
+				Name: "import-setup",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+					&cli.StringFlag{Name: "pk", Usage: "Proving key", Required: true},
+					&cli.StringFlag{Name: "vk", Usage: "Verifying key", Required: true},
+					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
+					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					path := context.String("output")
+					pk := context.String("pk")
+					vk := context.String("vk")
+					treeDepth := uint32(context.Uint("tree-depth"))
+					batchSize := uint32(context.Uint("batch-size"))
+					logging.Logger().Info().Msg("Importing setup")
+
+					system, err := prover.ImportSetup(treeDepth, batchSize, pk, vk)
 					if err != nil {
 						return err
 					}
