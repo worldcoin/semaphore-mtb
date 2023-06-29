@@ -85,6 +85,36 @@ func main() {
 				},
 			},
 			{
+				Name: "r1cs",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
+					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					path := context.String("output")
+
+					treeDepth := uint32(context.Uint("tree-depth"))
+					batchSize := uint32(context.Uint("batch-size"))
+					logging.Logger().Info().Msg("Building R1CS")
+					cs, err := prover.BuildR1CS(treeDepth, batchSize)
+					if err != nil {
+						return err
+					}
+					file, err := os.Create(path)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					written, err := cs.WriteTo(file)
+					if err != nil {
+						return err
+					}
+					logging.Logger().Info().Int64("bytesWritten", written).Msg("R1CS written to file")
+					return nil
+				},
+			},
+			{
 				Name: "export-solidity",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
