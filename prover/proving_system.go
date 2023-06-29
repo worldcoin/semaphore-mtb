@@ -11,7 +11,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
-	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
@@ -35,7 +34,7 @@ type ProvingSystem struct {
 	BatchSize        uint32
 	ProvingKey       groth16.ProvingKey
 	VerifyingKey     groth16.VerifyingKey
-	ConstraintSystem constraint.ConstraintSystem
+	ConstraintSystem frontend.CompiledConstraintSystem
 }
 
 func (p *Parameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
@@ -99,7 +98,7 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 		IdComms:      make([]frontend.Variable, batchSize),
 		MerkleProofs: proofs,
 	}
-	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +147,7 @@ func ImportSetup(treeDepth uint32, batchSize uint32, pkPath string, vkPath strin
 		IdComms:      make([]frontend.Variable, batchSize),
 		MerkleProofs: proofs,
 	}
-	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	ccs, err := frontend.Compile(ecc.BN254, r1cs.NewBuilder, &circuit)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +194,7 @@ func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
 		IdComms:      idComms,
 		MerkleProofs: proofs,
 	}
-	witness, err := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
+	witness, err := frontend.NewWitness(&assignment, ecc.BN254)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +212,7 @@ func (ps *ProvingSystem) Verify(inputHash big.Int, proof *Proof) error {
 		InputHash: inputHash,
 		IdComms:   make([]frontend.Variable, ps.BatchSize),
 	}
-	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254.ScalarField(), frontend.PublicOnly())
+	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254, frontend.PublicOnly())
 	if err != nil {
 		return err
 	}
