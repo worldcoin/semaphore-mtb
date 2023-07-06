@@ -14,10 +14,11 @@ jobs:
           go-version: 1.20.3
       - name: Build artifacts
         run: |
-          for cfgstr in "darwin amd64" "darwin arm64" "linux amd64" "windows amd64"; do 
+          for cfgstr in "darwin amd64" "darwin arm64" "linux amd64" "windows amd64"; do
             cfg=( $cfgstr )
             export GOOS=${cfg[0]}
             export GOARCH=${cfg[1]}
+            export CGO_ENABLED=0
             go build -o mtb-$GOOS-$GOARCH
           done
       - name: Create Release
