@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	gnarkLogger "github.com/consensys/gnark/logger"
-	"github.com/urfave/cli/v2"
 	"io"
 	"math/big"
 	"os"
@@ -12,6 +10,9 @@ import (
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
+
+	gnarkLogger "github.com/consensys/gnark/logger"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -104,7 +105,7 @@ func main() {
 				},
 			},
 			{
-				Name: "gen-test-params",
+				Name: "gen-test-params-insertion",
 				Flags: []cli.Flag{
 					&cli.UintFlag{Name: "tree-depth", Usage: "depth of the mock tree", Required: true},
 					&cli.UintFlag{Name: "batch-size", Usage: "batch size", Required: true},
@@ -126,7 +127,7 @@ func main() {
 						params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 					}
 					params.PostRoot = tree.Root()
-					params.ComputeInputHash()
+					params.ComputeInputHashInsertion()
 					r, _ := json.Marshal(&params)
 					fmt.Println(string(r))
 					return nil

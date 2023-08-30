@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math/big"
+	"worldcoin/gnark-mbu/logging"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
-	"io"
-	"math/big"
-	"worldcoin/gnark-mbu/logging"
 )
 
-type Parameters struct {
+type InsertionParameters struct {
 	InputHash    big.Int
 	StartIndex   uint32
 	PreRoot      big.Int
@@ -24,19 +24,7 @@ type Parameters struct {
 	MerkleProofs [][]big.Int
 }
 
-type Proof struct {
-	Proof groth16.Proof
-}
-
-type ProvingSystem struct {
-	TreeDepth        uint32
-	BatchSize        uint32
-	ProvingKey       groth16.ProvingKey
-	VerifyingKey     groth16.VerifyingKey
-	ConstraintSystem constraint.ConstraintSystem
-}
-
-func (p *Parameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
+func (p *InsertionParameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
 	if len(p.IdComms) != int(batchSize) {
 		return fmt.Errorf("wrong number of identity commitments: %d", len(p.IdComms))
 	}
@@ -51,19 +39,12 @@ func (p *Parameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
 	return nil
 }
 
-func toBytesLE(b []byte) []byte {
-	for i := 0; i < len(b)/2; i++ {
-		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
-	}
-	return b
-}
-
 // ComputeInputHash computes the input hash to the prover and verifier.
 //
 // It uses big-endian byte ordering (network ordering) in order to agree with
 // Solidity and avoid the need to perform the byte swapping operations on-chain
 // where they would increase our gas cost.
-func (p *Parameters) ComputeInputHash() error {
+func (p *InsertionParameters) ComputeInputHashInsertion() error {
 	var data []byte
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.BigEndian, p.StartIndex)
@@ -86,12 +67,12 @@ func (p *Parameters) ComputeInputHash() error {
 	return nil
 }
 
-func BuildR1CS(treeDepth uint32, batchSize uint32) (constraint.ConstraintSystem, error) {
+func BuildR1CSInsertion(treeDepth uint32, batchSize uint32) (constraint.ConstraintSystem, error) {
 	proofs := make([][]frontend.Variable, batchSize)
 	for i := 0; i < int(batchSize); i++ {
 		proofs[i] = make([]frontend.Variable, treeDepth)
 	}
-	circuit := MbuCircuit{
+	circuit := InsertionMbuCircuit{
 		Depth:        int(treeDepth),
 		BatchSize:    int(batchSize),
 		IdComms:      make([]frontend.Variable, batchSize),
@@ -100,8 +81,8 @@ func BuildR1CS(treeDepth uint32, batchSize uint32) (constraint.ConstraintSystem,
 	return frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 }
 
-func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
-	ccs, err := BuildR1CS(treeDepth, batchSize)
+func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
+	ccs, err := BuildR1CSInsertion(treeDepth, batchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +93,7 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
-	return ps.VerifyingKey.ExportSolidity(writer)
-}
-
-func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
+func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {
 	if err := params.ValidateShape(ps.TreeDepth, ps.BatchSize); err != nil {
 		return nil, err
 	}
@@ -131,7 +108,7 @@ func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
 			proofs[i][j] = params.MerkleProofs[i][j]
 		}
 	}
-	assignment := MbuCircuit{
+	assignment := InsertionMbuCircuit{
 		InputHash:    params.InputHash,
 		StartIndex:   params.StartIndex,
 		PreRoot:      params.PreRoot,
@@ -152,8 +129,8 @@ func (ps *ProvingSystem) Prove(params *Parameters) (*Proof, error) {
 	return &Proof{proof}, nil
 }
 
-func (ps *ProvingSystem) Verify(inputHash big.Int, proof *Proof) error {
-	publicAssignment := MbuCircuit{
+func (ps *ProvingSystem) VerifyInsertion(inputHash big.Int, proof *Proof) error {
+	publicAssignment := InsertionMbuCircuit{
 		InputHash: inputHash,
 		IdComms:   make([]frontend.Variable, ps.BatchSize),
 	}
