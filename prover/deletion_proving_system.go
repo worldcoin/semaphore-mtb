@@ -1,7 +1,6 @@
 package prover
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
 	"worldcoin/gnark-mbu/logging"
@@ -45,7 +44,6 @@ func (p *DeletionParameters) ValidateShape(treeDepth uint32, batchSize uint32) e
 // where they would increase our gas cost.
 func (p *DeletionParameters) ComputeInputHashDeletion() error {
 	var data []byte
-	buf := new(bytes.Buffer)
 	for _, v := range p.IdComms {
 		idBytes := v.Bytes()
 		// extend to 32 bytes if necessary, maintaining big-endian ordering
@@ -54,7 +52,6 @@ func (p *DeletionParameters) ComputeInputHashDeletion() error {
 		}
 		data = append(data, idBytes...)
 	}
-	data = append(data, buf.Bytes()...)
 	data = append(data, p.PreRoot.Bytes()...)
 	data = append(data, p.PostRoot.Bytes()...)
 
@@ -133,8 +130,8 @@ func (ps *ProvingSystem) ProveDeletion(params *DeletionParameters) (*Proof, erro
 
 func (ps *ProvingSystem) VerifyDeletion(inputHash big.Int, proof *Proof) error {
 	publicAssignment := DeletionMbuCircuit{
-		InputHash: inputHash,
-		IdComms:   make([]frontend.Variable, ps.BatchSize),
+		InputHash:       inputHash,
+		DeletionIndices: make([]frontend.Variable, ps.BatchSize),
 	}
 	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254.ScalarField(), frontend.PublicOnly())
 	if err != nil {

@@ -184,7 +184,7 @@ type ProofJSON struct {
 	Krs [2]string    `json:"krs"`
 }
 
-func (p *Proof) MarshalJSON() ([]byte, error) {
+func (p *Proof) InsertionMarshalJSON() ([]byte, error) {
 	const fpSize = 32
 	var buf bytes.Buffer
 	_, err := p.Proof.WriteRawTo(&buf)
@@ -208,7 +208,7 @@ func (p *Proof) MarshalJSON() ([]byte, error) {
 	return json.Marshal(proofJson)
 }
 
-func (p *Proof) UnmarshalJSON(data []byte) error {
+func (p *Proof) InsertionUnmarshalJSON(data []byte) error {
 	var proofJson ProofJSON
 	err := json.Unmarshal(data, &proofJson)
 	if err != nil {

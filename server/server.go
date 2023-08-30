@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"worldcoin/gnark-mbu/prover"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Error struct {
@@ -103,13 +104,13 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		malformedBodyError(err).send(w)
 		return
 	}
-	var params prover.Parameters
+	var params prover.InsertionParameters
 	err = json.Unmarshal(buf, &params)
 	if err != nil {
 		malformedBodyError(err).send(w)
 		return
 	}
-	proof, err := handler.provingSystem.Prove(&params)
+	proof, err := handler.provingSystem.ProveInsertion(&params)
 	if err != nil {
 		provingError(err).send(w)
 		return

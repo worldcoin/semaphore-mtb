@@ -15,7 +15,7 @@ const MetricsAddress = "localhost:9999"
 
 func TestMain(m *testing.M) {
 	logging.Logger().Info().Msg("Setting up the prover")
-	ps, err := prover.Setup(3, 2)
+	ps, err := prover.SetupInsertion(3, 2)
 	if err != nil {
 		panic(err)
 	}
@@ -32,6 +32,26 @@ func TestMain(m *testing.M) {
 	}()
 	m.Run()
 }
+
+// func TestMainDeletion(m *testing.M) {
+// 	logging.Logger().Info().Msg("Setting up the prover")
+// 	ps, err := prover.SetupDeletion(3, 2)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	cfg := server.Config{
+// 		ProverAddress:  ProverAddress,
+// 		MetricsAddress: MetricsAddress,
+// 	}
+// 	logging.Logger().Info().Msg("Starting the server")
+// 	instance := server.Run(&cfg, ps)
+// 	logging.Logger().Info().Msg("Running the tests")
+// 	defer func() {
+// 		instance.RequestStop()
+// 		instance.AwaitStop()
+// 	}()
+// 	m.Run()
+// }
 
 func TestWrongMethod(t *testing.T) {
 	response, err := http.Get("http://localhost:8080/prove")
