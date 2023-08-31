@@ -22,6 +22,7 @@ func TestMain(m *testing.M) {
 	cfg := server.Config{
 		ProverAddress:  ProverAddress,
 		MetricsAddress: MetricsAddress,
+		Mode:           server.InsertionMode,
 	}
 	logging.Logger().Info().Msg("Starting the server")
 	instance := server.Run(&cfg, ps)
