@@ -54,6 +54,9 @@ This part explains the existing cli commands.
         1. output *file path* - File to be writen to  
         2. tree-depth *n* - Depth of a tree  
         3. batch-size *n* - Batch size for Merkle tree updates
+8. extract-circuit - Transpiles the circuit from gnark to Lean
+    Flags:  
+        1. output *file path* - File to be writen to
 
 ## Benchmarks
 

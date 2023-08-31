@@ -1,3 +1,10 @@
 .idea
 out
 gnark-mbu
+gnark-mbu.exe
+
+lean-circuit/build
+lean-circuit/.cache
+lean-circuit/lean-packages/*
+lean-circuit/lake-packages/*
+!lean-circuit/lean-packages/manifest.json

@@ -112,6 +112,10 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
+func ExtractLean() (string, error) {
+	return "", nil
+}
+
 func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
 	return ps.VerifyingKey.ExportSolidity(writer)
 }

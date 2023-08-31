@@ -9,7 +9,7 @@ import (
 	"worldcoin/gnark-mbu/logging"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"worldcoin/gnark-mbu/prover"
+	"worldcoin/gnark-mbu/go-circuit"
 )
 
 type Error struct {
