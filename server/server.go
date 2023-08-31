@@ -19,6 +19,9 @@ type Error struct {
 	Message    string
 }
 
+const DeletionMode = "deletion"
+const InsertionMode = "insertion"
+
 func malformedBodyError(err error) *Error {
 	return &Error{StatusCode: http.StatusBadRequest, Code: "malformed_body", Message: err.Error()}
 }
