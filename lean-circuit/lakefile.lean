@@ -1,7 +1,7 @@
 import Lake
 open Lake DSL
 
-package «lean-circuit» {
+package «formal-verification» {
   -- add package configuration options here
 }
 
@@ -11,12 +11,12 @@ require mathlib from git
 require ProvenZK from git
   "https://github.com/reilabs/proven-zk.git"@"v1.0.0"
 
-lean_lib LeanCircuit {
+lean_lib FormalVerification {
   -- add library configuration options here
 }
 
 @[default_target]
-lean_exe «lean-circuit» {
+lean_exe «formal-verification» {
   moreLeanArgs := #["--tstack=1000000"]
   root := `Main
 }

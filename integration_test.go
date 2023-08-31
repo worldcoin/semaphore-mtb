@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 	"worldcoin/gnark-mbu/logging"
-	"worldcoin/gnark-mbu/go-circuit"
+	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
 )
 

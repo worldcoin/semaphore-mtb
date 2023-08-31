@@ -2,8 +2,8 @@ package prover
 
 import (
 	"strconv"
-	"worldcoin/gnark-mbu/go-circuit/keccak"
-	"worldcoin/gnark-mbu/go-circuit/poseidon"
+	"worldcoin/gnark-mbu/prover/keccak"
+	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark/frontend"
 )

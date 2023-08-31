@@ -16,7 +16,7 @@ jobs:
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
-        path: lean-circuit/lake-packages
+        path: formal-verification/lake-packages
         key: "${{ env.LAKE_VERSION }}"
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -25,9 +25,9 @@ jobs:
     - name: Build
       run: go build
     - name: Export circuit
-      run: ./gnark-mbu extract-circuit --output=lean-circuit/LeanCircuit.lean
+      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean
     - name: Build lean project
       run: |
-        cd lean-circuit
+        cd formal-verification
         ~/.elan/bin/lake exe cache get
         ~/.elan/bin/lake build
