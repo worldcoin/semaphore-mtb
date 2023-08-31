@@ -207,7 +207,7 @@ func main() {
 					keys := context.String("keys-file")
 					mode := context.String("mode")
 
-					if mode != "deletion" && mode != "insertion" {
+					if mode != server.DeletionMode && mode != server.InsertionMode {
 						return fmt.Errorf("invalid mode: %s", mode)
 					}
 
