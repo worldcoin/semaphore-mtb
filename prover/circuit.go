@@ -6,6 +6,7 @@ import (
 	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark/frontend"
+	"github.com/reilabs/gnark-lean-extractor/abstractor"
 )
 
 const emptyLeaf = 0
@@ -35,22 +36,15 @@ func (e *bitPatternLengthError) Error() string {
 	return "Bit pattern length was " + strconv.Itoa(e.actualLength) + " not a total number of bytes"
 }
 
-func VerifyProof(api frontend.API, h poseidon.Poseidon, proofSet, helper []frontend.Variable) frontend.Variable {
+func VerifyProof(api frontend.API, proofSet, helper []frontend.Variable) frontend.Variable {
 	sum := proofSet[0]
 	for i := 1; i < len(proofSet); i++ {
 		api.AssertIsBoolean(helper[i-1])
 		d1 := api.Select(helper[i-1], proofSet[i], sum)
 		d2 := api.Select(helper[i-1], sum, proofSet[i])
-		sum = nodeSum(h, d1, d2)
+		sum = abstractor.CallGadget(api, poseidon.Poseidon2{In1: d1, In2: d2})[0]
 	}
 	return sum
-}
-
-func nodeSum(h poseidon.Poseidon, a, b frontend.Variable) frontend.Variable {
-	h.Write(a, b)
-	res := h.Sum()
-	h.Reset()
-	return res
 }
 
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
@@ -158,7 +152,6 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 
 	// Actual batch merkle proof verification.
 	var root frontend.Variable
-	ph := poseidon.NewPoseidon2(api)
 
 	prevRoot := circuit.PreRoot
 
@@ -168,11 +161,11 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 		currentPath := api.ToBinary(currentIndex, circuit.Depth)
 
 		// Verify proof for empty leaf.
-		root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
 		api.AssertIsEqual(root, prevRoot)
 
 		// Verify proof for idComm.
-		root = VerifyProof(api, ph, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
 
 		// Set root for next iteration.
 		prevRoot = root
