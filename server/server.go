@@ -109,24 +109,44 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		malformedBodyError(err).send(w)
 		return
 	}
-	var params prover.InsertionParameters
-	err = json.Unmarshal(buf, &params)
-	if err != nil {
-		malformedBodyError(err).send(w)
-		return
+
+	var proof *prover.Proof
+	if handler.mode == InsertionMode {
+		var params prover.InsertionParameters
+
+		err = json.Unmarshal(buf, &params)
+		if err != nil {
+			malformedBodyError(err).send(w)
+			return
+		}
+
+		proof, err = handler.provingSystem.ProveInsertion(&params)
+	} else if handler.mode == DeletionMode {
+		var params prover.DeletionParameters
+
+		err = json.Unmarshal(buf, &params)
+		if err != nil {
+			malformedBodyError(err).send(w)
+			return
+		}
+
+		proof, err = handler.provingSystem.ProveDeletion(&params)
 	}
-	proof, err := handler.provingSystem.ProveInsertion(&params)
+
 	if err != nil {
 		provingError(err).send(w)
 		return
 	}
+
 	responseBytes, err := json.Marshal(&proof)
 	if err != nil {
 		unexpectedError(err).send(w)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(responseBytes)
+
 	if err != nil {
 		logging.Logger().Error().Err(err).Msg("error writing response")
 	}
