@@ -53,6 +53,7 @@ func (error *Error) send(w http.ResponseWriter) {
 type Config struct {
 	ProverAddress  string
 	MetricsAddress string
+	Mode           string
 }
 
 func spawnServerJob(server *http.Server, label string) RunningJob {
@@ -81,7 +82,7 @@ func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 	logging.Logger().Info().Str("addr", config.MetricsAddress).Msg("metrics server started")
 
 	proverMux := http.NewServeMux()
-	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem})
+	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem, mode: config.Mode})
 	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
 	proverJob := spawnServerJob(proverServer, "prover server")
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
@@ -90,6 +91,7 @@ func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 }
 
 type proveHandler struct {
+	mode          string
 	provingSystem *prover.ProvingSystem
 }
 
@@ -122,4 +124,7 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(responseBytes)
+	if err != nil {
+		logging.Logger().Error().Err(err).Msg("error writing response")
+	}
 }

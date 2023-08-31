@@ -223,6 +223,7 @@ func main() {
 			{
 				Name: "start",
 				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
 					&cli.BoolFlag{Name: "json-logging", Usage: "enable JSON logging", Required: false},
 					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
@@ -233,6 +234,12 @@ func main() {
 						logging.SetJSONOutput()
 					}
 					keys := context.String("keys-file")
+					mode := context.String("mode")
+
+					if mode != "deletion" && mode != "insertion" {
+						return fmt.Errorf("invalid mode: %s", mode)
+					}
+
 					logging.Logger().Info().Msg("Reading proving system from file")
 					ps, err := prover.ReadSystemFromFile(keys)
 					if err != nil {
@@ -242,6 +249,7 @@ func main() {
 					config := server.Config{
 						ProverAddress:  context.String("prover-address"),
 						MetricsAddress: context.String("metrics-address"),
+						Mode:           mode,
 					}
 					instance := server.Run(&config, ps)
 					sigint := make(chan os.Signal, 1)
