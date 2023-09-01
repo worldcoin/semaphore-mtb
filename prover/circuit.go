@@ -36,6 +36,20 @@ func (e *bitPatternLengthError) Error() string {
 	return "Bit pattern length was " + strconv.Itoa(e.actualLength) + " not a total number of bytes"
 }
 
+type ProofRound struct {
+	Direction frontend.Variable
+	Hash      frontend.Variable
+	Sibling   frontend.Variable
+}
+
+func (gadget ProofRound) DefineGadget(api abstractor.API) []frontend.Variable {
+	api.AssertIsBoolean(gadget.Direction)
+	d1 := api.Select(gadget.Direction, gadget.Hash, gadget.Sibling)
+	d2 := api.Select(gadget.Direction, gadget.Sibling, gadget.Hash)
+	sum := api.Call(poseidon.Poseidon2{In1: d1, In2: d2})[0]
+	return []frontend.Variable{sum}
+}
+
 type VerifyProof struct {
 	Proof []frontend.Variable
 	Path  []frontend.Variable
@@ -44,10 +58,7 @@ type VerifyProof struct {
 func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	sum := gadget.Proof[0]
 	for i := 1; i < len(gadget.Proof); i++ {
-		api.AssertIsBoolean(gadget.Path[i-1])
-		d1 := api.Select(gadget.Path[i-1], gadget.Proof[i], sum)
-		d2 := api.Select(gadget.Path[i-1], sum, gadget.Proof[i])
-		sum = api.Call(poseidon.Poseidon2{In1: d1, In2: d2})[0]
+		sum = api.Call(ProofRound{Direction: gadget.Path[i-1], Hash: gadget.Proof[i], Sibling: sum})[0]
 	}
 	return []frontend.Variable{sum}
 }
