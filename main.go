@@ -235,6 +235,32 @@ func main() {
 					return nil
 				},
 			},
+			{
+				Name: "extract-circuit",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					path := context.String("output")
+					logging.Logger().Info().Msg("Extracting gnark circuit to Lean")
+					circuit_string, err := prover.ExtractLean()
+					if err != nil {
+						return err
+					}
+					file, err := os.Create(path)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					written, err := file.WriteString(circuit_string)
+					if err != nil {
+						return err
+					}
+					logging.Logger().Info().Int("bytesWritten", written).Msg("Lean circuit written to file")
+
+					return nil
+				},
+			},
 		},
 	}
 
