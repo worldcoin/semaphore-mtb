@@ -24,6 +24,8 @@ jobs:
         go-version-file: './go.mod'
     - name: Build
       run: go build
+    - name: Test
+      run: go test
     - name: Export circuit
       run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean
     - name: Build lean project
