@@ -37,8 +37,8 @@ func (e *bitPatternLengthError) Error() string {
 }
 
 type VerifyProof struct {
-	Helper   []frontend.Variable
 	ProofSet []frontend.Variable
+	Helper   []frontend.Variable
 }
 
 func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
@@ -51,17 +51,6 @@ func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	}
 	return []frontend.Variable{sum}
 }
-
-// func VerifyProof(api frontend.API, proofSet, helper []frontend.Variable) frontend.Variable {
-// 	sum := proofSet[0]
-// 	for i := 1; i < len(proofSet); i++ {
-// 		api.AssertIsBoolean(helper[i-1])
-// 		d1 := api.Select(helper[i-1], proofSet[i], sum)
-// 		d2 := api.Select(helper[i-1], sum, proofSet[i])
-// 		sum = abstractor.CallGadget(api, poseidon.Poseidon2{In1: d1, In2: d2})[0]
-// 	}
-// 	return sum
-// }
 
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
 // returning the result in newBits.
@@ -177,15 +166,13 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 		currentPath := api.ToBinary(currentIndex, circuit.Depth)
 
 		// Verify proof for empty leaf.
-		// root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
-		helper := append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{helper, currentPath})[0]
+		proof := append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...)
+		root = abstractor.CallGadget(api, VerifyProof{ProofSet: proof, Helper: currentPath})[0]
 		api.AssertIsEqual(root, prevRoot)
 
 		// Verify proof for idComm.
-		// root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
-		helper = append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{helper, currentPath})[0]
+		proof = append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...)
+		root = abstractor.CallGadget(api, VerifyProof{ProofSet: proof, Helper: currentPath})[0]
 
 		// Set root for next iteration.
 		prevRoot = root
