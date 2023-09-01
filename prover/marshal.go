@@ -42,7 +42,7 @@ type DeletionParametersJSON struct {
 	MerkleProofs    [][]string `json:"merkleProofs"`
 }
 
-func (p *InsertionParameters) InsertionMarshalJSON() ([]byte, error) {
+func (p *InsertionParameters) MarshalJSON() ([]byte, error) {
 	paramsJson := InsertionParametersJSON{}
 	paramsJson.InputHash = toHex(&p.InputHash)
 	paramsJson.StartIndex = p.StartIndex
@@ -62,7 +62,7 @@ func (p *InsertionParameters) InsertionMarshalJSON() ([]byte, error) {
 	return json.Marshal(paramsJson)
 }
 
-func (p *InsertionParameters) InsertionUnmarshalJSON(data []byte) error {
+func (p *InsertionParameters) UnmarshalJSON(data []byte) error {
 
 	var params InsertionParametersJSON
 
@@ -110,7 +110,7 @@ func (p *InsertionParameters) InsertionUnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (p *DeletionParameters) DeletionMarshalJSON() ([]byte, error) {
+func (p *DeletionParameters) MarshalJSON() ([]byte, error) {
 	paramsJson := DeletionParametersJSON{}
 	paramsJson.InputHash = toHex(&p.InputHash)
 	paramsJson.DeletionIndices = make([]string, len(p.DeletionIndices))
@@ -130,50 +130,50 @@ func (p *DeletionParameters) DeletionMarshalJSON() ([]byte, error) {
 	return json.Marshal(paramsJson)
 }
 
-func (p *InsertionParameters) DeletionUnmarshalJSON(data []byte) error {
+func (p *DeletionParameters) UnmarshalJSON(data []byte) error {
 
-	var params InsertionParametersJSON
-
-	err := json.Unmarshal(data, &params)
-	if err != nil {
-		return err
-	}
-
-	err = fromHex(&p.InputHash, params.InputHash)
-	if err != nil {
-		return err
-	}
-
-	p.StartIndex = params.StartIndex
-
-	err = fromHex(&p.PreRoot, params.PreRoot)
-	if err != nil {
-		return err
-	}
-
-	err = fromHex(&p.PostRoot, params.PostRoot)
-	if err != nil {
-		return err
-	}
-
-	p.IdComms = make([]big.Int, len(params.IdComms))
-	for i := 0; i < len(params.IdComms); i++ {
-		err = fromHex(&p.IdComms[i], params.IdComms[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	p.MerkleProofs = make([][]big.Int, len(params.MerkleProofs))
-	for i := 0; i < len(params.MerkleProofs); i++ {
-		p.MerkleProofs[i] = make([]big.Int, len(params.MerkleProofs[i]))
-		for j := 0; j < len(params.MerkleProofs[i]); j++ {
-			err = fromHex(&p.MerkleProofs[i][j], params.MerkleProofs[i][j])
-			if err != nil {
-				return err
-			}
-		}
-	}
+	//var params InsertionParametersJSON
+	//
+	//err := json.Unmarshal(data, &params)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//err = fromHex(&p.InputHash, params.InputHash)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//p.StartIndex = params.StartIndex
+	//
+	//err = fromHex(&p.PreRoot, params.PreRoot)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//err = fromHex(&p.PostRoot, params.PostRoot)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//p.IdComms = make([]big.Int, len(params.IdComms))
+	//for i := 0; i < len(params.IdComms); i++ {
+	//	err = fromHex(&p.IdComms[i], params.IdComms[i])
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
+	//
+	//p.MerkleProofs = make([][]big.Int, len(params.MerkleProofs))
+	//for i := 0; i < len(params.MerkleProofs); i++ {
+	//	p.MerkleProofs[i] = make([]big.Int, len(params.MerkleProofs[i]))
+	//	for j := 0; j < len(params.MerkleProofs[i]); j++ {
+	//		err = fromHex(&p.MerkleProofs[i][j], params.MerkleProofs[i][j])
+	//		if err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
 
 	return nil
 }
@@ -184,7 +184,7 @@ type ProofJSON struct {
 	Krs [2]string    `json:"krs"`
 }
 
-func (p *Proof) InsertionMarshalJSON() ([]byte, error) {
+func (p *Proof) MarshalJSON() ([]byte, error) {
 	const fpSize = 32
 	var buf bytes.Buffer
 	_, err := p.Proof.WriteRawTo(&buf)
@@ -208,7 +208,7 @@ func (p *Proof) InsertionMarshalJSON() ([]byte, error) {
 	return json.Marshal(proofJson)
 }
 
-func (p *Proof) InsertionUnmarshalJSON(data []byte) error {
+func (p *Proof) UnmarshalJSON(data []byte) error {
 	var proofJson ProofJSON
 	err := json.Unmarshal(data, &proofJson)
 	if err != nil {
