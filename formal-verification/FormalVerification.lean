@@ -1,7 +1,7 @@
 import ProvenZk.Gates
 import ProvenZk.Ext.Vector
 
-namespace Poseidon2
+namespace VerifyProof
 
 def Order : ℕ := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 variable [Fact (Nat.Prime Order)]
@@ -124,4 +124,123 @@ def Poseidon2 (In1: F) (In2: F) (k: F -> Prop): Prop :=
     poseidon_3 vec![0, In1, In2] fun gate_0 =>
     k gate_0[0]
 
-end Poseidon2
+def VerifyProof_30_30 (Proof: Vector F 30) (Path: Vector F 30) (k: F -> Prop): Prop :=
+    Gates.is_bool Path[0] ∧
+    ∃gate_1, Gates.select Path[0] Proof[1] Proof[0] gate_1 ∧
+    ∃gate_2, Gates.select Path[0] Proof[0] Proof[1] gate_2 ∧
+    Poseidon2 gate_1 gate_2 fun gate_3 =>
+    Gates.is_bool Path[1] ∧
+    ∃gate_5, Gates.select Path[1] Proof[2] gate_3 gate_5 ∧
+    ∃gate_6, Gates.select Path[1] gate_3 Proof[2] gate_6 ∧
+    Poseidon2 gate_5 gate_6 fun gate_7 =>
+    Gates.is_bool Path[2] ∧
+    ∃gate_9, Gates.select Path[2] Proof[3] gate_7 gate_9 ∧
+    ∃gate_10, Gates.select Path[2] gate_7 Proof[3] gate_10 ∧
+    Poseidon2 gate_9 gate_10 fun gate_11 =>
+    Gates.is_bool Path[3] ∧
+    ∃gate_13, Gates.select Path[3] Proof[4] gate_11 gate_13 ∧
+    ∃gate_14, Gates.select Path[3] gate_11 Proof[4] gate_14 ∧
+    Poseidon2 gate_13 gate_14 fun gate_15 =>
+    Gates.is_bool Path[4] ∧
+    ∃gate_17, Gates.select Path[4] Proof[5] gate_15 gate_17 ∧
+    ∃gate_18, Gates.select Path[4] gate_15 Proof[5] gate_18 ∧
+    Poseidon2 gate_17 gate_18 fun gate_19 =>
+    Gates.is_bool Path[5] ∧
+    ∃gate_21, Gates.select Path[5] Proof[6] gate_19 gate_21 ∧
+    ∃gate_22, Gates.select Path[5] gate_19 Proof[6] gate_22 ∧
+    Poseidon2 gate_21 gate_22 fun gate_23 =>
+    Gates.is_bool Path[6] ∧
+    ∃gate_25, Gates.select Path[6] Proof[7] gate_23 gate_25 ∧
+    ∃gate_26, Gates.select Path[6] gate_23 Proof[7] gate_26 ∧
+    Poseidon2 gate_25 gate_26 fun gate_27 =>
+    Gates.is_bool Path[7] ∧
+    ∃gate_29, Gates.select Path[7] Proof[8] gate_27 gate_29 ∧
+    ∃gate_30, Gates.select Path[7] gate_27 Proof[8] gate_30 ∧
+    Poseidon2 gate_29 gate_30 fun gate_31 =>
+    Gates.is_bool Path[8] ∧
+    ∃gate_33, Gates.select Path[8] Proof[9] gate_31 gate_33 ∧
+    ∃gate_34, Gates.select Path[8] gate_31 Proof[9] gate_34 ∧
+    Poseidon2 gate_33 gate_34 fun gate_35 =>
+    Gates.is_bool Path[9] ∧
+    ∃gate_37, Gates.select Path[9] Proof[10] gate_35 gate_37 ∧
+    ∃gate_38, Gates.select Path[9] gate_35 Proof[10] gate_38 ∧
+    Poseidon2 gate_37 gate_38 fun gate_39 =>
+    Gates.is_bool Path[10] ∧
+    ∃gate_41, Gates.select Path[10] Proof[11] gate_39 gate_41 ∧
+    ∃gate_42, Gates.select Path[10] gate_39 Proof[11] gate_42 ∧
+    Poseidon2 gate_41 gate_42 fun gate_43 =>
+    Gates.is_bool Path[11] ∧
+    ∃gate_45, Gates.select Path[11] Proof[12] gate_43 gate_45 ∧
+    ∃gate_46, Gates.select Path[11] gate_43 Proof[12] gate_46 ∧
+    Poseidon2 gate_45 gate_46 fun gate_47 =>
+    Gates.is_bool Path[12] ∧
+    ∃gate_49, Gates.select Path[12] Proof[13] gate_47 gate_49 ∧
+    ∃gate_50, Gates.select Path[12] gate_47 Proof[13] gate_50 ∧
+    Poseidon2 gate_49 gate_50 fun gate_51 =>
+    Gates.is_bool Path[13] ∧
+    ∃gate_53, Gates.select Path[13] Proof[14] gate_51 gate_53 ∧
+    ∃gate_54, Gates.select Path[13] gate_51 Proof[14] gate_54 ∧
+    Poseidon2 gate_53 gate_54 fun gate_55 =>
+    Gates.is_bool Path[14] ∧
+    ∃gate_57, Gates.select Path[14] Proof[15] gate_55 gate_57 ∧
+    ∃gate_58, Gates.select Path[14] gate_55 Proof[15] gate_58 ∧
+    Poseidon2 gate_57 gate_58 fun gate_59 =>
+    Gates.is_bool Path[15] ∧
+    ∃gate_61, Gates.select Path[15] Proof[16] gate_59 gate_61 ∧
+    ∃gate_62, Gates.select Path[15] gate_59 Proof[16] gate_62 ∧
+    Poseidon2 gate_61 gate_62 fun gate_63 =>
+    Gates.is_bool Path[16] ∧
+    ∃gate_65, Gates.select Path[16] Proof[17] gate_63 gate_65 ∧
+    ∃gate_66, Gates.select Path[16] gate_63 Proof[17] gate_66 ∧
+    Poseidon2 gate_65 gate_66 fun gate_67 =>
+    Gates.is_bool Path[17] ∧
+    ∃gate_69, Gates.select Path[17] Proof[18] gate_67 gate_69 ∧
+    ∃gate_70, Gates.select Path[17] gate_67 Proof[18] gate_70 ∧
+    Poseidon2 gate_69 gate_70 fun gate_71 =>
+    Gates.is_bool Path[18] ∧
+    ∃gate_73, Gates.select Path[18] Proof[19] gate_71 gate_73 ∧
+    ∃gate_74, Gates.select Path[18] gate_71 Proof[19] gate_74 ∧
+    Poseidon2 gate_73 gate_74 fun gate_75 =>
+    Gates.is_bool Path[19] ∧
+    ∃gate_77, Gates.select Path[19] Proof[20] gate_75 gate_77 ∧
+    ∃gate_78, Gates.select Path[19] gate_75 Proof[20] gate_78 ∧
+    Poseidon2 gate_77 gate_78 fun gate_79 =>
+    Gates.is_bool Path[20] ∧
+    ∃gate_81, Gates.select Path[20] Proof[21] gate_79 gate_81 ∧
+    ∃gate_82, Gates.select Path[20] gate_79 Proof[21] gate_82 ∧
+    Poseidon2 gate_81 gate_82 fun gate_83 =>
+    Gates.is_bool Path[21] ∧
+    ∃gate_85, Gates.select Path[21] Proof[22] gate_83 gate_85 ∧
+    ∃gate_86, Gates.select Path[21] gate_83 Proof[22] gate_86 ∧
+    Poseidon2 gate_85 gate_86 fun gate_87 =>
+    Gates.is_bool Path[22] ∧
+    ∃gate_89, Gates.select Path[22] Proof[23] gate_87 gate_89 ∧
+    ∃gate_90, Gates.select Path[22] gate_87 Proof[23] gate_90 ∧
+    Poseidon2 gate_89 gate_90 fun gate_91 =>
+    Gates.is_bool Path[23] ∧
+    ∃gate_93, Gates.select Path[23] Proof[24] gate_91 gate_93 ∧
+    ∃gate_94, Gates.select Path[23] gate_91 Proof[24] gate_94 ∧
+    Poseidon2 gate_93 gate_94 fun gate_95 =>
+    Gates.is_bool Path[24] ∧
+    ∃gate_97, Gates.select Path[24] Proof[25] gate_95 gate_97 ∧
+    ∃gate_98, Gates.select Path[24] gate_95 Proof[25] gate_98 ∧
+    Poseidon2 gate_97 gate_98 fun gate_99 =>
+    Gates.is_bool Path[25] ∧
+    ∃gate_101, Gates.select Path[25] Proof[26] gate_99 gate_101 ∧
+    ∃gate_102, Gates.select Path[25] gate_99 Proof[26] gate_102 ∧
+    Poseidon2 gate_101 gate_102 fun gate_103 =>
+    Gates.is_bool Path[26] ∧
+    ∃gate_105, Gates.select Path[26] Proof[27] gate_103 gate_105 ∧
+    ∃gate_106, Gates.select Path[26] gate_103 Proof[27] gate_106 ∧
+    Poseidon2 gate_105 gate_106 fun gate_107 =>
+    Gates.is_bool Path[27] ∧
+    ∃gate_109, Gates.select Path[27] Proof[28] gate_107 gate_109 ∧
+    ∃gate_110, Gates.select Path[27] gate_107 Proof[28] gate_110 ∧
+    Poseidon2 gate_109 gate_110 fun gate_111 =>
+    Gates.is_bool Path[28] ∧
+    ∃gate_113, Gates.select Path[28] Proof[29] gate_111 gate_113 ∧
+    ∃gate_114, Gates.select Path[28] gate_111 Proof[29] gate_114 ∧
+    Poseidon2 gate_113 gate_114 fun gate_115 =>
+    k gate_115
+
+end VerifyProof

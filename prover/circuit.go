@@ -37,16 +37,16 @@ func (e *bitPatternLengthError) Error() string {
 }
 
 type VerifyProof struct {
-	ProofSet []frontend.Variable
-	Helper   []frontend.Variable
+	Proof []frontend.Variable
+	Path  []frontend.Variable
 }
 
 func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
-	sum := gadget.ProofSet[0]
-	for i := 1; i < len(gadget.ProofSet); i++ {
-		api.AssertIsBoolean(gadget.Helper[i-1])
-		d1 := api.Select(gadget.Helper[i-1], gadget.ProofSet[i], sum)
-		d2 := api.Select(gadget.Helper[i-1], sum, gadget.ProofSet[i])
+	sum := gadget.Proof[0]
+	for i := 1; i < len(gadget.Proof); i++ {
+		api.AssertIsBoolean(gadget.Path[i-1])
+		d1 := api.Select(gadget.Path[i-1], gadget.Proof[i], sum)
+		d2 := api.Select(gadget.Path[i-1], sum, gadget.Proof[i])
 		sum = api.Call(poseidon.Poseidon2{In1: d1, In2: d2})[0]
 	}
 	return []frontend.Variable{sum}
@@ -167,12 +167,12 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 
 		// Verify proof for empty leaf.
 		proof := append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{ProofSet: proof, Helper: currentPath})[0]
+		root = abstractor.CallGadget(api, VerifyProof{Proof: proof, Path: currentPath})[0]
 		api.AssertIsEqual(root, prevRoot)
 
 		// Verify proof for idComm.
 		proof = append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{ProofSet: proof, Helper: currentPath})[0]
+		root = abstractor.CallGadget(api, VerifyProof{Proof: proof, Path: currentPath})[0]
 
 		// Set root for next iteration.
 		prevRoot = root

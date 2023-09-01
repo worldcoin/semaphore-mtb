@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/big"
 	"worldcoin/gnark-mbu/logging"
-	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -115,8 +114,8 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func ExtractLean() (string, error) {
-	assignment := poseidon.Poseidon2{}
+func ExtractLean(proofSize uint32) (string, error) {
+	assignment := VerifyProof{Proof: make([]frontend.Variable, proofSize), Path: make([]frontend.Variable, proofSize)}
 	return extractor.GadgetToLean(&assignment, ecc.BN254)
 }
 

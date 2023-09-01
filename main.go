@@ -239,11 +239,13 @@ func main() {
 				Name: "extract-circuit",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+					&cli.StringFlag{Name: "proof-size", Usage: "Length of Proof vector", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					path := context.String("output")
+					proofSize := uint32(context.Uint("proof-size"))
 					logging.Logger().Info().Msg("Extracting gnark circuit to Lean")
-					circuit_string, err := prover.ExtractLean()
+					circuit_string, err := prover.ExtractLean(proofSize)
 					if err != nil {
 						return err
 					}
