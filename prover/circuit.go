@@ -63,6 +63,43 @@ func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	return []frontend.Variable{sum}
 }
 
+type InsertionProof struct {
+	StartIndex frontend.Variable
+	PreRoot    frontend.Variable
+	IdComms    []frontend.Variable
+
+	MerkleProofs [][]frontend.Variable
+
+	BatchSize int
+	Depth     int
+}
+
+func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variable {
+	prevRoot := gadget.PreRoot
+
+	// Individual insertions.
+	for i := 0; i < gadget.BatchSize; i += 1 {
+		currentIndex := api.Add(gadget.StartIndex, i)
+		currentPath := api.ToBinary(currentIndex, gadget.Depth)
+
+		// len(circuit.MerkleProofs[i]) === circuit.Depth
+		// len(circuit.IdComms) === circuit.BatchSize
+		// Verify proof for empty leaf.
+		proof := append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[i][:]...)
+		root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+		api.AssertIsEqual(root, prevRoot)
+
+		// Verify proof for idComm.
+		proof = append([]frontend.Variable{gadget.IdComms[i]}, gadget.MerkleProofs[i][:]...)
+		root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+
+		// Set root for next iteration.
+		prevRoot = root
+	}
+
+	return []frontend.Variable{prevRoot}
+}
+
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
 // returning the result in newBits.
 //
@@ -167,29 +204,16 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	var root frontend.Variable
+	root := abstractor.CallGadget(api, InsertionProof{
+		StartIndex: circuit.StartIndex,
+		PreRoot: circuit.PreRoot,
+		IdComms: circuit.IdComms,
 
-	prevRoot := circuit.PreRoot
+		MerkleProofs: circuit.MerkleProofs,
 
-	// Individual insertions.
-	for i := 0; i < circuit.BatchSize; i += 1 {
-		currentIndex := api.Add(circuit.StartIndex, i)
-		currentPath := api.ToBinary(currentIndex, circuit.Depth)
-
-		// len(circuit.MerkleProofs[i]) === circuit.Depth
-		// len(circuit.IdComms) === circuit.BatchSize
-		// Verify proof for empty leaf.
-		proof := append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{Proof: proof, Path: currentPath})[0]
-		api.AssertIsEqual(root, prevRoot)
-
-		// Verify proof for idComm.
-		proof = append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...)
-		root = abstractor.CallGadget(api, VerifyProof{Proof: proof, Path: currentPath})[0]
-
-		// Set root for next iteration.
-		prevRoot = root
-	}
+		BatchSize: circuit.BatchSize,
+		Depth: circuit.Depth,
+	})[0]
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)
