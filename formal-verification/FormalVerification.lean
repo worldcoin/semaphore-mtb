@@ -131,7 +131,7 @@ def ProofRound (Direction: F) (Hash: F) (Sibling: F) (k: F -> Prop): Prop :=
     Poseidon2 gate_1 gate_2 fun gate_3 =>
     k gate_3
 
-def VerifyProof_30_30 (Proof: Vector F 30) (Path: Vector F 30) (k: F -> Prop): Prop :=
+def VerifyProof_31_30 (Proof: Vector F 31) (Path: Vector F 30) (k: F -> Prop): Prop :=
     ProofRound Path[0] Proof[1] Proof[0] fun gate_0 =>
     ProofRound Path[1] Proof[2] gate_0 fun gate_1 =>
     ProofRound Path[2] Proof[3] gate_1 fun gate_2 =>
@@ -161,6 +161,7 @@ def VerifyProof_30_30 (Proof: Vector F 30) (Path: Vector F 30) (k: F -> Prop): P
     ProofRound Path[26] Proof[27] gate_25 fun gate_26 =>
     ProofRound Path[27] Proof[28] gate_26 fun gate_27 =>
     ProofRound Path[28] Proof[29] gate_27 fun gate_28 =>
-    k gate_28
+    ProofRound Path[29] Proof[30] gate_28 fun gate_29 =>
+    k gate_29
 
 end VerifyProof

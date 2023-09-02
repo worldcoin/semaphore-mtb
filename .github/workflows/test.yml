@@ -1,5 +1,6 @@
 name: Test
 on: push
+concurrency: testing_environment
 jobs:
   build-and-test:
     runs-on: ubuntu-latest

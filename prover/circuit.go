@@ -176,6 +176,8 @@ func (circuit *MbuCircuit) Define(api frontend.API) error {
 		currentIndex := api.Add(circuit.StartIndex, i)
 		currentPath := api.ToBinary(currentIndex, circuit.Depth)
 
+		// len(circuit.MerkleProofs[i]) === circuit.Depth
+		// len(circuit.IdComms) === circuit.BatchSize
 		// Verify proof for empty leaf.
 		proof := append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...)
 		root = abstractor.CallGadget(api, VerifyProof{Proof: proof, Path: currentPath})[0]

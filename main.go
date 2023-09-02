@@ -239,7 +239,7 @@ func main() {
 				Name: "extract-circuit",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
-					&cli.StringFlag{Name: "proof-size", Usage: "Length of Proof vector", Required: true},
+					&cli.StringFlag{Name: "proof-size", Usage: "Length of Proof vector (i.e. depth of tree)", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					path := context.String("output")
