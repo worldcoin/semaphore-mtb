@@ -114,9 +114,23 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func ExtractLean(proofSize uint32) (string, error) {
-	// Not checking for proofSize === 0
-	assignment := VerifyProof{Proof: make([]frontend.Variable, proofSize+1), Path: make([]frontend.Variable, proofSize)}
+func ExtractLean(treeDepth uint32, batchSize uint32) (string, error) {
+	// Not checking for batchSize === 0 or treeDepth === 0
+
+	// Initialising MerkleProofs slice with correct dimentions
+	proofs := make([][]frontend.Variable, batchSize)
+	for i := 0; i < int(batchSize); i++ {
+		proofs[i] = make([]frontend.Variable, treeDepth)
+	}
+
+	assignment := InsertionProof{
+		IdComms: make([]frontend.Variable, batchSize),
+
+		MerkleProofs: proofs,
+
+		BatchSize: int(batchSize),
+		Depth: int(treeDepth),
+	}
 	return extractor.GadgetToLean(&assignment, ecc.BN254)
 }
 

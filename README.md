@@ -57,6 +57,8 @@ This part explains the existing cli commands.
 8. extract-circuit - Transpiles the circuit from gnark to Lean
     Flags:  
         1. output *file path* - File to be writen to
+        2. tree-depth *n* - Merkle tree depth  
+        3. batch-size *n* - Batch size for Merkle tree updates
 
 ## Benchmarks
 
