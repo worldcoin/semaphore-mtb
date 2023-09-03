@@ -82,6 +82,7 @@ func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variabl
 		currentIndex := api.Add(gadget.StartIndex, i)
 		currentPath := api.ToBinary(currentIndex, gadget.Depth)
 
+		// len(circuit.MerkleProofs) === circuit.BatchSize
 		// len(circuit.MerkleProofs[i]) === circuit.Depth
 		// len(circuit.IdComms) === circuit.BatchSize
 		// Verify proof for empty leaf.
