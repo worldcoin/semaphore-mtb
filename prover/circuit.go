@@ -63,6 +63,33 @@ func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	return []frontend.Variable{sum}
 }
 
+type InsertionRound struct {
+	Index    frontend.Variable
+	Item     frontend.Variable
+	PrevRoot frontend.Variable
+	Proof    []frontend.Variable
+
+	Depth int
+}
+
+func (gadget InsertionRound) DefineGadget(api abstractor.API) []frontend.Variable {
+	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
+
+	// len(circuit.MerkleProofs) === circuit.BatchSize
+	// len(circuit.MerkleProofs[i]) === circuit.Depth
+	// len(circuit.IdComms) === circuit.BatchSize
+	// Verify proof for empty leaf.
+	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
+	root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+	api.AssertIsEqual(root, gadget.PrevRoot)
+
+	// Verify proof for idComm.
+	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
+	root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+
+	return []frontend.Variable{root}
+}
+
 type InsertionProof struct {
 	StartIndex frontend.Variable
 	PreRoot    frontend.Variable
@@ -80,22 +107,13 @@ func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variabl
 	// Individual insertions.
 	for i := 0; i < gadget.BatchSize; i += 1 {
 		currentIndex := api.Add(gadget.StartIndex, i)
-		currentPath := api.ToBinary(currentIndex, gadget.Depth)
-
-		// len(circuit.MerkleProofs) === circuit.BatchSize
-		// len(circuit.MerkleProofs[i]) === circuit.Depth
-		// len(circuit.IdComms) === circuit.BatchSize
-		// Verify proof for empty leaf.
-		proof := append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[i][:]...)
-		root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
-		api.AssertIsEqual(root, prevRoot)
-
-		// Verify proof for idComm.
-		proof = append([]frontend.Variable{gadget.IdComms[i]}, gadget.MerkleProofs[i][:]...)
-		root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
-
-		// Set root for next iteration.
-		prevRoot = root
+		prevRoot = api.Call(InsertionRound{
+			Index: currentIndex,
+			Item: gadget.IdComms[i],
+			PrevRoot: prevRoot,
+			Proof: gadget.MerkleProofs[i],
+			Depth: gadget.Depth,
+		})[0]
 	}
 
 	return []frontend.Variable{prevRoot}

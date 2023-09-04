@@ -234,6 +234,8 @@ github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230903220125-c28238cfee3b h1:
 github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230903220125-c28238cfee3b/go.mod h1:FuCRQ2kdpdImOzmzFUqMoCMQxn+Nol+AmzPDWlBZLA8=
 github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230904162009-1e02ca607419 h1:x8kc5YcSSP6wLfDAqfzXG3wovqcKeFIQUX9jOaKHVk8=
 github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230904162009-1e02ca607419/go.mod h1:FuCRQ2kdpdImOzmzFUqMoCMQxn+Nol+AmzPDWlBZLA8=
+github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230904192456-6efea7b1083b h1:4N95ZSAYAKK7pcXkNE7kXzZnPxJKDS5TVIRj35n58pg=
+github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230904192456-6efea7b1083b/go.mod h1:FuCRQ2kdpdImOzmzFUqMoCMQxn+Nol+AmzPDWlBZLA8=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
