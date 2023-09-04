@@ -29,7 +29,6 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// deletionIndices[0] || deletionIndices[1] || ... || deletionIndices[batchSize-1] || PreRoot || PostRoot
 	//        32          ||        32          || ... ||              32              ||   256   ||    256
-
 	kh := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256)
 
 	var bits []frontend.Variable

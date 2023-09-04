@@ -168,13 +168,17 @@ func main() {
 						params := prover.DeletionParameters{}
 						tree := NewTree(treeDepth)
 
-						params.DeletionIndices = make([]big.Int, batchSize)
-						params.PreRoot = tree.Root()
+						params.DeletionIndices = make([]uint32, batchSize)
 						params.IdComms = make([]big.Int, batchSize)
 						params.MerkleProofs = make([][]big.Int, batchSize)
+						for i := 0; i < int(batchSize*2); i++ {
+							tree.Update(i, *new(big.Int).SetUint64(uint64(i + 1)))
+						}
+						params.PreRoot = tree.Root()
 						for i := 0; i < int(batchSize); i++ {
-							params.IdComms[i] = *new(big.Int).SetUint64(uint64(i + 1))
-							params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
+							params.DeletionIndices[i] = uint32(2 * i)
+							params.IdComms[i] = *new(big.Int).SetUint64(uint64(2*i + 1))
+							params.MerkleProofs[i] = tree.Update(2*i, *big.NewInt(0))
 						}
 						params.PostRoot = tree.Root()
 						params.ComputeInputHashDeletion()

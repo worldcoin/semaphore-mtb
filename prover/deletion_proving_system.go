@@ -1,6 +1,8 @@
 package prover
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"worldcoin/gnark-mbu/logging"
@@ -17,7 +19,7 @@ type DeletionParameters struct {
 	InputHash       big.Int
 	PreRoot         big.Int
 	PostRoot        big.Int
-	DeletionIndices []big.Int
+	DeletionIndices []uint32
 	IdComms         []big.Int
 	MerkleProofs    [][]big.Int
 }
@@ -29,6 +31,9 @@ func (p *DeletionParameters) ValidateShape(treeDepth uint32, batchSize uint32) e
 	if len(p.MerkleProofs) != int(batchSize) {
 		return fmt.Errorf("wrong number of merkle proofs: %d", len(p.MerkleProofs))
 	}
+	if len(p.DeletionIndices) != int(batchSize) {
+		return fmt.Errorf("wrong number of deletion indices: %d", len(p.DeletionIndices))
+	}
 	for i, proof := range p.MerkleProofs {
 		if len(proof) != int(treeDepth) {
 			return fmt.Errorf("wrong size of merkle proof for proof %d: %d", i, len(proof))
@@ -37,21 +42,19 @@ func (p *DeletionParameters) ValidateShape(treeDepth uint32, batchSize uint32) e
 	return nil
 }
 
-// ComputeInputHash computes the input hash to the prover and verifier.
+// ComputeInputHashDeletion computes the input hash to the prover and verifier.
 //
 // It uses big-endian byte ordering (network ordering) in order to agree with
 // Solidity and avoid the need to perform the byte swapping operations on-chain
 // where they would increase our gas cost.
 func (p *DeletionParameters) ComputeInputHashDeletion() error {
 	var data []byte
-	for _, v := range p.IdComms {
-		idBytes := v.Bytes()
-		// extend to 32 bytes if necessary, maintaining big-endian ordering
-		if len(idBytes) < 32 {
-			idBytes = append(make([]byte, 32-len(idBytes)), idBytes...)
-		}
-		data = append(data, idBytes...)
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.BigEndian, p.DeletionIndices)
+	if err != nil {
+		return err
 	}
+	data = append(data, buf.Bytes()...)
 	data = append(data, p.PreRoot.Bytes()...)
 	data = append(data, p.PostRoot.Bytes()...)
 
@@ -66,10 +69,11 @@ func BuildR1CSDeletion(treeDepth uint32, batchSize uint32) (constraint.Constrain
 		proofs[i] = make([]frontend.Variable, treeDepth)
 	}
 	circuit := DeletionMbuCircuit{
-		Depth:        int(treeDepth),
-		BatchSize:    int(batchSize),
-		IdComms:      make([]frontend.Variable, batchSize),
-		MerkleProofs: proofs,
+		Depth:           int(treeDepth),
+		BatchSize:       int(batchSize),
+		DeletionIndices: make([]frontend.Variable, batchSize),
+		IdComms:         make([]frontend.Variable, batchSize),
+		MerkleProofs:    proofs,
 	}
 	return frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 }

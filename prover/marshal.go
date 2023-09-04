@@ -35,7 +35,7 @@ type InsertionParametersJSON struct {
 }
 type DeletionParametersJSON struct {
 	InputHash       string     `json:"inputHash"`
-	DeletionIndices []string   `json:"deletionIndices"`
+	DeletionIndices []uint32   `json:"deletionIndices"`
 	PreRoot         string     `json:"preRoot"`
 	PostRoot        string     `json:"postRoot"`
 	IdComms         []string   `json:"identityCommitments"`
@@ -113,7 +113,7 @@ func (p *InsertionParameters) UnmarshalJSON(data []byte) error {
 func (p *DeletionParameters) MarshalJSON() ([]byte, error) {
 	paramsJson := DeletionParametersJSON{}
 	paramsJson.InputHash = toHex(&p.InputHash)
-	paramsJson.DeletionIndices = make([]string, len(p.DeletionIndices))
+	paramsJson.DeletionIndices = p.DeletionIndices
 	paramsJson.PreRoot = toHex(&p.PreRoot)
 	paramsJson.PostRoot = toHex(&p.PostRoot)
 	paramsJson.IdComms = make([]string, len(p.IdComms))
@@ -132,48 +132,48 @@ func (p *DeletionParameters) MarshalJSON() ([]byte, error) {
 
 func (p *DeletionParameters) UnmarshalJSON(data []byte) error {
 
-	//var params InsertionParametersJSON
-	//
-	//err := json.Unmarshal(data, &params)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = fromHex(&p.InputHash, params.InputHash)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//p.StartIndex = params.StartIndex
-	//
-	//err = fromHex(&p.PreRoot, params.PreRoot)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = fromHex(&p.PostRoot, params.PostRoot)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//p.IdComms = make([]big.Int, len(params.IdComms))
-	//for i := 0; i < len(params.IdComms); i++ {
-	//	err = fromHex(&p.IdComms[i], params.IdComms[i])
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	//
-	//p.MerkleProofs = make([][]big.Int, len(params.MerkleProofs))
-	//for i := 0; i < len(params.MerkleProofs); i++ {
-	//	p.MerkleProofs[i] = make([]big.Int, len(params.MerkleProofs[i]))
-	//	for j := 0; j < len(params.MerkleProofs[i]); j++ {
-	//		err = fromHex(&p.MerkleProofs[i][j], params.MerkleProofs[i][j])
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
+	var params DeletionParametersJSON
+
+	err := json.Unmarshal(data, &params)
+	if err != nil {
+		return err
+	}
+
+	err = fromHex(&p.InputHash, params.InputHash)
+	if err != nil {
+		return err
+	}
+
+	p.DeletionIndices = params.DeletionIndices
+
+	err = fromHex(&p.PreRoot, params.PreRoot)
+	if err != nil {
+		return err
+	}
+
+	err = fromHex(&p.PostRoot, params.PostRoot)
+	if err != nil {
+		return err
+	}
+
+	p.IdComms = make([]big.Int, len(params.IdComms))
+	for i := 0; i < len(params.IdComms); i++ {
+		err = fromHex(&p.IdComms[i], params.IdComms[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	p.MerkleProofs = make([][]big.Int, len(params.MerkleProofs))
+	for i := 0; i < len(params.MerkleProofs); i++ {
+		p.MerkleProofs[i] = make([]big.Int, len(params.MerkleProofs[i]))
+		for j := 0; j < len(params.MerkleProofs[i]); j++ {
+			err = fromHex(&p.MerkleProofs[i][j], params.MerkleProofs[i][j])
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
