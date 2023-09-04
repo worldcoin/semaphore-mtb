@@ -164,7 +164,7 @@ def VerifyProof_31_30 (Proof: Vector F 31) (Path: Vector F 30) (k: F -> Prop): P
     ProofRound Path[29] Proof[30] gate_28 fun gate_29 =>
     k gate_29
 
-def InsertionProof_3_3 (StartIndex: F) (PreRoot: F) (IdComms: Vector F 3) (MerkleProofs: Vector (Vector F 30) 3) (k: F -> Prop): Prop :=
+def InsertionProof_3_30_3 (StartIndex: F) (PreRoot: F) (IdComms: Vector F 3) (MerkleProofs: Vector (Vector F 30) 3) (k: F -> Prop): Prop :=
     ∃gate_0, gate_0 = Gates.add StartIndex 0 ∧
     ∃gate_1, Gates.to_binary gate_0 30 gate_1 ∧
     VerifyProof_31_30 vec![0, MerkleProofs[0][0], MerkleProofs[0][1], MerkleProofs[0][2], MerkleProofs[0][3], MerkleProofs[0][4], MerkleProofs[0][5], MerkleProofs[0][6], MerkleProofs[0][7], MerkleProofs[0][8], MerkleProofs[0][9], MerkleProofs[0][10], MerkleProofs[0][11], MerkleProofs[0][12], MerkleProofs[0][13], MerkleProofs[0][14], MerkleProofs[0][15], MerkleProofs[0][16], MerkleProofs[0][17], MerkleProofs[0][18], MerkleProofs[0][19], MerkleProofs[0][20], MerkleProofs[0][21], MerkleProofs[0][22], MerkleProofs[0][23], MerkleProofs[0][24], MerkleProofs[0][25], MerkleProofs[0][26], MerkleProofs[0][27], MerkleProofs[0][28], MerkleProofs[0][29]] vec![gate_1[0], gate_1[1], gate_1[2], gate_1[3], gate_1[4], gate_1[5], gate_1[6], gate_1[7], gate_1[8], gate_1[9], gate_1[10], gate_1[11], gate_1[12], gate_1[13], gate_1[14], gate_1[15], gate_1[16], gate_1[17], gate_1[18], gate_1[19], gate_1[20], gate_1[21], gate_1[22], gate_1[23], gate_1[24], gate_1[25], gate_1[26], gate_1[27], gate_1[28], gate_1[29]] fun gate_2 =>
