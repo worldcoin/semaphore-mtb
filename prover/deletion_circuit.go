@@ -74,11 +74,11 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	for i := 0; i < circuit.BatchSize; i += 1 {
 		currentPath := api.ToBinary(circuit.DeletionIndices[i], circuit.Depth)
 
-		// Verify proof for empty leaf.
+		// Verify proof for idComm.
 		root = VerifyProof(api, ph, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
 		api.AssertIsEqual(root, prevRoot)
 
-		// Verify proof for idComm.
+		// Verify proof for empty leaf.
 		root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
 
 		// Set root for next iteration.
