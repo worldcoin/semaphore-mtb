@@ -5,7 +5,7 @@ import Mathlib
 import ProvenZk
 
 open Matrix
-open VerifyProof (F Order)
+open InsertionProof (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
