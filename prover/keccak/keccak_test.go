@@ -54,27 +54,27 @@ func TestKeccak(t *testing.T) {
 	var circuit1 TestKeccakCircuit1
 	assert.ProverSucceeded(&circuit1, &TestKeccakCircuit1{
 		Input: [8]frontend.Variable{0, 0, 0, 0, 0, 0, 0, 0},
-		Hash:  bigIntLE("0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a"),
+		Hash:  reducedBigIntLE("0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a"),
 	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
 	// Keccak: hash empty input
 	var circuit2 TestKeccakCircuit2
 	assert.ProverSucceeded(&circuit2, &TestKeccakCircuit2{
 		Input: [0]frontend.Variable{},
-		Hash:  bigIntLE("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
+		Hash:  reducedBigIntLE("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
 	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
 	// SHA3: hash empty input
 	var circuit3 TestSHACircuit
 	assert.ProverSucceeded(&circuit3, &TestSHACircuit{
 		Input: [0]frontend.Variable{},
-		Hash:  bigIntLE("0xa7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
+		Hash:  reducedBigIntLE("0xa7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
 	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
 }
 
 // we need to feed in the hash in little endian
-func bigIntLE(s string) big.Int {
+func reducedBigIntLE(s string) big.Int {
 	var bi big.Int
 	bi.SetString(s, 0)
 
@@ -82,7 +82,12 @@ func bigIntLE(s string) big.Int {
 	for i := 0; i < len(b)/2; i++ {
 		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
 	}
-
 	bi.SetBytes(b)
+
+	var modulus big.Int
+	modulus.SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+
+	bi.Mod(&bi, &modulus)
+
 	return bi
 }
