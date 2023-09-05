@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
+	"math/big"
+	"worldcoin/gnark-mbu/logging"
+	"worldcoin/gnark-mbu/prover/poseidon"
+
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
-	"io"
-	"math/big"
-	"worldcoin/gnark-mbu/logging"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type Parameters struct {
@@ -113,7 +116,8 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 }
 
 func ExtractLean() (string, error) {
-	return "", nil
+	assignment := poseidon.Poseidon2{}
+	return extractor.GadgetToLean(&assignment, ecc.BN254)
 }
 
 func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {

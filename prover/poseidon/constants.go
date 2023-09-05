@@ -2,7 +2,6 @@ package poseidon
 
 import (
 	"math/big"
-
 	"github.com/consensys/gnark/frontend"
 )
 
@@ -12,7 +11,7 @@ func hex(s string) big.Int {
 	return bi
 }
 
-var MDS1 = [][]frontend.Variable{
+var MDS_2 = [][]frontend.Variable{
 	{
 		hex("0x066f6f85d6f68a85ec10345351a23a3aaf07f38af8c952a7bceca70bd2af7ad5"),
 		hex("0x2b9d4b4110c9ae997782e1509b1d0fdb20a7c02bbd8bea7305462b9f8125b1e8"),
@@ -22,7 +21,7 @@ var MDS1 = [][]frontend.Variable{
 	},
 }
 
-var CONSTANTS1 = [][]frontend.Variable{
+var CONSTANTS_2 = [][]frontend.Variable{
 	{
 		hex("0x09c46e9ec68e9bd4fe1faaba294cba38a71aa177534cdd1b6c7dc0dbd0abd7a7"),
 		hex("0x0c0356530896eec42a97ed937f3135cfc5142b3ae405b8343c1d83ffa604cb81"),
@@ -218,7 +217,7 @@ var CONSTANTS1 = [][]frontend.Variable{
 	},
 }
 
-var MDS = [][]frontend.Variable{
+var MDS_3 = [][]frontend.Variable{
 	{
 		hex("0x109b7f411ba0e4c9b2b70caf5c36a7b194be7c11ad24378bfedb68592ba8118b"),
 		hex("0x16ed41e13bb9c0c66ae119424fddbcbc9314dc9fdbdeea55d6c64543dc4903e0"),
@@ -236,7 +235,7 @@ var MDS = [][]frontend.Variable{
 	},
 }
 
-var CONSTANTS = [][]frontend.Variable{
+var CONSTANTS_3 = [][]frontend.Variable{
 	{
 		hex("0x0ee9a592ba9a9518d05986d656f40c2114c4993c11bb29938d21d47304cd8e6e"),
 		hex("0x00f1445235f2148c5986587169fc1bcd887b08d4d00868df5696fff40956e864"),
