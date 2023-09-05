@@ -111,7 +111,7 @@ func ExtractLean(treeDepth uint32, batchSize uint32) (string, error) {
 		BatchSize: int(batchSize),
 		Depth: int(treeDepth),
 	}
-	return extractor.GadgetToLean(&assignment, ecc.BN254)
+	return extractor.GadgetToLeanWithName(&assignment, ecc.BN254, "SemaphoreMTB")
 }
 
 func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {

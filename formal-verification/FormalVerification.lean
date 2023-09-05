@@ -164,4 +164,20 @@ def VerifyProof_31_30 (Proof: Vector F 31) (Path: Vector F 30) (k: F -> Prop): P
     ProofRound Path[29] Proof[30] gate_28 fun gate_29 =>
     k gate_29
 
+def InsertionRound_30 (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F 30) (k: F -> Prop): Prop :=
+    ∃gate_0, Gates.to_binary Index 30 gate_0 ∧
+    VerifyProof_31_30 vec![0, Proof[0], Proof[1], Proof[2], Proof[3], Proof[4], Proof[5], Proof[6], Proof[7], Proof[8], Proof[9], Proof[10], Proof[11], Proof[12], Proof[13], Proof[14], Proof[15], Proof[16], Proof[17], Proof[18], Proof[19], Proof[20], Proof[21], Proof[22], Proof[23], Proof[24], Proof[25], Proof[26], Proof[27], Proof[28], Proof[29]] vec![gate_0[0], gate_0[1], gate_0[2], gate_0[3], gate_0[4], gate_0[5], gate_0[6], gate_0[7], gate_0[8], gate_0[9], gate_0[10], gate_0[11], gate_0[12], gate_0[13], gate_0[14], gate_0[15], gate_0[16], gate_0[17], gate_0[18], gate_0[19], gate_0[20], gate_0[21], gate_0[22], gate_0[23], gate_0[24], gate_0[25], gate_0[26], gate_0[27], gate_0[28], gate_0[29]] fun gate_1 =>
+    Gates.eq gate_1 PrevRoot ∧
+    VerifyProof_31_30 vec![Item, Proof[0], Proof[1], Proof[2], Proof[3], Proof[4], Proof[5], Proof[6], Proof[7], Proof[8], Proof[9], Proof[10], Proof[11], Proof[12], Proof[13], Proof[14], Proof[15], Proof[16], Proof[17], Proof[18], Proof[19], Proof[20], Proof[21], Proof[22], Proof[23], Proof[24], Proof[25], Proof[26], Proof[27], Proof[28], Proof[29]] vec![gate_0[0], gate_0[1], gate_0[2], gate_0[3], gate_0[4], gate_0[5], gate_0[6], gate_0[7], gate_0[8], gate_0[9], gate_0[10], gate_0[11], gate_0[12], gate_0[13], gate_0[14], gate_0[15], gate_0[16], gate_0[17], gate_0[18], gate_0[19], gate_0[20], gate_0[21], gate_0[22], gate_0[23], gate_0[24], gate_0[25], gate_0[26], gate_0[27], gate_0[28], gate_0[29]] fun gate_3 =>
+    k gate_3
+
+def InsertionProof_3_30_3 (StartIndex: F) (PreRoot: F) (IdComms: Vector F 3) (MerkleProofs: Vector (Vector F 30) 3) (k: F -> Prop): Prop :=
+    ∃gate_0, gate_0 = Gates.add StartIndex 0 ∧
+    InsertionRound_30 gate_0 IdComms[0] PreRoot vec![MerkleProofs[0][0], MerkleProofs[0][1], MerkleProofs[0][2], MerkleProofs[0][3], MerkleProofs[0][4], MerkleProofs[0][5], MerkleProofs[0][6], MerkleProofs[0][7], MerkleProofs[0][8], MerkleProofs[0][9], MerkleProofs[0][10], MerkleProofs[0][11], MerkleProofs[0][12], MerkleProofs[0][13], MerkleProofs[0][14], MerkleProofs[0][15], MerkleProofs[0][16], MerkleProofs[0][17], MerkleProofs[0][18], MerkleProofs[0][19], MerkleProofs[0][20], MerkleProofs[0][21], MerkleProofs[0][22], MerkleProofs[0][23], MerkleProofs[0][24], MerkleProofs[0][25], MerkleProofs[0][26], MerkleProofs[0][27], MerkleProofs[0][28], MerkleProofs[0][29]] fun gate_1 =>
+    ∃gate_2, gate_2 = Gates.add StartIndex 1 ∧
+    InsertionRound_30 gate_2 IdComms[1] gate_1 vec![MerkleProofs[1][0], MerkleProofs[1][1], MerkleProofs[1][2], MerkleProofs[1][3], MerkleProofs[1][4], MerkleProofs[1][5], MerkleProofs[1][6], MerkleProofs[1][7], MerkleProofs[1][8], MerkleProofs[1][9], MerkleProofs[1][10], MerkleProofs[1][11], MerkleProofs[1][12], MerkleProofs[1][13], MerkleProofs[1][14], MerkleProofs[1][15], MerkleProofs[1][16], MerkleProofs[1][17], MerkleProofs[1][18], MerkleProofs[1][19], MerkleProofs[1][20], MerkleProofs[1][21], MerkleProofs[1][22], MerkleProofs[1][23], MerkleProofs[1][24], MerkleProofs[1][25], MerkleProofs[1][26], MerkleProofs[1][27], MerkleProofs[1][28], MerkleProofs[1][29]] fun gate_3 =>
+    ∃gate_4, gate_4 = Gates.add StartIndex 2 ∧
+    InsertionRound_30 gate_4 IdComms[2] gate_3 vec![MerkleProofs[2][0], MerkleProofs[2][1], MerkleProofs[2][2], MerkleProofs[2][3], MerkleProofs[2][4], MerkleProofs[2][5], MerkleProofs[2][6], MerkleProofs[2][7], MerkleProofs[2][8], MerkleProofs[2][9], MerkleProofs[2][10], MerkleProofs[2][11], MerkleProofs[2][12], MerkleProofs[2][13], MerkleProofs[2][14], MerkleProofs[2][15], MerkleProofs[2][16], MerkleProofs[2][17], MerkleProofs[2][18], MerkleProofs[2][19], MerkleProofs[2][20], MerkleProofs[2][21], MerkleProofs[2][22], MerkleProofs[2][23], MerkleProofs[2][24], MerkleProofs[2][25], MerkleProofs[2][26], MerkleProofs[2][27], MerkleProofs[2][28], MerkleProofs[2][29]] fun gate_5 =>
+    k gate_5
+
 end SemaphoreMTB
