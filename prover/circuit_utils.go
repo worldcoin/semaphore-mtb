@@ -33,6 +33,7 @@ func (e *bitPatternLengthError) Error() string {
 	return "Bit pattern length was " + strconv.Itoa(e.actualLength) + " not a total number of bytes"
 }
 
+// ProofRound gadget generates the ParentHash
 type ProofRound struct {
 	Direction frontend.Variable
 	Hash      frontend.Variable
@@ -47,6 +48,8 @@ func (gadget ProofRound) DefineGadget(api abstractor.API) []frontend.Variable {
 	return []frontend.Variable{sum}
 }
 
+// VerifyProof recovers the Merkle Tree using Proof[] and Path[] and returns the tree Root
+// Proof[0] corresponds to the Leaf which is why len(Proof) === len(Path) + 1
 type VerifyProof struct {
 	Proof []frontend.Variable
 	Path  []frontend.Variable
@@ -60,61 +63,61 @@ func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	return []frontend.Variable{sum}
 }
 
-type InsertionRound struct {
-	Index    frontend.Variable
-	Item     frontend.Variable
-	PrevRoot frontend.Variable
-	Proof    []frontend.Variable
+// type InsertionRound struct {
+// 	Index    frontend.Variable
+// 	Item     frontend.Variable
+// 	PrevRoot frontend.Variable
+// 	Proof    []frontend.Variable
 
-	Depth int
-}
+// 	Depth int
+// }
 
-func (gadget InsertionRound) DefineGadget(api abstractor.API) []frontend.Variable {
-	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
+// func (gadget InsertionRound) DefineGadget(api abstractor.API) []frontend.Variable {
+// 	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
 
-	// len(circuit.MerkleProofs) === circuit.BatchSize
-	// len(circuit.MerkleProofs[i]) === circuit.Depth
-	// len(circuit.IdComms) === circuit.BatchSize
-	// Verify proof for empty leaf.
-	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
-	root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
-	api.AssertIsEqual(root, gadget.PrevRoot)
+// 	// len(circuit.MerkleProofs) === circuit.BatchSize
+// 	// len(circuit.MerkleProofs[i]) === circuit.Depth
+// 	// len(circuit.IdComms) === circuit.BatchSize
+// 	// Verify proof for empty leaf.
+// 	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
+// 	root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+// 	api.AssertIsEqual(root, gadget.PrevRoot)
 
-	// Verify proof for idComm.
-	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
-	root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+// 	// Verify proof for idComm.
+// 	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
+// 	root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
 
-	return []frontend.Variable{root}
-}
+// 	return []frontend.Variable{root}
+// }
 
-type InsertionProof struct {
-	StartIndex frontend.Variable
-	PreRoot    frontend.Variable
-	IdComms    []frontend.Variable
+// type InsertionProof struct {
+// 	StartIndex frontend.Variable
+// 	PreRoot    frontend.Variable
+// 	IdComms    []frontend.Variable
 
-	MerkleProofs [][]frontend.Variable
+// 	MerkleProofs [][]frontend.Variable
 
-	BatchSize int
-	Depth     int
-}
+// 	BatchSize int
+// 	Depth     int
+// }
 
-func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variable {
-	prevRoot := gadget.PreRoot
+// func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variable {
+// 	prevRoot := gadget.PreRoot
 
-	// Individual insertions.
-	for i := 0; i < gadget.BatchSize; i += 1 {
-		currentIndex := api.Add(gadget.StartIndex, i)
-		prevRoot = api.Call(InsertionRound{
-			Index: currentIndex,
-			Item: gadget.IdComms[i],
-			PrevRoot: prevRoot,
-			Proof: gadget.MerkleProofs[i],
-			Depth: gadget.Depth,
-		})[0]
-	}
+// 	// Individual insertions.
+// 	for i := 0; i < gadget.BatchSize; i += 1 {
+// 		currentIndex := api.Add(gadget.StartIndex, i)
+// 		prevRoot = api.Call(InsertionRound{
+// 			Index: currentIndex,
+// 			Item: gadget.IdComms[i],
+// 			PrevRoot: prevRoot,
+// 			Proof: gadget.MerkleProofs[i],
+// 			Depth: gadget.Depth,
+// 		})[0]
+// 	}
 
-	return []frontend.Variable{prevRoot}
-}
+// 	return []frontend.Variable{prevRoot}
+// }
 
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
 // returning the result in newBits.
