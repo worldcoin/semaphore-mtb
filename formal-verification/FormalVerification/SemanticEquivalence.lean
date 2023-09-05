@@ -10,7 +10,7 @@ open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-abbrev D := 30
+abbrev D := 3
 
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 
@@ -18,6 +18,8 @@ lemma Poseidon2_uncps (a b : F) (k : F -> Prop) : SemaphoreMTB.Poseidon2 a b k �
     simp [SemaphoreMTB.Poseidon2, poseidon₂, poseidon_3_correct, getElem]
     rfl
 
+-- `ProofRound_uncps` proves that `SemaphoreMTB.ProofRound` is equivalent to a
+-- single iteration of `MerkleTree.recover_tail`
 lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} : 
     SemaphoreMTB.ProofRound direction hash sibling k ↔
     is_bit direction ∧ k (match Dir.nat_to_dir direction.val with
@@ -31,12 +33,14 @@ lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} :
         rw [Poseidon2_uncps]
     }
 
+-- `proof_rounds` rewrites `SemaphoreMTB.VerifyProof_31_30` with recursion using `proof_rounds`
 def proof_rounds (Siblings : Vector F (n+1)) (PathIndices : Vector F n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k Siblings.head
   | Nat.succ _ => SemaphoreMTB.ProofRound PathIndices.head Siblings.tail.head Siblings.head fun next =>
     proof_rounds (next ::ᵥ Siblings.tail.tail) PathIndices.tail k
 
+-- `proof_rounds_uncps` rewrites `proof_rounds` using the corresponding operations of `MerkleTree` library
 lemma proof_rounds_uncps
   {Leaf : F}
   {Siblings : Vector F n}
@@ -54,6 +58,7 @@ lemma proof_rounds_uncps
     intros
     rfl
 
+-- `VerifyProof_looped` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `proof_rounds`
 lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k: F -> Prop):
     SemaphoreMTB.VerifyProof_31_30 Siblings PathIndices k =
       proof_rounds Siblings PathIndices k := by
@@ -63,7 +68,73 @@ lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k
     rw [←Vector.ofFn_get (v := Siblings)]
     rfl
 
+-- `VerifyProof_31_30_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
 lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
     SemaphoreMTB.VerifyProof_31_30 (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
+
+-- We need to prove that `DeletionRound_3` is identical to `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf.
+-- This is shown in `DeletionRound_uncps`.
+-- Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `MerkleTree.recover_tail`
+
+def natToBin : Nat → List Dir
+  | 0     => [Dir.left]
+  | 1     => [Dir.right]
+  | n + 2 => natToBin ((n + 2) / 2) ++ natToBin (n % 2)
+decreasing_by {
+  simp_wf
+  simp_arith
+  sorry
+}
+
+def zmodToBin {n} (x : ZMod n) : List Dir := (natToBin (ZMod.val x)).reverse
+
+def toBinaryVector {n} (x : ZMod n) (d : Nat) : Vector Dir d :=
+  ⟨List.takeI d (zmodToBin x), by simp⟩
+
+def toBinaryVectorZ {n} (x : ZMod n) (d : Nat) : Vector (ZMod n) d :=
+  Vector.map Dir.toZMod (toBinaryVector x d)
+
+lemma toBinary_uncps {a : ZMod N} {x : Vector (ZMod N) D} {h : ∃out, Gates.to_binary a D out } :
+  Dir.create_dir_vec x = out := by
+  sorry
+
+-- def verify_proofs (Root: F) (Index: F) (Item: F) (MerkleProofs: Vector F (D+1)) (k: F -> Prop): Prop :=
+--   SemaphoreMTB.VerifyProof_31_30 MerkleProofs (toBinaryVectorZ Index D) ↔ 
+
+lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
+  SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
+  MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof Item = Root ∧
+  k (MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof 0) := by
+  sorry
+
+def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
+  match n with
+  | Nat.zero => k PreRoot
+  | Nat.succ _ => SemaphoreMTB.DeletionRound_3 PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
+    deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
+
+-- I need to write a loop of MerkleTree.recover_tail for `deletion_rounds_uncps`
+-- I can match with number of IdComms and it returns F
+def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) : F :=
+  match n with
+  | Nat.zero => PreRoot
+  | Nat.succ _ => 
+    let new_root := MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head IdComms.head
+    DeletionLoop DeletionIndices.tail new_root IdComms.tail MerkleProofs.tail
+
+lemma deletion_rounds_uncps {n}
+  {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
+  deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k ↔ k (DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs) := by
+  sorry
+
+lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F D) 2) (k: F -> Prop) :
+    SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k =
+      deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k := by
+        sorry
+
+lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F 2} {PreRoot: F} {IdComms: Vector F 2} {MerkleProofs: Vector (Vector F D) 2} {k: F -> Prop}:
+    SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k ↔
+    k (DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs) := by
+    simp only [DeletionProof_looped, deletion_rounds_uncps]
