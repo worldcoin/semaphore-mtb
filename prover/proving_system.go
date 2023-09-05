@@ -114,9 +114,9 @@ func Setup(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) {
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func ExtractLean(proofSize uint32) (string, error) {
-	// Not checking for proofSize === 0
-	assignment := VerifyProof{Proof: make([]frontend.Variable, proofSize+1), Path: make([]frontend.Variable, proofSize)}
+func ExtractLean(treeDepth uint32) (string, error) {
+	// Not checking for treeDepth === 0
+	assignment := VerifyProof{Proof: make([]frontend.Variable, treeDepth+1), Path: make([]frontend.Variable, treeDepth)}
 	return extractor.GadgetToLean(&assignment, ecc.BN254)
 }
 

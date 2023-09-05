@@ -239,13 +239,13 @@ func main() {
 				Name: "extract-circuit",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
-					&cli.StringFlag{Name: "proof-size", Usage: "Length of Proof vector (i.e. depth of tree)", Required: true},
+					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					path := context.String("output")
-					proofSize := uint32(context.Uint("proof-size"))
+					treeDepth := uint32(context.Uint("tree-depth"))
 					logging.Logger().Info().Msg("Extracting gnark circuit to Lean")
-					circuit_string, err := prover.ExtractLean(proofSize)
+					circuit_string, err := prover.ExtractLean(treeDepth)
 					if err != nil {
 						return err
 					}
