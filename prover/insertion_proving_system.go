@@ -94,7 +94,7 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func ExtractLean(treeDepth uint32, batchSize uint32) (string, error) {
+func ExtractInsertion(treeDepth uint32, batchSize uint32) (string, error) {
 	// Not checking for batchSize === 0 or treeDepth === 0
 
 	// Initialising MerkleProofs slice with correct dimentions

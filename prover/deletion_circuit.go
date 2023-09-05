@@ -65,24 +65,14 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	var root frontend.Variable
-
-	prevRoot := circuit.PreRoot
-
-	// Individual insertions.
-	for i := 0; i < circuit.BatchSize; i += 1 {
-		currentPath := api.ToBinary(circuit.DeletionIndices[i], circuit.Depth)
-
-		// Verify proof for idComm.
-		root = abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath})[0]
-		api.AssertIsEqual(root, prevRoot)
-
-		// Verify proof for empty leaf.
-		root = abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath})[0]
-
-		// Set root for next iteration.
-		prevRoot = root
-	}
+	root := abstractor.CallGadget(api, DeletionProof{
+		DeletionIndices: circuit.DeletionIndices,
+		PreRoot: circuit.PreRoot,
+		IdComms: circuit.IdComms,
+		MerkleProofs: circuit.MerkleProofs,
+		BatchSize: circuit.BatchSize,
+		Depth: circuit.Depth,
+	})[0]
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)

@@ -63,61 +63,114 @@ func (gadget VerifyProof) DefineGadget(api abstractor.API) []frontend.Variable {
 	return []frontend.Variable{sum}
 }
 
-// type InsertionRound struct {
-// 	Index    frontend.Variable
-// 	Item     frontend.Variable
-// 	PrevRoot frontend.Variable
-// 	Proof    []frontend.Variable
+type InsertionRound struct {
+	Index    frontend.Variable
+	Item     frontend.Variable
+	PrevRoot frontend.Variable
+	Proof    []frontend.Variable
 
-// 	Depth int
-// }
+	Depth int
+}
 
-// func (gadget InsertionRound) DefineGadget(api abstractor.API) []frontend.Variable {
-// 	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
+func (gadget InsertionRound) DefineGadget(api abstractor.API) []frontend.Variable {
+	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
 
-// 	// len(circuit.MerkleProofs) === circuit.BatchSize
-// 	// len(circuit.MerkleProofs[i]) === circuit.Depth
-// 	// len(circuit.IdComms) === circuit.BatchSize
-// 	// Verify proof for empty leaf.
-// 	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
-// 	root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
-// 	api.AssertIsEqual(root, gadget.PrevRoot)
+	// len(circuit.MerkleProofs) === circuit.BatchSize
+	// len(circuit.MerkleProofs[i]) === circuit.Depth
+	// len(circuit.IdComms) === circuit.BatchSize
+	// Verify proof for empty leaf.
+	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
+	root := api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+	api.AssertIsEqual(root, gadget.PrevRoot)
 
-// 	// Verify proof for idComm.
-// 	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
-// 	root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
+	// Verify proof for idComm.
+	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
+	root = api.Call(VerifyProof{Proof: proof, Path: currentPath})[0]
 
-// 	return []frontend.Variable{root}
-// }
+	return []frontend.Variable{root}
+}
 
-// type InsertionProof struct {
-// 	StartIndex frontend.Variable
-// 	PreRoot    frontend.Variable
-// 	IdComms    []frontend.Variable
+type InsertionProof struct {
+	StartIndex frontend.Variable
+	PreRoot    frontend.Variable
+	IdComms    []frontend.Variable
 
-// 	MerkleProofs [][]frontend.Variable
+	MerkleProofs [][]frontend.Variable
 
-// 	BatchSize int
-// 	Depth     int
-// }
+	BatchSize int
+	Depth     int
+}
 
-// func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variable {
-// 	prevRoot := gadget.PreRoot
+func (gadget InsertionProof) DefineGadget(api abstractor.API) []frontend.Variable {
+	prevRoot := gadget.PreRoot
 
-// 	// Individual insertions.
-// 	for i := 0; i < gadget.BatchSize; i += 1 {
-// 		currentIndex := api.Add(gadget.StartIndex, i)
-// 		prevRoot = api.Call(InsertionRound{
-// 			Index: currentIndex,
-// 			Item: gadget.IdComms[i],
-// 			PrevRoot: prevRoot,
-// 			Proof: gadget.MerkleProofs[i],
-// 			Depth: gadget.Depth,
-// 		})[0]
-// 	}
+	// Individual insertions.
+	for i := 0; i < gadget.BatchSize; i += 1 {
+		currentIndex := api.Add(gadget.StartIndex, i)
+		prevRoot = api.Call(InsertionRound{
+			Index: currentIndex,
+			Item: gadget.IdComms[i],
+			PrevRoot: prevRoot,
+			Proof: gadget.MerkleProofs[i],
+			Depth: gadget.Depth,
+		})[0]
+	}
 
-// 	return []frontend.Variable{prevRoot}
-// }
+	return []frontend.Variable{prevRoot}
+}
+
+type DeletionRound struct {
+	Root          frontend.Variable
+	Index         frontend.Variable
+	Item          frontend.Variable
+	MerkleProofs  []frontend.Variable
+
+	Depth         int
+}
+
+func (gadget DeletionRound) DefineGadget(api abstractor.API) []frontend.Variable {
+	// We verify that the Leaf belongs to the Merkle Tree by verifying that the computed root
+	// matches gadget.Root. Then, we return the root computed with Leaf being empty.
+	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
+
+	// Verify proof for Item.
+	root := api.Call(VerifyProof{append([]frontend.Variable{gadget.Item}, gadget.MerkleProofs[:]...), currentPath})[0]
+	api.AssertIsEqual(root, gadget.Root)
+
+	// Verify proof for empty leaf.
+	root = api.Call(VerifyProof{append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[:]...), currentPath})[0]
+
+	return []frontend.Variable{root}
+}
+
+type DeletionProof struct {
+	DeletionIndices []frontend.Variable
+	PreRoot         frontend.Variable
+	IdComms         []frontend.Variable
+	MerkleProofs    [][]frontend.Variable
+
+	BatchSize int
+	Depth     int
+}
+
+func (gadget DeletionProof) DefineGadget(api abstractor.API) []frontend.Variable {
+	// Actual batch merkle proof verification.
+	root := gadget.PreRoot
+
+	// Individual deletions.
+	for i := 0; i < gadget.BatchSize; i += 1 {
+		// Set root for next iteration.
+		root = api.Call(DeletionRound{
+			Root: root,
+			Index: gadget.DeletionIndices[i],
+			Item: gadget.IdComms[i],
+			MerkleProofs: gadget.MerkleProofs[i],
+			Depth: gadget.Depth,
+		})[0]
+	}
+
+	return []frontend.Variable{root}
+}
 
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
 // returning the result in newBits.

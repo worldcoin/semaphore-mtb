@@ -347,7 +347,7 @@ func main() {
 					treeDepth := uint32(context.Uint("tree-depth"))
 					batchSize := uint32(context.Uint("batch-size"))
 					logging.Logger().Info().Msg("Extracting gnark circuit to Lean")
-					circuit_string, err := prover.ExtractLean(treeDepth, batchSize)
+					circuit_string, err := prover.ExtractDeletion(treeDepth, batchSize)
 					if err != nil {
 						return err
 					}
