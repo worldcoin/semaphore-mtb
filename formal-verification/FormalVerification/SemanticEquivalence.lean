@@ -96,17 +96,24 @@ def toBinaryVector {n} (x : ZMod n) (d : Nat) : Vector Dir d :=
 def toBinaryVectorZ {n} (x : ZMod n) (d : Nat) : Vector (ZMod n) d :=
   Vector.map Dir.toZMod (toBinaryVector x d)
 
-lemma toBinary_uncps {a : ZMod N} {x : Vector (ZMod N) D} {h : ∃out, Gates.to_binary a D out } :
-  Dir.create_dir_vec x = out := by
-  sorry
+-- lemma toBinary_uncps {a : ZMod N} {x : Vector (ZMod N) D} {h : ∃out, Gates.to_binary a D out } :
+--   Dir.create_dir_vec x = out := by
+--   sorry
 
 -- def verify_proofs (Root: F) (Index: F) (Item: F) (MerkleProofs: Vector F (D+1)) (k: F -> Prop): Prop :=
 --   SemaphoreMTB.VerifyProof_31_30 MerkleProofs (toBinaryVectorZ Index D) ↔ 
+
+def deletion_round_loop (Root: F) (Paths: Vector F 3) (Item: F) (MerkleProofs: Vector F 3) (k: F -> Prop) : Prop :=
+  SemaphoreMTB.VerifyProof_31_30 (Item ::ᵥ MerkleProofs) Paths fun computed_root =>
+    computed_root = Root ∧ SemaphoreMTB.VerifyProof_31_30 (0 ::ᵥ MerkleProofs) Paths fun next_root => k next_root
 
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
   MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof Item = Root ∧
   k (MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof 0) := by
+  unfold SemaphoreMTB.DeletionRound_3
+  simp [VerifyProof_31_30_uncps]
+  simp [Gates.eq]
   sorry
 
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
@@ -121,13 +128,25 @@ def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector
   match n with
   | Nat.zero => PreRoot
   | Nat.succ _ => 
-    let new_root := MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head IdComms.head
+    let new_root := MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head 0
+    -- MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head IdComms.head = PreRoot ∧
     DeletionLoop DeletionIndices.tail new_root IdComms.tail MerkleProofs.tail
 
 lemma deletion_rounds_uncps {n}
   {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
   deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k ↔ k (DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs) := by
-  sorry
+  induction DeletionIndices, IdComms, MerkleProofs using Vector.inductionOn₃ generalizing PreRoot with
+  | nil => 
+    unfold deletion_rounds
+    unfold DeletionLoop
+    rfl
+  | cons => 
+    unfold deletion_rounds
+    unfold DeletionLoop
+    simp [DeletionRound_uncps]
+    rename_i ih
+    simp [ih]
+    sorry
 
 lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F D) 2) (k: F -> Prop) :
     SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k =
