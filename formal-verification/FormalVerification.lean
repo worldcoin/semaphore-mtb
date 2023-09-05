@@ -1,7 +1,7 @@
 import ProvenZk.Gates
 import ProvenZk.Ext.Vector
 
-namespace VerifyProof
+namespace SemaphoreMTB
 
 def Order : ℕ := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 variable [Fact (Nat.Prime Order)]
@@ -164,4 +164,4 @@ def VerifyProof_31_30 (Proof: Vector F 31) (Path: Vector F 30) (k: F -> Prop): P
     ProofRound Path[29] Proof[30] gate_28 fun gate_29 =>
     k gate_29
 
-end VerifyProof
+end SemaphoreMTB
