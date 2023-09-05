@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"worldcoin/gnark-mbu/prover"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Error struct {
@@ -17,6 +18,9 @@ type Error struct {
 	Code       string
 	Message    string
 }
+
+const DeletionMode = "deletion"
+const InsertionMode = "insertion"
 
 func malformedBodyError(err error) *Error {
 	return &Error{StatusCode: http.StatusBadRequest, Code: "malformed_body", Message: err.Error()}
@@ -52,6 +56,7 @@ func (error *Error) send(w http.ResponseWriter) {
 type Config struct {
 	ProverAddress  string
 	MetricsAddress string
+	Mode           string
 }
 
 func spawnServerJob(server *http.Server, label string) RunningJob {
@@ -80,7 +85,7 @@ func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 	logging.Logger().Info().Str("addr", config.MetricsAddress).Msg("metrics server started")
 
 	proverMux := http.NewServeMux()
-	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem})
+	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem, mode: config.Mode})
 	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
 	proverJob := spawnServerJob(proverServer, "prover server")
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
@@ -89,6 +94,7 @@ func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
 }
 
 type proveHandler struct {
+	mode          string
 	provingSystem *prover.ProvingSystem
 }
 
@@ -103,22 +109,45 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		malformedBodyError(err).send(w)
 		return
 	}
-	var params prover.Parameters
-	err = json.Unmarshal(buf, &params)
-	if err != nil {
-		malformedBodyError(err).send(w)
-		return
+
+	var proof *prover.Proof
+	if handler.mode == InsertionMode {
+		var params prover.InsertionParameters
+
+		err = json.Unmarshal(buf, &params)
+		if err != nil {
+			malformedBodyError(err).send(w)
+			return
+		}
+
+		proof, err = handler.provingSystem.ProveInsertion(&params)
+	} else if handler.mode == DeletionMode {
+		var params prover.DeletionParameters
+
+		err = json.Unmarshal(buf, &params)
+		if err != nil {
+			malformedBodyError(err).send(w)
+			return
+		}
+
+		proof, err = handler.provingSystem.ProveDeletion(&params)
 	}
-	proof, err := handler.provingSystem.Prove(&params)
+
 	if err != nil {
 		provingError(err).send(w)
 		return
 	}
+
 	responseBytes, err := json.Marshal(&proof)
 	if err != nil {
 		unexpectedError(err).send(w)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(responseBytes)
+
+	if err != nil {
+		logging.Logger().Error().Err(err).Msg("error writing response")
+	}
 }

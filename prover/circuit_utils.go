@@ -1,32 +1,29 @@
 package prover
 
 import (
+	"io"
 	"strconv"
-	"worldcoin/gnark-mbu/prover/keccak"
 	"worldcoin/gnark-mbu/prover/poseidon"
 
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/abstractor"
 )
 
-const emptyLeaf = 0
-
-type MbuCircuit struct {
-	// single public input
-	InputHash frontend.Variable `gnark:",public"`
-
-	// private inputs, but used as public inputs
-	StartIndex frontend.Variable   `gnark:"input"`
-	PreRoot    frontend.Variable   `gnark:"input"`
-	PostRoot   frontend.Variable   `gnark:"input"`
-	IdComms    []frontend.Variable `gnark:"input"`
-
-	// private inputs
-	MerkleProofs [][]frontend.Variable `gnark:"input"`
-
-	BatchSize int
-	Depth     int
+type Proof struct {
+	Proof groth16.Proof
 }
+
+type ProvingSystem struct {
+	TreeDepth        uint32
+	BatchSize        uint32
+	ProvingKey       groth16.ProvingKey
+	VerifyingKey     groth16.VerifyingKey
+	ConstraintSystem constraint.ConstraintSystem
+}
+
+const emptyLeaf = 0
 
 type bitPatternLengthError struct {
 	actualLength int
@@ -100,79 +97,13 @@ func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api frontend.API) (v
 	return api.FromBinary(bitsLittleEndian...), nil
 }
 
-func (circuit *MbuCircuit) Define(api frontend.API) error {
-	// Hash private inputs.
-	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
-	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
-	//     32	  ||   256   ||   256    ||    256     ||    256     || ... ||     256 bits
-
-	kh := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32)
-
-	var bits []frontend.Variable
-	var err error
-
-	// We convert all the inputs to the keccak hash to use big-endian (network) byte
-	// ordering so that it agrees with Solidity. This ensures that we don't have to
-	// perform the conversion inside the contract and hence save on gas.
-	bits, err = ToBinaryBigEndian(circuit.StartIndex, 32, api)
-	if err != nil {
-		return err
+func toBytesLE(b []byte) []byte {
+	for i := 0; i < len(b)/2; i++ {
+		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
 	}
-	kh.Write(bits...)
+	return b
+}
 
-	bits, err = ToBinaryBigEndian(circuit.PreRoot, 256, api)
-	if err != nil {
-		return err
-	}
-	kh.Write(bits...)
-
-	bits, err = ToBinaryBigEndian(circuit.PostRoot, 256, api)
-	if err != nil {
-		return err
-	}
-	kh.Write(bits...)
-
-	for i := 0; i < circuit.BatchSize; i++ {
-		bits, err = ToBinaryBigEndian(circuit.IdComms[i], 256, api)
-		if err != nil {
-			return err
-		}
-		kh.Write(bits...)
-	}
-
-	var sum frontend.Variable
-	sum, err = FromBinaryBigEndian(kh.Sum(), api)
-	if err != nil {
-		return err
-	}
-
-	// The same endianness conversion has been performed in the hash generation
-	// externally, so we can safely assert their equality here.
-	api.AssertIsEqual(circuit.InputHash, sum)
-
-	// Actual batch merkle proof verification.
-	var root frontend.Variable
-
-	prevRoot := circuit.PreRoot
-
-	// Individual insertions.
-	for i := 0; i < circuit.BatchSize; i += 1 {
-		currentIndex := api.Add(circuit.StartIndex, i)
-		currentPath := api.ToBinary(currentIndex, circuit.Depth)
-
-		// Verify proof for empty leaf.
-		root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
-		api.AssertIsEqual(root, prevRoot)
-
-		// Verify proof for idComm.
-		root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
-
-		// Set root for next iteration.
-		prevRoot = root
-	}
-
-	// Final root needs to match.
-	api.AssertIsEqual(root, circuit.PostRoot)
-
-	return nil
+func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
+	return ps.VerifyingKey.ExportSolidity(writer)
 }
