@@ -10,7 +10,7 @@ open InsertionProof (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-abbrev D := 30
+abbrev D := 3
 
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 
@@ -55,15 +55,45 @@ lemma proof_rounds_uncps
     rfl
 
 lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k: F -> Prop):
-    InsertionProof.VerifyProof_31_30 Siblings PathIndices k =
+    InsertionProof.VerifyProof_4_3 Siblings PathIndices k =
       proof_rounds Siblings PathIndices k := by
-    unfold InsertionProof.VerifyProof_31_30
+    unfold InsertionProof.VerifyProof_4_3
     simp [proof_rounds]
     rw [←Vector.ofFn_get (v := PathIndices)]
     rw [←Vector.ofFn_get (v := Siblings)]
     rfl
 
 lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
-    InsertionProof.VerifyProof_31_30 (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
+    InsertionProof.VerifyProof_4_3 (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
+
+def natToBin : Nat → List Dir
+  | 0     => [Dir.left]
+  | 1     => [Dir.right]
+  | n + 2 => natToBin ((n + 2) / 2) ++ natToBin (n % 2)
+decreasing_by {
+  simp_wf
+  simp_arith
+  --simp [Nat.div_le_self, Nat.mod_le]
+  sorry
+  -- case _ => {
+  --   apply Nat.div_le_self
+  -- }
+  -- case _ => {
+  --   simp_arith
+  -- }
+}
+
+def zmodToBin {n} (x : ZMod n) : List Dir := (natToBin (ZMod.val x)).reverse
+
+def toBinaryVector {n} (x : ZMod n) (d : Nat) : Vector Dir d :=
+  ⟨List.takeI d (zmodToBin x), by simp⟩
+
+lemma InsertionRound_uncps {Index: F} {Item: F} {PrevRoot: F} {Proof: Vector F D} {k: F -> Prop} :
+  InsertionProof.InsertionRound_3 Index Item PrevRoot Proof k ↔
+  MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof 0 = PrevRoot ∧
+  k (MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof Item) := by
+  sorry
+
+-- Write insertion_rounds
