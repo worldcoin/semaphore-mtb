@@ -8,6 +8,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
+	"github.com/reilabs/gnark-lean-extractor/abstractor"
 )
 
 type Proof struct {
@@ -32,22 +33,15 @@ func (e *bitPatternLengthError) Error() string {
 	return "Bit pattern length was " + strconv.Itoa(e.actualLength) + " not a total number of bytes"
 }
 
-func VerifyProof(api frontend.API, h poseidon.Poseidon, proofSet, helper []frontend.Variable) frontend.Variable {
+func VerifyProof(api frontend.API, proofSet, helper []frontend.Variable) frontend.Variable {
 	sum := proofSet[0]
 	for i := 1; i < len(proofSet); i++ {
 		api.AssertIsBoolean(helper[i-1])
 		d1 := api.Select(helper[i-1], proofSet[i], sum)
 		d2 := api.Select(helper[i-1], sum, proofSet[i])
-		sum = nodeSum(h, d1, d2)
+		sum = abstractor.CallGadget(api, poseidon.Poseidon2{In1: d1, In2: d2})[0]
 	}
 	return sum
-}
-
-func nodeSum(h poseidon.Poseidon, a, b frontend.Variable) frontend.Variable {
-	h.Write(a, b)
-	res := h.Sum()
-	h.Reset()
-	return res
 }
 
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,

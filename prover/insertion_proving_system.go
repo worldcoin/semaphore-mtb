@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"worldcoin/gnark-mbu/logging"
+	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -13,6 +14,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type InsertionParameters struct {
@@ -94,7 +96,8 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 }
 
 func ExtractLean() (string, error) {
-	return "", nil
+	assignment := poseidon.Poseidon2{}
+	return extractor.GadgetToLean(&assignment, ecc.BN254)
 }
 
 func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {

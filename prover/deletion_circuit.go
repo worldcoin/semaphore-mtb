@@ -2,7 +2,6 @@ package prover
 
 import (
 	"worldcoin/gnark-mbu/prover/keccak"
-	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark/frontend"
 )
@@ -66,7 +65,6 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 
 	// Actual batch merkle proof verification.
 	var root frontend.Variable
-	ph := poseidon.NewPoseidon2(api)
 
 	prevRoot := circuit.PreRoot
 
@@ -75,11 +73,11 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 		currentPath := api.ToBinary(circuit.DeletionIndices[i], circuit.Depth)
 
 		// Verify proof for idComm.
-		root = VerifyProof(api, ph, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
 		api.AssertIsEqual(root, prevRoot)
 
 		// Verify proof for empty leaf.
-		root = VerifyProof(api, ph, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
 
 		// Set root for next iteration.
 		prevRoot = root

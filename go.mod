@@ -6,6 +6,7 @@ require (
 	github.com/consensys/gnark v0.8.0
 	github.com/iden3/go-iden3-crypto v0.0.13
 	github.com/prometheus/client_golang v1.14.0
+	github.com/reilabs/gnark-lean-extractor v1.1.0
 	github.com/urfave/cli/v2 v2.10.2
 )
 
@@ -25,7 +26,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
