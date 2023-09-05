@@ -132,7 +132,12 @@ lemma deletion_rounds_uncps {n}
 lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F D) 2) (k: F -> Prop) :
     SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k =
       deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k := by
-        sorry
+        unfold SemaphoreMTB.DeletionProof_2_2_3_2
+        simp [deletion_rounds]
+        rw [←Vector.ofFn_get (v := DeletionIndices)]
+        rw [←Vector.ofFn_get (v := IdComms)]
+        rw [←Vector.ofFn_get (v := MerkleProofs)]
+        rfl
 
 lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F 2} {PreRoot: F} {IdComms: Vector F 2} {MerkleProofs: Vector (Vector F D) 2} {k: F -> Prop}:
     SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k ↔
