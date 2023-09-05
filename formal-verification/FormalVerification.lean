@@ -1,7 +1,7 @@
 import ProvenZk.Gates
 import ProvenZk.Ext.Vector
 
-namespace InsertionProof
+namespace SemaphoreMTB
 
 def Order : ℕ := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
 variable [Fact (Nat.Prime Order)]
@@ -131,24 +131,37 @@ def ProofRound (Direction: F) (Hash: F) (Sibling: F) (k: F -> Prop): Prop :=
     Poseidon2 gate_1 gate_2 fun gate_3 =>
     k gate_3
 
-def VerifyProof_4_3 (Proof: Vector F 4) (Path: Vector F 3) (k: F -> Prop): Prop :=
+def VerifyProof_31_30 (Proof: Vector F 31) (Path: Vector F 30) (k: F -> Prop): Prop :=
     ProofRound Path[0] Proof[1] Proof[0] fun gate_0 =>
     ProofRound Path[1] Proof[2] gate_0 fun gate_1 =>
     ProofRound Path[2] Proof[3] gate_1 fun gate_2 =>
-    k gate_2
+    ProofRound Path[3] Proof[4] gate_2 fun gate_3 =>
+    ProofRound Path[4] Proof[5] gate_3 fun gate_4 =>
+    ProofRound Path[5] Proof[6] gate_4 fun gate_5 =>
+    ProofRound Path[6] Proof[7] gate_5 fun gate_6 =>
+    ProofRound Path[7] Proof[8] gate_6 fun gate_7 =>
+    ProofRound Path[8] Proof[9] gate_7 fun gate_8 =>
+    ProofRound Path[9] Proof[10] gate_8 fun gate_9 =>
+    ProofRound Path[10] Proof[11] gate_9 fun gate_10 =>
+    ProofRound Path[11] Proof[12] gate_10 fun gate_11 =>
+    ProofRound Path[12] Proof[13] gate_11 fun gate_12 =>
+    ProofRound Path[13] Proof[14] gate_12 fun gate_13 =>
+    ProofRound Path[14] Proof[15] gate_13 fun gate_14 =>
+    ProofRound Path[15] Proof[16] gate_14 fun gate_15 =>
+    ProofRound Path[16] Proof[17] gate_15 fun gate_16 =>
+    ProofRound Path[17] Proof[18] gate_16 fun gate_17 =>
+    ProofRound Path[18] Proof[19] gate_17 fun gate_18 =>
+    ProofRound Path[19] Proof[20] gate_18 fun gate_19 =>
+    ProofRound Path[20] Proof[21] gate_19 fun gate_20 =>
+    ProofRound Path[21] Proof[22] gate_20 fun gate_21 =>
+    ProofRound Path[22] Proof[23] gate_21 fun gate_22 =>
+    ProofRound Path[23] Proof[24] gate_22 fun gate_23 =>
+    ProofRound Path[24] Proof[25] gate_23 fun gate_24 =>
+    ProofRound Path[25] Proof[26] gate_24 fun gate_25 =>
+    ProofRound Path[26] Proof[27] gate_25 fun gate_26 =>
+    ProofRound Path[27] Proof[28] gate_26 fun gate_27 =>
+    ProofRound Path[28] Proof[29] gate_27 fun gate_28 =>
+    ProofRound Path[29] Proof[30] gate_28 fun gate_29 =>
+    k gate_29
 
-def InsertionRound_3 (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F 3) (k: F -> Prop): Prop :=
-    ∃gate_0, Gates.to_binary Index 3 gate_0 ∧
-    VerifyProof_4_3 vec![0, Proof[0], Proof[1], Proof[2]] vec![gate_0[0], gate_0[1], gate_0[2]] fun gate_1 =>
-    Gates.eq gate_1 PrevRoot ∧
-    VerifyProof_4_3 vec![Item, Proof[0], Proof[1], Proof[2]] vec![gate_0[0], gate_0[1], gate_0[2]] fun gate_3 =>
-    k gate_3
-
-def InsertionProof_2_3_2 (StartIndex: F) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F 3) 2) (k: F -> Prop): Prop :=
-    ∃gate_0, gate_0 = Gates.add StartIndex 0 ∧
-    InsertionRound_3 gate_0 IdComms[0] PreRoot vec![MerkleProofs[0][0], MerkleProofs[0][1], MerkleProofs[0][2]] fun gate_1 =>
-    ∃gate_2, gate_2 = Gates.add StartIndex 1 ∧
-    InsertionRound_3 gate_2 IdComms[1] gate_1 vec![MerkleProofs[1][0], MerkleProofs[1][1], MerkleProofs[1][2]] fun gate_3 =>
-    k gate_3
-
-end InsertionProof
+end SemaphoreMTB

@@ -5,7 +5,7 @@ import Mathlib
 import ProvenZk
 
 open Matrix
-open InsertionProof (F Order)
+open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
@@ -64,16 +64,16 @@ def half_rounds_cps
     half_round state (Vector.ofFn fun i => cfg.round_constants[init_const + i]!) fun state' =>
         half_rounds_cps cfg half_round state' (init_const + cfg.t) round_count k
 
-lemma sbox_uncps (A : F) (k : F -> Prop): InsertionProof.sbox A k = k (A ^ 5) := by
-  unfold InsertionProof.sbox
+lemma sbox_uncps (A : F) (k : F -> Prop): SemaphoreMTB.sbox A k = k (A ^ 5) := by
+  unfold SemaphoreMTB.sbox
   simp [Gates.mul]
   apply iff_to_eq
   repeat (rw [pow_succ])
   rw [pow_zero, mul_one, mul_assoc]
 
 lemma mds_3_uncps (S : Vector F 3) (k : Vector F 3 -> Prop):
-  InsertionProof.mds_3 S k = k (mds_matmul Constants.x5_254_3 S) := by
-  simp [InsertionProof.mds_3, Gates.add, Gates.mul]
+  SemaphoreMTB.mds_3 S k = k (mds_matmul Constants.x5_254_3 S) := by
+  simp [SemaphoreMTB.mds_3, Gates.add, Gates.mul]
   apply iff_to_eq
   simp [mds_matmul, Constants.x5_254_3, Constants.x5_254_3_MDS_matrix]
   simp [Vector.to_column, Matrix.to_vector, Vector.ofFn]
@@ -89,8 +89,8 @@ lemma mds_3_uncps (S : Vector F 3) (k : Vector F 3 -> Prop):
   rfl
 
 lemma full_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
-  InsertionProof.fullRound_3_3 S C k = k (full_round Constants.x5_254_3 S C) := by
-  unfold InsertionProof.fullRound_3_3
+  SemaphoreMTB.fullRound_3_3 S C k = k (full_round Constants.x5_254_3 S C) := by
+  unfold SemaphoreMTB.fullRound_3_3
   unfold Gates.add
   simp [Gates.add, sbox_uncps, mds_3_uncps, full_round]
   apply iff_to_eq
@@ -102,8 +102,8 @@ lemma full_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
   conv => rhs ; rw [←Vector.ofFn_get S]
 
 lemma half_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
-  InsertionProof.halfRound_3_3 S C k = k (partial_round Constants.x5_254_3 S C) := by
-  unfold InsertionProof.halfRound_3_3
+  SemaphoreMTB.halfRound_3_3 S C k = k (partial_round Constants.x5_254_3 S C) := by
+  unfold SemaphoreMTB.halfRound_3_3
   unfold Gates.add
   simp [Gates.add, sbox_uncps, mds_3_uncps, partial_round]
   apply iff_to_eq
@@ -151,7 +151,7 @@ lemma partial_rounds_3_uncps
   {S : Vector F 3}
   {start count : Nat}
   {k : Vector F 3 -> Prop}:
-  half_rounds_cps Constants.x5_254_3 InsertionProof.halfRound_3_3 S start count k = k (partial_rounds Constants.x5_254_3 S start count) := by
+  half_rounds_cps Constants.x5_254_3 SemaphoreMTB.halfRound_3_3 S start count k = k (partial_rounds Constants.x5_254_3 S start count) := by
   apply partial_rounds_uncps
   apply half_round_3_uncps
 
@@ -192,7 +192,7 @@ lemma full_rounds_3_uncps
   {S : Vector F 3}
   {start count : Nat}
   {k : Vector F 3 -> Prop}:
-  full_rounds_cps Constants.x5_254_3 InsertionProof.fullRound_3_3 S start count k = k (full_rounds Constants.x5_254_3 S start count) := by
+  full_rounds_cps Constants.x5_254_3 SemaphoreMTB.fullRound_3_3 S start count k = k (full_rounds Constants.x5_254_3 S start count) := by
   apply full_rounds_uncps
   apply full_round_3_uncps
 
@@ -200,9 +200,9 @@ lemma fold_vec_2 {v : Vector F 2}: vec![v[0], v[1]] = v := by
     conv => rhs; rw [←Vector.ofFn_get v]
 
 def looped_poseidon_3 (inp : Vector F 3) (k: Vector F 3 -> Prop): Prop :=
-    full_rounds_cps Constants.x5_254_3 InsertionProof.fullRound_3_3 inp 0 4 fun state =>
-    half_rounds_cps Constants.x5_254_3 InsertionProof.halfRound_3_3 state 12 57  fun state' =>
-    full_rounds_cps Constants.x5_254_3 InsertionProof.fullRound_3_3 state' 183 4 k
+    full_rounds_cps Constants.x5_254_3 SemaphoreMTB.fullRound_3_3 inp 0 4 fun state =>
+    half_rounds_cps Constants.x5_254_3 SemaphoreMTB.halfRound_3_3 state 12 57  fun state' =>
+    full_rounds_cps Constants.x5_254_3 SemaphoreMTB.fullRound_3_3 state' 183 4 k
 
 lemma fold_vec_3 {v : Vector F 3}: vec![v[0], v[1], v[2]] = v := by
     conv => rhs; rw [←Vector.ofFn_get v]
@@ -210,9 +210,9 @@ lemma fold_vec_3 {v : Vector F 3}: vec![v[0], v[1], v[2]] = v := by
 set_option maxRecDepth 2048
 
 theorem looped_poseidon_3_go (inp : Vector F 3) (k : Vector F 3 -> Prop):
-    InsertionProof.poseidon_3 inp k = looped_poseidon_3 inp k := by
+    SemaphoreMTB.poseidon_3 inp k = looped_poseidon_3 inp k := by
     unfold looped_poseidon_3
-    unfold InsertionProof.poseidon_3
+    unfold SemaphoreMTB.poseidon_3
     simp [full_rounds_cps, half_rounds_cps, getElem!, fold_vec_3, Vector.ofFn]
     rfl
 
@@ -295,7 +295,7 @@ theorem perm_folded_go (cfg : Constants) (input_words : Vector cfg.F cfg.t):
   }
 
 theorem poseidon_3_correct (inp : Vector F 3) (k : Vector F 3 -> Prop):
-  InsertionProof.poseidon_3 inp k = k (Poseidon.perm Constants.x5_254_3 inp) := by
+  SemaphoreMTB.poseidon_3 inp k = k (Poseidon.perm Constants.x5_254_3 inp) := by
   simp [
     looped_poseidon_3_go,
     looped_poseidon_3,

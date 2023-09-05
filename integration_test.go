@@ -1,6 +1,7 @@
-package main
+package main_test
 
 import (
+	gnarkLogger "github.com/consensys/gnark/logger"
 	"io"
 	"net/http"
 	"strings"
@@ -13,24 +14,39 @@ import (
 const ProverAddress = "localhost:8080"
 const MetricsAddress = "localhost:9999"
 
+var mode string
+
 func TestMain(m *testing.M) {
+	gnarkLogger.Set(*logging.Logger())
 	logging.Logger().Info().Msg("Setting up the prover")
-	ps, err := prover.Setup(3, 2)
+	ps, err := prover.SetupInsertion(3, 2)
 	if err != nil {
 		panic(err)
 	}
 	cfg := server.Config{
 		ProverAddress:  ProverAddress,
 		MetricsAddress: MetricsAddress,
+		Mode:           server.InsertionMode,
 	}
-	logging.Logger().Info().Msg("Starting the server")
+	logging.Logger().Info().Msg("Starting the insertion server")
 	instance := server.Run(&cfg, ps)
-	logging.Logger().Info().Msg("Running the tests")
-	defer func() {
-		instance.RequestStop()
-		instance.AwaitStop()
-	}()
+	logging.Logger().Info().Msg("Running the insertion tests")
+	mode = server.InsertionMode
 	m.Run()
+	instance.RequestStop()
+	instance.AwaitStop()
+	cfg.Mode = server.DeletionMode
+	ps, err = prover.SetupDeletion(3, 2)
+	if err != nil {
+		panic(err)
+	}
+	logging.Logger().Info().Msg("Starting the deletion server")
+	instance = server.Run(&cfg, ps)
+	logging.Logger().Info().Msg("Running the deletion tests")
+	mode = server.DeletionMode
+	m.Run()
+	instance.RequestStop()
+	instance.AwaitStop()
 }
 
 func TestWrongMethod(t *testing.T) {
@@ -43,7 +59,10 @@ func TestWrongMethod(t *testing.T) {
 	}
 }
 
-func TestHappyPath(t *testing.T) {
+func TestInsertionHappyPath(t *testing.T) {
+	if mode != server.InsertionMode {
+		return
+	}
 	body := `{
 		"inputHash":"0x5057a31740d54d42ac70c05e0768fb770c682cb2c559bdd03fe4099f7e584e4f",
 		"startIndex":0,
@@ -63,7 +82,33 @@ func TestHappyPath(t *testing.T) {
 	}
 }
 
-func TestWrongInput(t *testing.T) {
+func TestDeletionHappyPath(t *testing.T) {
+	if mode != server.DeletionMode {
+		return
+	}
+	body := `{
+		"inputHash":"0xdcd389a94b549222fadc9e335c358a3fe4d534155182f46927f82ea8491c7480",
+		"deletionIndices":[0,2],
+		"preRoot":"0xd11eefe87b985333c0d327b0cdd39a9641b5ac32c35c2bda84301ef3231a8ac",
+		"postRoot":"0x1912415186579e1d9ff6282b76d081f0acd527d8549ea803385b1382d9498f35",
+		"identityCommitments":["0x1","0x3"],
+		"merkleProofs":[
+			["0x2","0x20a3af0435914ccd84b806164531b0cd36e37d4efb93efab76913a93e1f30996","0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1"],
+			["0x4","0x65e2c6cc08a36c4a943286bc91c216054a1981eb4f7570f67394ef8937a21b8","0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1"]
+		]}`
+	response, err := http.Post("http://localhost:8080/prove", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, response.StatusCode)
+	}
+}
+
+func TestInsertionWrongInput(t *testing.T) {
+	if mode != server.InsertionMode {
+		return
+	}
 	body := `{
 		"inputHash":"0x5057a31740d54d42ac70c05e0768fb770c682cb2c559bdd03fe4099f7e584e4f",
 		"startIndex":0,
@@ -73,6 +118,37 @@ func TestWrongInput(t *testing.T) {
 		"merkleProofs": [
 			["0x0","0x0","0x0"],
 			["0x1","0x0","0x0"]
+		]}`
+	response, err := http.Post("http://localhost:8080/prove", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Expected status code %d, got %d", http.StatusBadRequest, response.StatusCode)
+	}
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(responseBody), "proving_error") {
+		t.Fatalf("Expected error message to be tagged with 'proving_error', got %s", string(responseBody))
+	}
+
+}
+
+func TestDeletionWrongInput(t *testing.T) {
+	if mode != server.DeletionMode {
+		return
+	}
+	body := `{
+		"inputHash":"0xdcd389a94b549222fadc9e335c358a3fe4d534155182f46927f82ea8491c7480",
+		"deletionIndices":[0,2],
+		"preRoot":"0xd11eefe87b985333c0d327b0cdd39a9641b5ac32c35c2bda84301ef3231a8ac",
+		"postRoot":"0x1912415186579e1d9ff6282b76d081f0acd527d8549ea803385b1382d9498f35",
+		"identityCommitments":["0x1","0x3"],
+		"merkleProofs":[
+			["0x2","0xD","0xD"],
+			["0x4","0xD","0xD"]
 		]}`
 	response, err := http.Post("http://localhost:8080/prove", "application/json", strings.NewReader(body))
 	if err != nil {
