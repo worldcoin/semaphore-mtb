@@ -1,3 +1,10 @@
 .idea
 out
 gnark-mbu
+gnark-mbu.exe
+
+formal-verification/build
+formal-verification/.cache
+formal-verification/lean-packages/*
+formal-verification/lake-packages/*
+!formal-verification/lake-manifest.json

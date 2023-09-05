@@ -93,6 +93,10 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
+func ExtractLean() (string, error) {
+	return "", nil
+}
+
 func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {
 	if err := params.ValidateShape(ps.TreeDepth, ps.BatchSize); err != nil {
 		return nil, err
