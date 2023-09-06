@@ -96,8 +96,8 @@ def toBinaryVector {n} (x : ZMod n) (d : Nat) : Vector Dir d :=
 def toBinaryVectorZ {n} (x : ZMod n) (d : Nat) : Vector (ZMod n) d :=
   Vector.map Dir.toZMod (toBinaryVector x d)
 
--- lemma toBinary_uncps {a : ZMod N} {x : Vector (ZMod N) D} {h : ∃out, Gates.to_binary a D out } :
---   Dir.create_dir_vec x = out := by
+-- lemma toBinary_uncps {a : ZMod N} {x : Vector (ZMod N) D} :
+--   ∃out, Gates.to_binary a D out ↔ is_vector_binary out := by
 --   sorry
 
 -- def verify_proofs (Root: F) (Index: F) (Item: F) (MerkleProofs: Vector F (D+1)) (k: F -> Prop): Prop :=
@@ -107,13 +107,20 @@ def deletion_round_loop (Root: F) (Paths: Vector F 3) (Item: F) (MerkleProofs: V
   SemaphoreMTB.VerifyProof_31_30 (Item ::ᵥ MerkleProofs) Paths fun computed_root =>
     computed_root = Root ∧ SemaphoreMTB.VerifyProof_31_30 (0 ::ᵥ MerkleProofs) Paths fun next_root => k next_root
 
+-- VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}
+-- VerifyProof_31_30_uncps = k ()
+
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
-  MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof Item = Root ∧
-  k (MerkleTree.recover_tail poseidon₂ (toBinaryVector Index D) Proof 0) := by
+  ∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
+  MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof Item = Root ∧
+  k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof 0) := by
   unfold SemaphoreMTB.DeletionRound_3
-  simp [VerifyProof_31_30_uncps]
+  simp [VerifyProof_looped]
   simp [Gates.eq]
+  simp [proof_rounds_uncps]
+  simp [Gates.to_binary]
+  -- This should be proven with `rfl`!
   sorry
 
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
@@ -127,7 +134,7 @@ def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector 
 def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) : F :=
   match n with
   | Nat.zero => PreRoot
-  | Nat.succ _ => 
+  | Nat.succ _ =>
     let new_root := MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head 0
     -- MerkleTree.recover_tail poseidon₂ (toBinaryVector DeletionIndices.head D) MerkleProofs.head IdComms.head = PreRoot ∧
     DeletionLoop DeletionIndices.tail new_root IdComms.tail MerkleProofs.tail
@@ -146,6 +153,8 @@ lemma deletion_rounds_uncps {n}
     simp [DeletionRound_uncps]
     rename_i ih
     simp [ih]
+    -- I need to use `∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧`
+    -- instead of `toBinaryVector`
     sorry
 
 lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F D) 2) (k: F -> Prop) :
