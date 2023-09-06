@@ -78,10 +78,6 @@ lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1
 -- This is shown in `DeletionRound_uncps`.
 -- Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `MerkleTree.recover_tail`
 
-def deletion_round_loop (Root: F) (Paths: Vector F 3) (Item: F) (MerkleProofs: Vector F 3) (k: F -> Prop) : Prop :=
-  SemaphoreMTB.VerifyProof_31_30 (Item ::ᵥ MerkleProofs) Paths fun computed_root =>
-    computed_root = Root ∧ SemaphoreMTB.VerifyProof_31_30 (0 ::ᵥ MerkleProofs) Paths fun next_root => k next_root
-
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
   ∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
@@ -92,6 +88,7 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   simp [Gates.eq]
   simp [proof_rounds_uncps]
   simp [Gates.to_binary]
+  simp [and_assoc]
   
   -- This should be proven with `rfl`!
   sorry
