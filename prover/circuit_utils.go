@@ -172,6 +172,35 @@ func (gadget DeletionProof) DefineGadget(api abstractor.API) []frontend.Variable
 	return []frontend.Variable{root}
 }
 
+// ReducedModRCheck Checks a little-endian array of bits asserting that it represents a number that
+// is less than the field modulus R.
+type ReducedModRCheck struct {
+	Input []frontend.Variable
+}
+
+func (r *ReducedModRCheck) DefineGadget(api abstractor.API) []frontend.Variable {
+	field := api.Compiler().Field()
+	if len(r.Input) < field.BitLen() {
+		// input is shorter than the field, so it's definitely reduced
+		return []frontend.Variable{}
+	}
+	var failed frontend.Variable = 0    // we already know number is > R
+	var succeeded frontend.Variable = 0 // we already know number is < R
+	for i := len(r.Input) - 1; i >= 0; i-- {
+		api.AssertIsBoolean(r.Input[i])
+		if field.Bit(i) == 0 {
+			// if number is not already < R, a 1 in this position means it's > R
+			failed = api.Select(succeeded, 0, api.Or(r.Input[i], failed))
+		} else {
+			bitNeg := api.Sub(1, r.Input[i])
+			// if number isn't already > R, a 0 in this position means it's < R
+			succeeded = api.Select(failed, 0, api.Or(bitNeg, succeeded))
+		}
+	}
+	api.AssertIsEqual(succeeded, 1)
+	return []frontend.Variable{}
+}
+
 // SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
 // returning the result in newBits.
 //
@@ -201,13 +230,15 @@ func SwapBitArrayEndianness(bits []frontend.Variable) (newBits []frontend.Variab
 	return newBits, nil
 }
 
-// ToBinaryBigEndian converts the provided variable to the corresponding bit
-// pattern using big-endian byte ordering.
+// ToReducedBinaryBigEndian converts the provided variable to the corresponding bit
+// pattern using big-endian byte ordering. It also makes sure to pick the smallest
+// binary representation (i.e. one that is reduced modulo scalar field order).
 //
 // Raises a bitPatternLengthError if the number of bits in variable is not a
 // whole number of bytes.
-func ToBinaryBigEndian(variable frontend.Variable, size int, api frontend.API) (bitsBigEndian []frontend.Variable, err error) {
+func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api frontend.API) (bitsBigEndian []frontend.Variable, err error) {
 	bitsLittleEndian := api.ToBinary(variable, size)
+	abstractor.CallGadget(api, &ReducedModRCheck{Input: bitsLittleEndian})
 	return SwapBitArrayEndianness(bitsLittleEndian)
 }
 

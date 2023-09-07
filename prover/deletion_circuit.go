@@ -35,20 +35,20 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	var err error
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits, err = ToBinaryBigEndian(circuit.DeletionIndices[i], 32, api)
+		bits, err = ToReducedBinaryBigEndian(circuit.DeletionIndices[i], 32, api)
 		if err != nil {
 			return err
 		}
 		kh.Write(bits...)
 	}
 
-	bits, err = ToBinaryBigEndian(circuit.PreRoot, 256, api)
+	bits, err = ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
 	if err != nil {
 		return err
 	}
 	kh.Write(bits...)
 
-	bits, err = ToBinaryBigEndian(circuit.PostRoot, 256, api)
+	bits, err = ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
 	if err != nil {
 		return err
 	}

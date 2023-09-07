@@ -38,26 +38,26 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	// We convert all the inputs to the keccak hash to use big-endian (network) byte
 	// ordering so that it agrees with Solidity. This ensures that we don't have to
 	// perform the conversion inside the contract and hence save on gas.
-	bits, err = ToBinaryBigEndian(circuit.StartIndex, 32, api)
+	bits, err = ToReducedBinaryBigEndian(circuit.StartIndex, 32, api)
 	if err != nil {
 		return err
 	}
 	kh.Write(bits...)
 
-	bits, err = ToBinaryBigEndian(circuit.PreRoot, 256, api)
+	bits, err = ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
 	if err != nil {
 		return err
 	}
 	kh.Write(bits...)
 
-	bits, err = ToBinaryBigEndian(circuit.PostRoot, 256, api)
+	bits, err = ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
 	if err != nil {
 		return err
 	}
 	kh.Write(bits...)
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits, err = ToBinaryBigEndian(circuit.IdComms[i], 256, api)
+		bits, err = ToReducedBinaryBigEndian(circuit.IdComms[i], 256, api)
 		if err != nil {
 			return err
 		}
