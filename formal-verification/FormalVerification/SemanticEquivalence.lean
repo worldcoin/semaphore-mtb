@@ -105,11 +105,7 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof Item = Root ∧
   k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof 0) := by
   unfold SemaphoreMTB.DeletionRound_3
-  simp [VerifyProof_looped]
-  simp [Gates.eq]
-  simp [proof_rounds_uncps]
-  simp [Gates.to_binary]
-  simp [and_assoc]
+  simp [VerifyProof_looped, Gates.eq, proof_rounds_uncps, Gates.to_binary, and_assoc]
   apply exists_congr
   simp
   intros
