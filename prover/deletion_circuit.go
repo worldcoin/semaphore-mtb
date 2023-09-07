@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"fmt"
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
@@ -24,6 +25,9 @@ type DeletionMbuCircuit struct {
 }
 
 func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
+	if circuit.Depth > 31 {
+		return fmt.Errorf("max depth supported is 31")
+	}
 	// Hash private inputs.
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// deletionIndices[0] || deletionIndices[1] || ... || deletionIndices[batchSize-1] || PreRoot || PostRoot
@@ -63,28 +67,33 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	// externally, so we can safely assert their equality here.
 	api.AssertIsEqual(circuit.InputHash, sum)
 
-	// Actual batch merkle proof verification.
-	var root frontend.Variable
-
 	prevRoot := circuit.PreRoot
 
 	// Individual insertions.
 	for i := 0; i < circuit.BatchSize; i += 1 {
-		currentPath := api.ToBinary(circuit.DeletionIndices[i], circuit.Depth)
+		currentPath := api.ToBinary(circuit.DeletionIndices[i], circuit.Depth+1)
+		// Treating indices with the one-too-high bit set as a skip flag. This allows
+		// us to pad batches with meaningless ops to commit something even if there
+		// isn't enough deletions happening to fill a batch.
+		skipFlag := currentPath[circuit.Depth]
+		currentPath = currentPath[:circuit.Depth]
 
 		// Verify proof for idComm.
-		root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
-		api.AssertIsEqual(root, prevRoot)
+		rootPreDeletion := VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
 
 		// Verify proof for empty leaf.
-		root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		rootPostDeletion := VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+
+		preRootCorrect := api.IsZero(api.Sub(rootPreDeletion, prevRoot))
+		preRootCorrectOrSkip := api.Or(preRootCorrect, skipFlag)
+		api.AssertIsEqual(preRootCorrectOrSkip, 1)
 
 		// Set root for next iteration.
-		prevRoot = root
+		prevRoot = api.Select(skipFlag, prevRoot, rootPostDeletion) // If skipFlag is set, we don't update the root.
 	}
 
 	// Final root needs to match.
-	api.AssertIsEqual(root, circuit.PostRoot)
+	api.AssertIsEqual(prevRoot, circuit.PostRoot)
 
 	return nil
 }
