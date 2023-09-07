@@ -18,8 +18,10 @@ lemma Poseidon2_uncps (a b : F) (k : F -> Prop) : SemaphoreMTB.Poseidon2 a b k �
     simp [SemaphoreMTB.Poseidon2, poseidon₂, poseidon_3_correct, getElem]
     rfl
 
--- `ProofRound_uncps` proves that `SemaphoreMTB.ProofRound` is equivalent to a
--- single iteration of `MerkleTree.recover_tail`
+/-!
+`ProofRound_uncps` proves that `SemaphoreMTB.ProofRound` is equivalent to a
+single iteration of `MerkleTree.recover_tail`
+-/
 lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} : 
     SemaphoreMTB.ProofRound direction hash sibling k ↔
     is_bit direction ∧ k (match Dir.nat_to_dir direction.val with
@@ -33,14 +35,18 @@ lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} :
         rw [Poseidon2_uncps]
     }
 
--- `proof_rounds` rewrites `SemaphoreMTB.VerifyProof_31_30` with recursion using `proof_rounds`
+/-!
+`proof_rounds` rewrites `SemaphoreMTB.VerifyProof_31_30` with recursion using `proof_rounds`
+-/
 def proof_rounds (Siblings : Vector F (n+1)) (PathIndices : Vector F n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k Siblings.head
   | Nat.succ _ => SemaphoreMTB.ProofRound PathIndices.head Siblings.tail.head Siblings.head fun next =>
     proof_rounds (next ::ᵥ Siblings.tail.tail) PathIndices.tail k
 
--- `proof_rounds_uncps` rewrites `proof_rounds` using the corresponding operations of `MerkleTree` library
+/-!
+`proof_rounds_uncps` rewrites `proof_rounds` using the corresponding operations of `MerkleTree` library
+-/
 lemma proof_rounds_uncps
   {Leaf : F}
   {Siblings : Vector F n}
@@ -58,7 +64,9 @@ lemma proof_rounds_uncps
     intros
     rfl
 
--- `VerifyProof_looped` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `proof_rounds`
+/-!
+`VerifyProof_looped` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `proof_rounds`
+-/
 lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k: F -> Prop):
     SemaphoreMTB.VerifyProof_31_30 Siblings PathIndices k =
       proof_rounds Siblings PathIndices k := by
@@ -68,20 +76,29 @@ lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k
     rw [←Vector.ofFn_get (v := Siblings)]
     rfl
 
--- `VerifyProof_31_30_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
+/-!
+`VerifyProof_31_30_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
+-/
 lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
     SemaphoreMTB.VerifyProof_31_30 (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
 
--- We need to prove that `DeletionRound_3` is identical to `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf.
--- This is shown in `DeletionRound_uncps`.
--- Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `MerkleTree.recover_tail`
+/-!
+We need to prove that `DeletionRound_3` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
+this is shown in `DeletionRound_uncps`.
+Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `DeletionLoop`
+-/
 
+-- Helper for proving `DeletionRound_uncps`
 lemma double_prop {a b c : Prop} : (a ∧ b ∧ a ∧ c) ↔ (a ∧ b ∧ c) := by
   simp
   tauto
 
+/-!
+`DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
+the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of the merkle tree with empty Leaf
+-/
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
   ∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
@@ -104,12 +121,19 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   rw [←Vector.ofFn_get (v := Proof)]
   tauto
 
+/-!
+`deletion_rounds` rewrites `DeletionProof_2_2_3_2` using pattern matching and recursion on the batch size
+-/
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k PreRoot
   | Nat.succ _ => SemaphoreMTB.DeletionRound_3 PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
     deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
+/-!
+`DeletionLoop` rewrites `DeletionProof_2_2_3_2` using pattern matching and recursion on the batch size through by chaining
+calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_2_2_3_2`
+-/
 def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k PreRoot
@@ -144,6 +168,9 @@ lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: 
         rw [←Vector.ofFn_get (v := MerkleProofs)]
         rfl
 
+/-!
+`DeletionProof_2_2_3_2_uncps` is the key lemma which shows that `DeletionProof_2_2_3_2` and `DeletionLoop` are equivalent
+-/
 lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F 2} {PreRoot: F} {IdComms: Vector F 2} {MerkleProofs: Vector (Vector F D) 2} {k: F -> Prop}:
     SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
