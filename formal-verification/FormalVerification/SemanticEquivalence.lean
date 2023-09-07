@@ -78,6 +78,10 @@ lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1
 -- This is shown in `DeletionRound_uncps`.
 -- Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `MerkleTree.recover_tail`
 
+lemma double_prop {a b c : Prop} : (a ∧ b ∧ a ∧ c) ↔ (a ∧ b ∧ c) := by
+  simp
+  tauto
+
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
   ∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
@@ -89,9 +93,16 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   simp [proof_rounds_uncps]
   simp [Gates.to_binary]
   simp [and_assoc]
-  
-  -- This should be proven with `rfl`!
-  sorry
+  apply exists_congr
+  simp
+  intros
+  subst_vars
+  rename_i gate_0 h
+  simp [double_prop]
+  rw [←Vector.ofFn_get (v := gate_0)]
+  rw [←Vector.ofFn_get (v := gate_0)] at h
+  rw [←Vector.ofFn_get (v := Proof)]
+  tauto
 
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
   match n with
