@@ -6,6 +6,20 @@ import (
 	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
+// type InsertDelete struct {
+// 	DeletionIndices []frontend.Variable
+
+// 	StartIndex frontend.Variable
+	
+// 	PreRoot    frontend.Variable
+// 	IdComms    []frontend.Variable
+
+// 	MerkleProofs [][]frontend.Variable
+
+// 	BatchSize int
+// 	Depth     int
+// }
+
 func ExtractDeletion(treeDepth uint32, batchSize uint32) (string, error) {
 	// Not checking for batchSize === 0 or treeDepth === 0
 
