@@ -6,7 +6,7 @@ require (
 	github.com/consensys/gnark v0.8.0
 	github.com/iden3/go-iden3-crypto v0.0.13
 	github.com/prometheus/client_golang v1.14.0
-	github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230905143002-6e277112c0df
+	github.com/reilabs/gnark-lean-extractor v1.1.1-0.20230908104241-42985852c3f6
 	github.com/urfave/cli/v2 v2.10.2
 )
 

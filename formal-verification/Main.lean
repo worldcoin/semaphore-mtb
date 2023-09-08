@@ -20,4 +20,17 @@ theorem before_deletion_tree_matches_root (DeletionIndices: Vector F 2) (PreRoot
   apply Exists.intro
   tauto
 
+theorem after_deletion_items_are_zero (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F 3) 2) :
+  SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs fun post_root => ∃x, recover_binary_zmod' x = DeletionIndices.last ∧ is_vector_binary x ∧
+  MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec x) MerkleProofs.last 0 = post_root := by
+  -- simp [DeletionProof_2_2_3_2_uncps]
+  -- simp [DeletionLoop]
+  
+  -- simp [SemaphoreMTB.DeletionProof_2_2_3_2]
+  -- simp [DeletionRound_uncps]
+    
+
+  sorry
+
+
 def main : IO Unit := pure ()
