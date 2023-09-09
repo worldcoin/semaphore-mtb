@@ -165,3 +165,26 @@ func TestDeletionWrongInput(t *testing.T) {
 		t.Fatalf("Expected error message to be tagged with 'proving_error', got %s", string(responseBody))
 	}
 }
+
+func TestDeletionBatchPadding(t *testing.T) {
+	if mode != server.DeletionMode {
+		return
+	}
+	body := `{
+		"inputHash":"0x509d6e4ca8a621713cc5feb95de95cb4eed3c1127176d93da653fd3cc55db537",
+		"deletionIndices":[0,8],
+		"preRoot":"0xd11eefe87b985333c0d327b0cdd39a9641b5ac32c35c2bda84301ef3231a8ac",
+		"postRoot":"0x22c58cf24838c2eb1701f2aa6e6a867e10237590dbdb423e4d3e053b121c44cb",
+		"identityCommitments":["0x1","0x0"],
+		"merkleProofs":[
+			["0x2","0x20a3af0435914ccd84b806164531b0cd36e37d4efb93efab76913a93e1f30996","0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1"],
+			["0x0","0x0","0x0"]
+		]}`
+	response, err := http.Post("http://localhost:8080/prove", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status code %d, got %d", http.StatusOK, response.StatusCode)
+	}
+}

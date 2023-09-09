@@ -131,15 +131,25 @@ type DeletionRound struct {
 func (gadget DeletionRound) DefineGadget(api abstractor.API) []frontend.Variable {
 	// We verify that the Leaf belongs to the Merkle Tree by verifying that the computed root
 	// matches gadget.Root. Then, we return the root computed with Leaf being empty.
-	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
+	currentPath := api.ToBinary(gadget.Index, gadget.Depth+1)
+	// Treating indices with the one-too-high bit set as a skip flag. This allows
+	// us to pad batches with meaningless ops to commit something even if there
+	// isn't enough deletions happening to fill a batch.
+	skipFlag := currentPath[gadget.Depth]
+	currentPath = currentPath[:gadget.Depth]
 
 	// Verify proof for Item.
-	root := api.Call(VerifyProof{append([]frontend.Variable{gadget.Item}, gadget.MerkleProofs[:]...), currentPath})[0]
-	api.AssertIsEqual(root, gadget.Root)
+	rootPreDeletion := api.Call(VerifyProof{append([]frontend.Variable{gadget.Item}, gadget.MerkleProofs[:]...), currentPath})[0]
 
 	// Verify proof for empty leaf.
-	root = api.Call(VerifyProof{append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[:]...), currentPath})[0]
+	rootPostDeletion := api.Call(VerifyProof{append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[:]...), currentPath})[0]
 
+	preRootCorrect := api.IsZero(api.Sub(rootPreDeletion, gadget.Root))
+	preRootCorrectOrSkip := api.Or(preRootCorrect, skipFlag)
+	api.AssertIsEqual(preRootCorrectOrSkip, 1)
+
+	// Set root for next iteration.
+	root := api.Select(skipFlag, gadget.Root, rootPostDeletion) // If skipFlag is set, we don't update the root.
 	return []frontend.Variable{root}
 }
 

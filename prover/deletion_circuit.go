@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"fmt"
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
@@ -25,6 +26,9 @@ type DeletionMbuCircuit struct {
 }
 
 func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
+	if circuit.Depth > 31 {
+		return fmt.Errorf("max depth supported is 31")
+	}
 	// Hash private inputs.
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// deletionIndices[0] || deletionIndices[1] || ... || deletionIndices[batchSize-1] || PreRoot || PostRoot
