@@ -10,7 +10,11 @@ open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-abbrev D := 3
+abbrev D := 30 -- Tree depth
+abbrev B := 10 -- Batch sizes
+abbrev gVerifyProof := SemaphoreMTB.VerifyProof_31_30
+abbrev gDeletionRound := SemaphoreMTB.DeletionRound_30
+abbrev gDeletionProof := SemaphoreMTB.DeletionProof_10_10_30_10
 
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 
@@ -68,9 +72,9 @@ lemma proof_rounds_uncps
 `VerifyProof_looped` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `proof_rounds`
 -/
 lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k: F -> Prop):
-    SemaphoreMTB.VerifyProof_31_30 Siblings PathIndices k =
+    gVerifyProof Siblings PathIndices k =
       proof_rounds Siblings PathIndices k := by
-    unfold SemaphoreMTB.VerifyProof_31_30
+    unfold gVerifyProof
     simp [proof_rounds]
     rw [←Vector.ofFn_get (v := PathIndices)]
     rw [←Vector.ofFn_get (v := Siblings)]
@@ -80,7 +84,7 @@ lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k
 `VerifyProof_31_30_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
 -/
 lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
-    SemaphoreMTB.VerifyProof_31_30 (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
+    gVerifyProof (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
 
@@ -100,11 +104,12 @@ lemma double_prop {a b c : Prop} : (a ∧ b ∧ a ∧ c) ↔ (a ∧ b ∧ c) := 
 the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of the merkle tree with empty Leaf
 -/
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
-  SemaphoreMTB.DeletionRound_3 Root Index Item Proof k ↔
+  gDeletionRound Root Index Item Proof k ↔
   ∃out : Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
   MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof Item = Root ∧
   k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof 0) := by
-  unfold SemaphoreMTB.DeletionRound_3
+  unfold gDeletionRound
+  unfold SemaphoreMTB.DeletionRound_30
   simp [VerifyProof_looped, Gates.eq, proof_rounds_uncps, Gates.to_binary, and_assoc]
   apply exists_congr
   simp
@@ -123,7 +128,7 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k PreRoot
-  | Nat.succ _ => SemaphoreMTB.DeletionRound_3 PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
+  | Nat.succ _ => gDeletionRound PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
     deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
 /-!
@@ -154,10 +159,11 @@ lemma deletion_rounds_uncps {n}
     rename_i ih
     simp [ih]
 
-lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: Vector F 2) (MerkleProofs: Vector (Vector F D) 2) (k: F -> Prop) :
-    SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k =
+set_option maxHeartbeats 2000000000
+lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
+    gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k =
       deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k := by
-        unfold SemaphoreMTB.DeletionProof_2_2_3_2
+        unfold gDeletionProof
         simp [deletion_rounds]
         rw [←Vector.ofFn_get (v := DeletionIndices)]
         rw [←Vector.ofFn_get (v := IdComms)]
@@ -167,7 +173,7 @@ lemma DeletionProof_looped (DeletionIndices: Vector F 2) (PreRoot: F) (IdComms: 
 /-!
 `DeletionProof_2_2_3_2_uncps` is the key lemma which shows that `DeletionProof_2_2_3_2` and `DeletionLoop` are equivalent
 -/
-lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F 2} {PreRoot: F} {IdComms: Vector F 2} {MerkleProofs: Vector (Vector F D) 2} {k: F -> Prop}:
-    SemaphoreMTB.DeletionProof_2_2_3_2 DeletionIndices PreRoot IdComms MerkleProofs k ↔
+lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
+    gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
     simp only [DeletionProof_looped, deletion_rounds_uncps]
