@@ -28,7 +28,7 @@ jobs:
     - name: Test
       run: go test
     - name: Export circuit
-      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean --tree-depth 30 --batch-size 10
+      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean --tree-depth 30 --batch-size 4
     - name: Build lean project
       run: |
         cd formal-verification

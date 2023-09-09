@@ -11,10 +11,10 @@ open SemaphoreMTB (F Order)
 variable [Fact (Nat.Prime Order)]
 
 abbrev D := 30 -- Tree depth
-abbrev B := 10 -- Batch sizes
+abbrev B := 4 -- Batch sizes
 abbrev gVerifyProof := SemaphoreMTB.VerifyProof_31_30
 abbrev gDeletionRound := SemaphoreMTB.DeletionRound_30
-abbrev gDeletionProof := SemaphoreMTB.DeletionProof_10_10_30_10
+abbrev gDeletionProof := SemaphoreMTB.DeletionProof_4_4_30_4
 
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 
@@ -81,17 +81,17 @@ lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k
     rfl
 
 /-!
-`VerifyProof_31_30_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
+`VerifyProof_uncps` proves that `SemaphoreMTB.VerifyProof_31_30` is identical to `MerkleTree.recover_tail`
 -/
-lemma VerifyProof_31_30_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
+lemma VerifyProof_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
     gVerifyProof (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
 
 /-!
-We need to prove that `DeletionRound_3` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
+We need to prove that `DeletionRound_30` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
 this is shown in `DeletionRound_uncps`.
-Then we need to show that `DeletionProof_2_2_3_2` is continuous application of `DeletionLoop`
+Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
 -/
 
 -- Helper for proving `DeletionRound_uncps`
@@ -123,7 +123,7 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   tauto
 
 /-!
-`deletion_rounds` rewrites `DeletionProof_2_2_3_2` using pattern matching and recursion on the batch size
+`deletion_rounds` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size
 -/
 def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n)  (k : F -> Prop) : Prop :=
   match n with
@@ -132,8 +132,8 @@ def deletion_rounds (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector 
     deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
 /-!
-`DeletionLoop` rewrites `DeletionProof_2_2_3_2` using pattern matching and recursion on the batch size through by chaining
-calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_2_2_3_2`
+`DeletionLoop` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size through by chaining
+calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_4_4_30_4`
 -/
 def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
   match n with
@@ -171,9 +171,9 @@ lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: 
         rfl
 
 /-!
-`DeletionProof_2_2_3_2_uncps` is the key lemma which shows that `DeletionProof_2_2_3_2` and `DeletionLoop` are equivalent
+`DeletionProof_uncps` is the key lemma which shows that `DeletionProof_4_4_30_4` and `DeletionLoop` are equivalent
 -/
-lemma DeletionProof_2_2_3_2_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
+lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
     simp only [DeletionProof_looped, deletion_rounds_uncps]
