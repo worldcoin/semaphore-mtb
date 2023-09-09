@@ -33,5 +33,8 @@ func ExtractLean(treeDepth uint32, batchSize uint32) (string, error) {
 		BatchSize: int(batchSize),
 		Depth: int(treeDepth),
 	}
-	return extractor.ExtractGadgets("SemaphoreMTB", ecc.BN254, &insert, &delete)
+
+	assignment_1 := ToReducedBigEndianGadget{Size: 32}
+	assignment_2 := ToReducedBigEndianGadget{Size: 256}
+	return extractor.ExtractGadgets("SemaphoreMTB", ecc.BN254, &insert, &delete, &assignment_1, &assignment_2)
 }

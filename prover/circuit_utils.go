@@ -178,7 +178,7 @@ type ReducedModRCheck struct {
 	Input []frontend.Variable
 }
 
-func (r *ReducedModRCheck) DefineGadget(api abstractor.API) []frontend.Variable {
+func (r ReducedModRCheck) DefineGadget(api abstractor.API) []frontend.Variable {
 	field := api.Compiler().Field()
 	if len(r.Input) < field.BitLen() {
 		// input is shorter than the field, so it's definitely reduced
@@ -236,9 +236,20 @@ func SwapBitArrayEndianness(bits []frontend.Variable) (newBits []frontend.Variab
 //
 // Raises a bitPatternLengthError if the number of bits in variable is not a
 // whole number of bytes.
+type ToReducedBigEndianGadget struct {
+	Variable frontend.Variable
+
+	Size int
+}
+
+func (gadget ToReducedBigEndianGadget) DefineGadget(api abstractor.API) []frontend.Variable {
+	bitsLittleEndian := api.ToBinary(gadget.Variable, gadget.Size)
+	api.Call(ReducedModRCheck{Input: bitsLittleEndian})
+	return bitsLittleEndian
+}
+
 func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api frontend.API) (bitsBigEndian []frontend.Variable, err error) {
-	bitsLittleEndian := api.ToBinary(variable, size)
-	abstractor.CallGadget(api, &ReducedModRCheck{Input: bitsLittleEndian})
+	bitsLittleEndian := abstractor.CallGadget(api, &ToReducedBigEndianGadget{Variable: variable, Size: size})
 	return SwapBitArrayEndianness(bitsLittleEndian)
 }
 
