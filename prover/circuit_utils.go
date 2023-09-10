@@ -263,6 +263,14 @@ func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api frontend
 	return SwapBitArrayEndianness(bitsLittleEndian)
 }
 
+type FromBinaryBigEndianGadget struct {
+	Variable []frontend.Variable
+}
+
+func (gadget FromBinaryBigEndianGadget) DefineGadget(api abstractor.API) []frontend.Variable {
+	return []frontend.Variable{api.FromBinary(gadget.Variable...)}
+}
+
 // FromBinaryBigEndian converts the provided bit pattern that uses big-endian
 // byte ordering to a variable that uses little-endian byte ordering.
 //
@@ -273,8 +281,7 @@ func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api frontend.API) (v
 	if err != nil {
 		return nil, err
 	}
-
-	return api.FromBinary(bitsLittleEndian...), nil
+	return abstractor.CallGadget(api, &FromBinaryBigEndianGadget{Variable: bitsLittleEndian})[0], nil
 }
 
 func toBytesLE(b []byte) []byte {

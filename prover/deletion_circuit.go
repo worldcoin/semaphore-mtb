@@ -58,8 +58,7 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	}
 	kh.Write(bits...)
 
-	var sum frontend.Variable
-	sum, err = FromBinaryBigEndian(kh.Sum(), api)
+	sum, err := FromBinaryBigEndian(kh.Sum(), api)
 	if err != nil {
 		return err
 	}
