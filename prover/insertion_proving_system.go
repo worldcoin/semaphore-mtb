@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"worldcoin/gnark-mbu/logging"
-	"worldcoin/gnark-mbu/prover/poseidon"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -95,9 +94,10 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func ExtractLean() (string, error) {
-	assignment := poseidon.Poseidon2{}
-	return extractor.GadgetToLean(&assignment, ecc.BN254)
+func ExtractLean(treeDepth uint32) (string, error) {
+	// Not checking for treeDepth === 0
+	assignment := VerifyProof{Proof: make([]frontend.Variable, treeDepth+1), Path: make([]frontend.Variable, treeDepth)}
+	return extractor.GadgetToLeanWithName(&assignment, ecc.BN254, "SemaphoreMTB")
 }
 
 func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {

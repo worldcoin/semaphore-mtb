@@ -5,6 +5,7 @@ import (
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
+	"github.com/reilabs/gnark-lean-extractor/abstractor"
 )
 
 type DeletionMbuCircuit struct {
@@ -79,10 +80,10 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 		currentPath = currentPath[:circuit.Depth]
 
 		// Verify proof for idComm.
-		rootPreDeletion := VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
+		rootPreDeletion := abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath})[0]
 
 		// Verify proof for empty leaf.
-		rootPostDeletion := VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		rootPostDeletion := abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath})[0]
 
 		preRootCorrect := api.IsZero(api.Sub(rootPreDeletion, prevRoot))
 		preRootCorrectOrSkip := api.Or(preRootCorrect, skipFlag)

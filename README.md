@@ -51,12 +51,13 @@ This part explains the existing cli commands.
         2. input-hash *hash* - Hash of all public inputs  
 7. r1cs - Builds an r1cs and writes it to a file  
     Flags:  
-        1. output *file path* - File to be writen to  
+        1. output *file path* - File to be written to  
         2. tree-depth *n* - Depth of a tree  
         3. batch-size *n* - Batch size for Merkle tree updates
 8. extract-circuit - Transpiles the circuit from gnark to Lean
     Flags:  
-        1. output *file path* - File to be writen to
+        1. output *file path* - File to be written to
+        2. tree-depth *n* - Merkle tree depth
 
 ## Benchmarks
 

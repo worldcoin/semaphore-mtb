@@ -4,6 +4,7 @@ import (
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
+	"github.com/reilabs/gnark-lean-extractor/abstractor"
 )
 
 type InsertionMbuCircuit struct {
@@ -84,11 +85,11 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 		currentPath := api.ToBinary(currentIndex, circuit.Depth)
 
 		// Verify proof for empty leaf.
-		root = VerifyProof(api, append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{emptyLeaf}, circuit.MerkleProofs[i][:]...), currentPath})[0]
 		api.AssertIsEqual(root, prevRoot)
 
 		// Verify proof for idComm.
-		root = VerifyProof(api, append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath)
+		root = abstractor.CallGadget(api, VerifyProof{append([]frontend.Variable{circuit.IdComms[i]}, circuit.MerkleProofs[i][:]...), currentPath})[0]
 
 		// Set root for next iteration.
 		prevRoot = root

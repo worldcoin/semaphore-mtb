@@ -1,5 +1,6 @@
 name: Test
 on: push
+concurrency: testing_environment
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -27,7 +28,7 @@ jobs:
     - name: Test
       run: go test
     - name: Export circuit
-      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean
+      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean --tree-depth 30
     - name: Build lean project
       run: |
         cd formal-verification
