@@ -31,7 +31,7 @@ This part explains the existing cli commands.
 2. export-solidity  - Reads a key file (generated from setup), and writes a solidity verifier contract.  
     Flags:  
         1. keys-file *file path*  
-        2. Optional: output *file* - Outputs to a file, if not provided, it will output to stdandard output  
+        2. Optional: output *file* - Outputs to a file, if not provided, it will output to standard output  
 3. gen-test-params - Generates test params given the batch size and tree depth. 
     Flags:  
         1. tree-depth *n* - Depth of the mock merkle tree  
