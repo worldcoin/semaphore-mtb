@@ -33,32 +33,33 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// deletionIndices[0] || deletionIndices[1] || ... || deletionIndices[batchSize-1] || PreRoot || PostRoot
 	//        32          ||        32          || ... ||              32              ||   256   ||    256
-	kh := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256)
-
 	var bits []frontend.Variable
 	var err error
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits, err = ToReducedBinaryBigEndian(circuit.DeletionIndices[i], 32, api)
+		bits_idx, err := ToReducedBinaryBigEndian(circuit.DeletionIndices[i], 32, api)
 		if err != nil {
 			return err
 		}
-		kh.Write(bits...)
+		bits = append(bits, bits_idx...)
+		// kh.Write(bits...)
 	}
 
-	bits, err = ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
+	bits_pre, err := ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
 	if err != nil {
 		return err
 	}
-	kh.Write(bits...)
+	bits = append(bits, bits_pre...)
+	// kh.Write(bits...)
 
-	bits, err = ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
+	bits_post, err := ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
 	if err != nil {
 		return err
 	}
-	kh.Write(bits...)
+	bits = append(bits, bits_post...)
+	// kh.Write(bits...)
 
-	sum, err := FromBinaryBigEndian(kh.Sum(), api)
+	sum, err := FromBinaryBigEndian(keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...), api)
 	if err != nil {
 		return err
 	}

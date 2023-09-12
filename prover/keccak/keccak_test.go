@@ -16,9 +16,8 @@ type TestKeccakCircuit1 struct {
 }
 
 func (circuit *TestKeccakCircuit1) Define(api frontend.API) error {
-	h := NewKeccak256(api, len(circuit.Input))
-	h.Write(circuit.Input[:]...)
-	sum := api.FromBinary(h.Sum()...)
+	hash := NewKeccak256(api, len(circuit.Input), circuit.Input[:]...)
+	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
 }
@@ -29,8 +28,8 @@ type TestKeccakCircuit2 struct {
 }
 
 func (circuit *TestKeccakCircuit2) Define(api frontend.API) error {
-	h := NewKeccak256(api, 0)
-	sum := api.FromBinary(h.Sum()...)
+	hash := NewKeccak256(api, 0)
+	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
 }
@@ -41,8 +40,8 @@ type TestSHACircuit struct {
 }
 
 func (circuit *TestSHACircuit) Define(api frontend.API) error {
-	h := NewSHA3_256(api, 0)
-	sum := api.FromBinary(h.Sum()...)
+	hash := NewSHA3_256(api, 0)
+	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
 }

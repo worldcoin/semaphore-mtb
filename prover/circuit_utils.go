@@ -182,6 +182,33 @@ func (gadget DeletionProof) DefineGadget(api abstractor.API) []frontend.Variable
 	return []frontend.Variable{root}
 }
 
+type CheckBitOne struct {
+	Failed frontend.Variable
+	Succeeded frontend.Variable
+	Input frontend.Variable
+}
+
+func (g CheckBitOne) DefineGadget(api abstractor.API) []frontend.Variable {
+	api.AssertIsBoolean(g.Input)
+	bitNeg := api.Sub(1, g.Input)
+	// if number isn't already > R, a 0 in this position means it's < R
+	g.Succeeded = api.Select(g.Failed, 0, api.Or(bitNeg, g.Succeeded))
+	return []frontend.Variable{g.Failed, g.Succeeded}
+}
+
+type CheckBitZero struct {
+	Failed frontend.Variable
+	Succeeded frontend.Variable
+	Input frontend.Variable
+}
+
+func (g CheckBitZero) DefineGadget(api abstractor.API) []frontend.Variable {
+	api.AssertIsBoolean(g.Input)
+	// if number is not already < R, a 1 in this position means it's > R
+	g.Failed = api.Select(g.Succeeded, 0, api.Or(g.Input, g.Failed))
+	return []frontend.Variable{g.Failed, g.Succeeded}
+}
+
 // ReducedModRCheck Checks a little-endian array of bits asserting that it represents a number that
 // is less than the field modulus R.
 type ReducedModRCheck struct {
@@ -197,15 +224,14 @@ func (r ReducedModRCheck) DefineGadget(api abstractor.API) []frontend.Variable {
 	var failed frontend.Variable = 0    // we already know number is > R
 	var succeeded frontend.Variable = 0 // we already know number is < R
 	for i := len(r.Input) - 1; i >= 0; i-- {
-		api.AssertIsBoolean(r.Input[i])
+		var check_bit []frontend.Variable
 		if field.Bit(i) == 0 {
-			// if number is not already < R, a 1 in this position means it's > R
-			failed = api.Select(succeeded, 0, api.Or(r.Input[i], failed))
+			check_bit = api.Call(CheckBitZero{failed, succeeded, r.Input[i]})
 		} else {
-			bitNeg := api.Sub(1, r.Input[i])
-			// if number isn't already > R, a 0 in this position means it's < R
-			succeeded = api.Select(failed, 0, api.Or(bitNeg, succeeded))
+			check_bit = api.Call(CheckBitOne{failed, succeeded, r.Input[i]})
 		}
+		failed = check_bit[0]
+		succeeded = check_bit[1]
 	}
 	api.AssertIsEqual(succeeded, 1)
 	return []frontend.Variable{}

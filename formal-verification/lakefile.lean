@@ -17,6 +17,6 @@ lean_lib FormalVerification {
 
 @[default_target]
 lean_exe «formal-verification» {
-  moreLeanArgs := #["--tstack=1000000"]
+  moreLeanArgs := #["--tstack=100000000"]
   root := `Main
 }

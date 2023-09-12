@@ -29,43 +29,43 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
 	//     32	  ||   256   ||   256    ||    256     ||    256     || ... ||     256 bits
-
-	kh := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32)
-
 	var bits []frontend.Variable
 	var err error
 
 	// We convert all the inputs to the keccak hash to use big-endian (network) byte
 	// ordering so that it agrees with Solidity. This ensures that we don't have to
 	// perform the conversion inside the contract and hence save on gas.
-	bits, err = ToReducedBinaryBigEndian(circuit.StartIndex, 32, api)
+	bits_start, err := ToReducedBinaryBigEndian(circuit.StartIndex, 32, api)
 	if err != nil {
 		return err
 	}
-	kh.Write(bits...)
+	bits = append(bits, bits_start...)
+	// kh.Write(bits...)
 
-	bits, err = ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
+	bits_pre, err := ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
 	if err != nil {
 		return err
 	}
-	kh.Write(bits...)
+	bits = append(bits, bits_pre...)
+	// kh.Write(bits...)
 
-	bits, err = ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
+	bits_post, err := ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
 	if err != nil {
 		return err
 	}
-	kh.Write(bits...)
+	bits = append(bits, bits_post...)
+	// kh.Write(bits...)
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits, err = ToReducedBinaryBigEndian(circuit.IdComms[i], 256, api)
+		bits_id, err := ToReducedBinaryBigEndian(circuit.IdComms[i], 256, api)
 		if err != nil {
 			return err
 		}
-		kh.Write(bits...)
+		bits = append(bits, bits_id...)
+		// kh.Write(bits...)
 	}
 
-	var sum frontend.Variable
-	sum, err = FromBinaryBigEndian(kh.Sum(), api)
+	sum, err := FromBinaryBigEndian(keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32, bits...), api)
 	if err != nil {
 		return err
 	}
