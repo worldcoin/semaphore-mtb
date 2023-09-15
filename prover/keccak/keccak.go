@@ -19,26 +19,24 @@ type Keccak struct {
 	outputSize      int
 	nRounds         int
 	blockSize       int
-	api             frontend.API
 	rotationOffsets [5][5]int
 	roundConstants  [24][64]frontend.Variable
 	domain          int
 }
 
-func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
+func NewKeccak256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
 	h := Keccak{
 		inputSize:       inputSize,
 		inputData:       data,
 		outputSize:      256,
 		nRounds:         24,
 		blockSize:       1088,
-		api:             api,
 		rotationOffsets: R,
 		roundConstants:  RC,
 		domain:          0x01,
 	}
 
-	hash := abstractor.CallGadget(h.api, &KeccakGadget{
+	hash := api.Call(KeccakGadget{
 		InputSize: h.inputSize,
 		InputData: h.inputData,
 		OutputSize: h.outputSize,
@@ -51,20 +49,19 @@ func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []
 	return hash
 }
 
-func NewSHA3_256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
+func NewSHA3_256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
 	h := Keccak{
 		inputSize:       inputSize,
 		inputData:       data,
 		outputSize:      256,
 		nRounds:         24,
 		blockSize:       1088,
-		api:             api,
 		rotationOffsets: R,
 		roundConstants:  RC,
 		domain:          0x06,
 	}
 
-	hash := abstractor.CallGadget(h.api, &KeccakGadget{
+	hash := api.Call(KeccakGadget{
 		InputSize: h.inputSize,
 		InputData: h.inputData,
 		OutputSize: h.outputSize,

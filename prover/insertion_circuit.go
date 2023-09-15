@@ -24,7 +24,7 @@ type InsertionMbuCircuit struct {
 	Depth     int
 }
 
-func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
+func (circuit *InsertionMbuCircuit) AbsDefine(api abstractor.API) error {
 	// Hash private inputs.
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
@@ -75,7 +75,7 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := abstractor.CallGadget(api, InsertionProof{
+	root := api.Call(InsertionProof{
 		StartIndex: circuit.StartIndex,
 		PreRoot: circuit.PreRoot,
 		IdComms: circuit.IdComms,
@@ -90,4 +90,8 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(root, circuit.PostRoot)
 
 	return nil
+}
+
+func (circuit InsertionMbuCircuit) Define(api frontend.API) error {
+	return abstractor.Concretize(api, &circuit)
 }

@@ -25,7 +25,7 @@ type DeletionMbuCircuit struct {
 	Depth     int
 }
 
-func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
+func (circuit *DeletionMbuCircuit) AbsDefine(api abstractor.API) error {
 	if circuit.Depth > 31 {
 		return fmt.Errorf("max depth supported is 31")
 	}
@@ -69,7 +69,7 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := abstractor.CallGadget(api, DeletionProof{
+	root := api.Call(DeletionProof{
 		DeletionIndices: circuit.DeletionIndices,
 		PreRoot: circuit.PreRoot,
 		IdComms: circuit.IdComms,
@@ -82,4 +82,8 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(root, circuit.PostRoot)
 
 	return nil
+}
+
+func (circuit DeletionMbuCircuit) Define(api frontend.API) error {
+	return abstractor.Concretize(api, &circuit)
 }

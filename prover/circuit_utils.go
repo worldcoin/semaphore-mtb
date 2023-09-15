@@ -284,8 +284,8 @@ func (gadget ToReducedBigEndianGadget) DefineGadget(api abstractor.API) []fronte
 	return bitsLittleEndian
 }
 
-func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api frontend.API) (bitsBigEndian []frontend.Variable, err error) {
-	bitsLittleEndian := abstractor.CallGadget(api, &ToReducedBigEndianGadget{Variable: variable, Size: size})
+func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api abstractor.API) (bitsBigEndian []frontend.Variable, err error) {
+	bitsLittleEndian := api.Call(ToReducedBigEndianGadget{Variable: variable, Size: size})
 	return SwapBitArrayEndianness(bitsLittleEndian)
 }
 
@@ -302,12 +302,12 @@ func (gadget FromBinaryBigEndianGadget) DefineGadget(api abstractor.API) []front
 //
 // Raises a bitPatternLengthError if the number of bits in `bitsBigEndian` is not
 // a whole number of bytes.
-func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api frontend.API) (variable frontend.Variable, err error) {
+func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api abstractor.API) (variable frontend.Variable, err error) {
 	bitsLittleEndian, err := SwapBitArrayEndianness(bitsBigEndian)
 	if err != nil {
 		return nil, err
 	}
-	return abstractor.CallGadget(api, &FromBinaryBigEndianGadget{Variable: bitsLittleEndian})[0], nil
+	return api.Call(FromBinaryBigEndianGadget{Variable: bitsLittleEndian})[0], nil
 }
 
 func toBytesLE(b []byte) []byte {
