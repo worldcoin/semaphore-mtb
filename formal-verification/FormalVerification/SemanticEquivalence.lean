@@ -13,8 +13,6 @@ variable [Fact (Nat.Prime Order)]
 abbrev D := 30 -- Tree depth
 abbrev B := 4 -- Batch sizes
 abbrev gVerifyProof := SemaphoreMTB.VerifyProof_31_30
-abbrev gDeletionRound := SemaphoreMTB.DeletionRound_30_30
-abbrev gDeletionProof := SemaphoreMTB.DeletionProof_4_4_30_4_4_30
 
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 

@@ -42,7 +42,6 @@ func (circuit *DeletionMbuCircuit) AbsDefine(api abstractor.API) error {
 			return err
 		}
 		bits = append(bits, bits_idx...)
-		// kh.Write(bits...)
 	}
 
 	bits_pre, err := ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
@@ -50,16 +49,15 @@ func (circuit *DeletionMbuCircuit) AbsDefine(api abstractor.API) error {
 		return err
 	}
 	bits = append(bits, bits_pre...)
-	// kh.Write(bits...)
 
 	bits_post, err := ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
 	if err != nil {
 		return err
 	}
 	bits = append(bits, bits_post...)
-	// kh.Write(bits...)
 
-	sum, err := FromBinaryBigEndian(keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...), api)
+	hash := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...)
+	sum, err := FromBinaryBigEndian(hash, api)
 	if err != nil {
 		return err
 	}

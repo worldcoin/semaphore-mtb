@@ -13,63 +13,30 @@ import (
 const laneSize = 64
 const stateSize = 5
 
-type Keccak struct {
-	inputSize       int
-	inputData       []frontend.Variable
-	outputSize      int
-	nRounds         int
-	blockSize       int
-	rotationOffsets [5][5]int
-	roundConstants  [24][64]frontend.Variable
-	domain          int
-}
-
 func NewKeccak256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
-	h := Keccak{
-		inputSize:       inputSize,
-		inputData:       data,
-		outputSize:      256,
-		nRounds:         24,
-		blockSize:       1088,
-		rotationOffsets: R,
-		roundConstants:  RC,
-		domain:          0x01,
-	}
-
 	hash := api.Call(KeccakGadget{
-		InputSize: h.inputSize,
-		InputData: h.inputData,
-		OutputSize: h.outputSize,
-		Rounds: h.nRounds,
-		BlockSize: h.blockSize,     
-		RotationOffsets: h.rotationOffsets,
-		RoundConstants: h.roundConstants,
-		Domain: h.domain,
+		InputSize: inputSize,
+		InputData: data,
+		OutputSize: 256,
+		Rounds: 24,
+		BlockSize: 1088,     
+		RotationOffsets: R,
+		RoundConstants: RC,
+		Domain: 0x01,
 	})
 	return hash
 }
 
 func NewSHA3_256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
-	h := Keccak{
-		inputSize:       inputSize,
-		inputData:       data,
-		outputSize:      256,
-		nRounds:         24,
-		blockSize:       1088,
-		rotationOffsets: R,
-		roundConstants:  RC,
-		domain:          0x06,
-	}
-
 	hash := api.Call(KeccakGadget{
-		InputSize: h.inputSize,
-		InputData: h.inputData,
-		OutputSize: h.outputSize,
-		Rounds: h.nRounds,
-		BlockSize: h.blockSize,     
-		RotationOffsets: h.rotationOffsets,
-		RoundConstants: h.roundConstants,
-		Domain: h.domain,
+		InputSize: inputSize,
+		InputData: data,
+		OutputSize: 256,
+		Rounds: 24,
+		BlockSize: 1088,     
+		RotationOffsets: R,
+		RoundConstants: RC,
+		Domain: 0x06,
 	})
 	return hash
 }
