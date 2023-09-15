@@ -116,6 +116,19 @@ func (g Step1) DefineGadget(api abstractor.API) []frontend.Variable {
 	return C;
 }
 
+type Step2Round struct {
+	X int
+	C               []frontend.Variable
+}
+
+func (g Step2Round) DefineGadget(api abstractor.API) []frontend.Variable {
+	index_c := (g.X+1)%stateSize
+	tmp := api.Call(Rot{g.C[get2DFlatIndex(index_c,0):get2DFlatIndex(index_c,64)], 1})
+
+	index_c = (g.X+4)%stateSize
+	return api.Call(Xor{g.C[get2DFlatIndex(index_c,0):get2DFlatIndex(index_c,64)], tmp[:]})
+}
+
 type Step2 struct {
 	C               []frontend.Variable
 }
@@ -124,13 +137,26 @@ func (g Step2) DefineGadget(api abstractor.API) []frontend.Variable {
 	// D[x] = C[x-1] xor rot(C[x+1],1), for x in 0…4
 	D := make([]frontend.Variable, stateSize*laneSize)
 	for x := 0; x < stateSize; x += 1 {
-		index_c := (x+1)%stateSize
-		tmp := api.Call(Rot{g.C[get2DFlatIndex(index_c,0):get2DFlatIndex(index_c,64)], 1})
-
-		index_c = (x+4)%stateSize
-		blockCopy(get2DFlatIndex(x,0), D, api.Call(Xor{g.C[get2DFlatIndex(index_c,0):get2DFlatIndex(index_c,64)], tmp[:]}))
+		blockCopy(get2DFlatIndex(x,0), D, api.Call(Step2Round{
+			X: x,
+			C: g.C,
+		}))
 	}
 	return D
+}
+
+type Step3Inner struct {
+	X               int
+	A               []frontend.Variable
+	D               []frontend.Variable
+}
+
+func (g Step3Inner) DefineGadget(api abstractor.API) []frontend.Variable {
+	// A[x,y] = A[x,y] xor D[x], for x in 0…4 and y in 0…4
+	for y := 0; y < stateSize; y += 1 {
+		blockCopy(get3DFlatIndex(g.X,y,0), g.A, api.Call(Xor{g.A[get3DFlatIndex(g.X,y,0):get3DFlatIndex(g.X,y,64)], g.D[get2DFlatIndex(g.X,0):get2DFlatIndex(g.X,64)]}))
+	}
+	return g.A
 }
 
 type Step3 struct {
@@ -141,9 +167,11 @@ type Step3 struct {
 func (g Step3) DefineGadget(api abstractor.API) []frontend.Variable {
 	// A[x,y] = A[x,y] xor D[x], for x in 0…4 and y in 0…4
 	for x := 0; x < stateSize; x += 1 {
-		for y := 0; y < stateSize; y += 1 {
-			blockCopy(get3DFlatIndex(x,y,0), g.A, api.Call(Xor{g.A[get3DFlatIndex(x,y,0):get3DFlatIndex(x,y,64)], g.D[get2DFlatIndex(x,0):get2DFlatIndex(x,64)]}))
-		}
+		g.A = api.Call(Step3Inner{
+			X: x,
+			A: g.A,
+			D: g.D,
+		})
 	}
 	return g.A
 }
@@ -164,6 +192,20 @@ func (g Step4) DefineGadget(api abstractor.API) []frontend.Variable {
 	return B
 }
 
+type Step5Round struct {
+	X int
+	Y int
+	A               []frontend.Variable
+	B               []frontend.Variable
+}
+
+func (g Step5Round) DefineGadget(api abstractor.API) []frontend.Variable {
+	not_b := api.Call(Not{g.B[get3DFlatIndex((g.X+1)%stateSize,g.Y,0):get3DFlatIndex((g.X+1)%stateSize,g.Y,64)]})
+	tmp := api.Call(And{not_b, g.B[get3DFlatIndex((g.X+2)%stateSize,g.Y,0):get3DFlatIndex((g.X+2)%stateSize,g.Y,64)]})
+	blockCopy(get3DFlatIndex(g.X,g.Y,0), g.A, api.Call(Xor{g.B[get3DFlatIndex(g.X,g.Y,0):get3DFlatIndex(g.X,g.Y,64)], tmp}))
+	return g.A
+}
+
 type Step5 struct {
 	A               []frontend.Variable
 	B               []frontend.Variable
@@ -173,9 +215,12 @@ func (g Step5) DefineGadget(api abstractor.API) []frontend.Variable {
 	// A[x,y] = B[x,y] xor ((not B[x+1,y]) and B[x+2,y]), for x in 0…4 and y in 0…4
 	for x := 0; x < stateSize; x += 1 {
 		for y := 0; y < stateSize; y += 1 {
-			not_b := api.Call(Not{g.B[get3DFlatIndex((x+1)%stateSize,y,0):get3DFlatIndex((x+1)%stateSize,y,64)]})
-			tmp := api.Call(And{not_b, g.B[get3DFlatIndex((x+2)%stateSize,y,0):get3DFlatIndex((x+2)%stateSize,y,64)]})
-			blockCopy(get3DFlatIndex(x,y,0), g.A, api.Call(Xor{g.B[get3DFlatIndex(x,y,0):get3DFlatIndex(x,y,64)], tmp}))
+			g.A = api.Call(Step5Round{
+				X: x,
+				Y: y,
+				A: g.A,
+				B: g.B,
+			})
 		}
 	}
 	return g.A
