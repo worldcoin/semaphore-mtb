@@ -55,9 +55,8 @@ func get2DFlatIndex(y int, z int) int {
 }
 
 func blockCopy(fromIndex int, dst []frontend.Variable, src []frontend.Variable) {
-	for i, v := range src {
-		dst[fromIndex+i] = v
-	}
+	toIndex := fromIndex + len(src)
+	copy(dst[fromIndex:toIndex], src)
 }
 
 type Step1 struct {
