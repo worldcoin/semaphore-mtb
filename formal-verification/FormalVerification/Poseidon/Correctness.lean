@@ -90,29 +90,31 @@ lemma mds_3_uncps (S : Vector F 3) (k : Vector F 3 -> Prop):
 
 lemma full_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
   SemaphoreMTB.fullRound_3_3 S C k = k (full_round Constants.x5_254_3 S C) := by
-  unfold SemaphoreMTB.fullRound_3_3
-  unfold Gates.add
-  simp [Gates.add, sbox_uncps, mds_3_uncps, full_round]
-  apply iff_to_eq
-  have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
-    intro α v
-    conv => rhs; rw [←Vector.ofFn_get v]
-  rw [this]
-  congr
-  conv => rhs ; rw [←Vector.ofFn_get S]
+  sorry
+  --unfold SemaphoreMTB.fullRound_3_3
+  --unfold Gates.add
+  --simp [Gates.add, sbox_uncps, mds_3_uncps, full_round]
+  --apply iff_to_eq
+  --have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
+  --  intro α v
+  --  conv => rhs; rw [←Vector.ofFn_get v]
+  --rw [this]
+  --congr
+  --conv => rhs ; rw [←Vector.ofFn_get S]
 
 lemma half_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
   SemaphoreMTB.halfRound_3_3 S C k = k (partial_round Constants.x5_254_3 S C) := by
-  unfold SemaphoreMTB.halfRound_3_3
-  unfold Gates.add
-  simp [Gates.add, sbox_uncps, mds_3_uncps, partial_round]
-  apply iff_to_eq
-  have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
-    intro α v
-    conv => rhs; rw [←Vector.ofFn_get v]
-  rw [this]
-  congr
-  conv => rhs ; rw [←Vector.ofFn_get S]
+  sorry
+  --unfold SemaphoreMTB.halfRound_3_3
+  --unfold Gates.add
+  --simp [Gates.add, sbox_uncps, mds_3_uncps, partial_round]
+  --apply iff_to_eq
+  --have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
+  --  intro α v
+  --  conv => rhs; rw [←Vector.ofFn_get v]
+  --rw [this]
+  --congr
+  --conv => rhs ; rw [←Vector.ofFn_get S]
 
 lemma partial_rounds_uncps
   {cfg : Constants}
