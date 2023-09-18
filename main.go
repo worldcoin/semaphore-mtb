@@ -24,7 +24,7 @@ func main() {
 			{
 				Name: "setup",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
 					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
 					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
@@ -66,7 +66,7 @@ func main() {
 			{
 				Name: "r1cs",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
 					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
 					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
@@ -135,7 +135,7 @@ func main() {
 			{
 				Name: "gen-test-params",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.UintFlag{Name: "tree-depth", Usage: "depth of the mock tree", Required: true},
 					&cli.UintFlag{Name: "batch-size", Usage: "batch size", Required: true},
 				},
@@ -198,7 +198,7 @@ func main() {
 			{
 				Name: "start",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
 					&cli.BoolFlag{Name: "json-logging", Usage: "enable JSON logging", Required: false},
 					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
@@ -240,7 +240,7 @@ func main() {
 			{
 				Name: "prove",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
 				},
 				Action: func(context *cli.Context) error {
@@ -290,7 +290,7 @@ func main() {
 			{
 				Name: "verify",
 				Flags: []cli.Flag{
-					modeArg(),
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
 					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs", Required: true},
 				},
@@ -369,8 +369,4 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		logging.Logger().Fatal().Err(err).Msg("App failed.")
 	}
-}
-
-func modeArg() *cli.StringFlag {
-	return &cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"}
 }
