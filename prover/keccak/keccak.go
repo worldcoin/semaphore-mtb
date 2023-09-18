@@ -1,6 +1,7 @@
 package keccak
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/consensys/gnark/frontend"
@@ -267,7 +268,9 @@ func (g KeccakGadget) DefineGadget(api abstractor.API) []frontend.Variable {
 	tmp[len(P)-1] = 1
 
 	for i := 0; i < len(P); i += 1 {
-		P[i] = api.Xor(P[i], tmp[i])
+		if tmp[i] != 0 {
+			P[i] = api.Xor(P[i], tmp[i])
+		}
 	}
 
 	// Initialization
