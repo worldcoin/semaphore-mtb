@@ -1,7 +1,6 @@
 package keccak
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/consensys/gnark/frontend"
