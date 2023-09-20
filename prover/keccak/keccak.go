@@ -59,6 +59,15 @@ func blockCopy(fromIndex int, dst []frontend.Variable, src []frontend.Variable) 
 	copy(dst[fromIndex:toIndex], src)
 }
 
+func allZeroes(v []frontend.Variable) bool {
+    for _, v := range v {
+        if v != 0 {
+            return false
+        }
+    }
+    return true
+}
+
 type Step1 struct {
 	A               []frontend.Variable
 }
@@ -289,7 +298,14 @@ func (g KeccakGadget) DefineGadget(api abstractor.API) []frontend.Variable {
 				if x+5*y < g.BlockSize/laneSize {
 					var Pi [laneSize]frontend.Variable
 					copy(Pi[:], P[i+(x+5*y)*laneSize:i+(x+5*y+1)*laneSize])
-					blockCopy(get3DFlatIndex(x,y,0), S, api.Call(Xor{S[get3DFlatIndex(x,y,0):get3DFlatIndex(x,y,64)], Pi[:]}))
+					lx := S[get3DFlatIndex(x,y,0):get3DFlatIndex(x,y,64)]
+					rx := Pi[:]
+					if allZeroes(lx) {
+						blockCopy(get3DFlatIndex(x,y,0), S, rx)
+						continue
+					}
+					xorVector := api.Call(Xor{lx, rx})
+					blockCopy(get3DFlatIndex(x,y,0), S, xorVector)
 				}
 			}
 		}
