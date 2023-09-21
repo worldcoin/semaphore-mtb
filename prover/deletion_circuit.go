@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type DeletionMbuCircuit struct {
@@ -67,14 +68,14 @@ func (circuit *DeletionMbuCircuit) AbsDefine(api abstractor.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := api.Call(DeletionProof{
+	root := extractor.Call(api, DeletionProof{
 		DeletionIndices: circuit.DeletionIndices,
 		PreRoot: circuit.PreRoot,
 		IdComms: circuit.IdComms,
 		MerkleProofs: circuit.MerkleProofs,
 		BatchSize: circuit.BatchSize,
 		Depth: circuit.Depth,
-	})[0]
+	})
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)

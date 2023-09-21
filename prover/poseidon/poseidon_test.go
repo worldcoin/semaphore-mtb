@@ -8,6 +8,7 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
 	"github.com/reilabs/gnark-lean-extractor/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type TestPoseidonCircuit1 struct {
@@ -21,16 +22,24 @@ type TestPoseidonCircuit2 struct {
 	Hash  frontend.Variable `gnark:",public"`
 }
 
-func (circuit *TestPoseidonCircuit1) Define(api frontend.API) error {
-	poseidon := abstractor.CallGadget(api, Poseidon1{circuit.Input})[0]
+func (circuit *TestPoseidonCircuit1) AbsDefine(api abstractor.API) error {
+	poseidon := extractor.Call(api, Poseidon1{circuit.Input})
 	api.AssertIsEqual(circuit.Hash, poseidon)
 	return nil
 }
 
-func (circuit *TestPoseidonCircuit2) Define(api frontend.API) error {
-	poseidon := abstractor.CallGadget(api, Poseidon2{circuit.Left, circuit.Right})[0]
+func (circuit *TestPoseidonCircuit2) AbsDefine(api abstractor.API) error {
+	poseidon := extractor.Call(api, Poseidon2{circuit.Left, circuit.Right})
 	api.AssertIsEqual(circuit.Hash, poseidon)
 	return nil
+}
+
+func (circuit TestPoseidonCircuit1) Define(api frontend.API) error {
+	return abstractor.Concretize(api, &circuit)
+}
+
+func (circuit TestPoseidonCircuit2) Define(api frontend.API) error {
+	return abstractor.Concretize(api, &circuit)
 }
 
 func TestPoseidon(t *testing.T) {

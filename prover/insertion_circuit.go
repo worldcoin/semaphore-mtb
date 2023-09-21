@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type InsertionMbuCircuit struct {
@@ -72,7 +73,7 @@ func (circuit *InsertionMbuCircuit) AbsDefine(api abstractor.API) error {
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := api.Call(InsertionProof{
+	root := extractor.Call(api, InsertionProof{
 		StartIndex: circuit.StartIndex,
 		PreRoot: circuit.PreRoot,
 		IdComms: circuit.IdComms,
@@ -81,7 +82,7 @@ func (circuit *InsertionMbuCircuit) AbsDefine(api abstractor.API) error {
 
 		BatchSize: circuit.BatchSize,
 		Depth: circuit.Depth,
-	})[0]
+	})
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)
