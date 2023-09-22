@@ -90,31 +90,20 @@ lemma mds_3_uncps (S : Vector F 3) (k : Vector F 3 -> Prop):
 
 lemma full_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
   SemaphoreMTB.fullRound_3_3 S C k = k (full_round Constants.x5_254_3 S C) := by
-  sorry
-  --unfold SemaphoreMTB.fullRound_3_3
-  --unfold Gates.add
-  --simp [Gates.add, sbox_uncps, mds_3_uncps, full_round]
-  --apply iff_to_eq
-  --have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
-  --  intro α v
-  --  conv => rhs; rw [←Vector.ofFn_get v]
-  --rw [this]
-  --congr
-  --conv => rhs ; rw [←Vector.ofFn_get S]
+  unfold SemaphoreMTB.fullRound_3_3
+  unfold Gates.add
+  simp [mds_3_uncps, sbox_uncps, full_round]
+  rw [←Vector.ofFn_get S]
+  rfl
+
 
 lemma half_round_3_uncps (S C: Vector F 3) (k : Vector F 3 -> Prop):
   SemaphoreMTB.halfRound_3_3 S C k = k (partial_round Constants.x5_254_3 S C) := by
-  sorry
-  --unfold SemaphoreMTB.halfRound_3_3
-  --unfold Gates.add
-  --simp [Gates.add, sbox_uncps, mds_3_uncps, partial_round]
-  --apply iff_to_eq
-  --have : ∀ {α} {v : Vector α 3}, vec![v[0], v[1], v[2]] = v := by
-  --  intro α v
-  --  conv => rhs; rw [←Vector.ofFn_get v]
-  --rw [this]
-  --congr
-  --conv => rhs ; rw [←Vector.ofFn_get S]
+  unfold SemaphoreMTB.halfRound_3_3
+  unfold Gates.add
+  simp [sbox_uncps, mds_3_uncps, partial_round]
+  rw [←Vector.ofFn_get S]
+  rfl
 
 lemma partial_rounds_uncps
   {cfg : Constants}
@@ -198,16 +187,10 @@ lemma full_rounds_3_uncps
   apply full_rounds_uncps
   apply full_round_3_uncps
 
-lemma fold_vec_2 {v : Vector F 2}: vec![v[0], v[1]] = v := by
-    conv => rhs; rw [←Vector.ofFn_get v]
-
 def looped_poseidon_3 (inp : Vector F 3) (k: Vector F 3 -> Prop): Prop :=
     full_rounds_cps Constants.x5_254_3 SemaphoreMTB.fullRound_3_3 inp 0 4 fun state =>
     half_rounds_cps Constants.x5_254_3 SemaphoreMTB.halfRound_3_3 state 12 57  fun state' =>
     full_rounds_cps Constants.x5_254_3 SemaphoreMTB.fullRound_3_3 state' 183 4 k
-
-lemma fold_vec_3 {v : Vector F 3}: vec![v[0], v[1], v[2]] = v := by
-    conv => rhs; rw [←Vector.ofFn_get v]
 
 set_option maxRecDepth 2048
 
@@ -215,7 +198,7 @@ theorem looped_poseidon_3_go (inp : Vector F 3) (k : Vector F 3 -> Prop):
     SemaphoreMTB.poseidon_3 inp k = looped_poseidon_3 inp k := by
     unfold looped_poseidon_3
     unfold SemaphoreMTB.poseidon_3
-    simp [full_rounds_cps, half_rounds_cps, getElem!, fold_vec_3, Vector.ofFn]
+    simp [full_rounds_cps, half_rounds_cps, getElem!, Vector.ofFn]
     rfl
 
 set_option maxRecDepth 512
