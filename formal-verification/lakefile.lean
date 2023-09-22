@@ -12,7 +12,7 @@ require ProvenZK from git
   "https://github.com/reilabs/proven-zk.git"@"v1.0.0"
 
 lean_lib FormalVerification {
-  moreLeanArgs := #["--tstack=10000000", "-DmaxRecDepth=10000", "-DmaxHeartbeats=200000000"]
+  moreLeanArgs := #["--tstack=1024", "-DmaxRecDepth=10000", "-DmaxHeartbeats=200000000", "--memory=6144"]
   -- add library configuration options here
 }
 
