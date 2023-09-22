@@ -238,77 +238,50 @@ func (r ReducedModRCheck) DefineGadget(api abstractor.API) interface{} {
 	return []frontend.Variable{}
 }
 
-// SwapBitArrayEndianness Swaps the endianness of the bit pattern in bits,
-// returning the result in newBits.
-//
-// It does not introduce any new circuit constraints as it simply moves the
-// variables (that will later be instantiated to bits) around in the slice to
-// change the byte ordering. It has been verified to be a constraint-neutral
-// operation, so please maintain this invariant when modifying it.
-//
-// Raises a bitPatternLengthError if the length of bits is not a multiple of a
-// number of bytes.
-func SwapBitArrayEndianness(bits []frontend.Variable) (newBits []frontend.Variable, err error) {
-	bitPatternLength := len(bits)
-
-	if bitPatternLength%8 != 0 {
-		return nil, &bitPatternLengthError{bitPatternLength}
-	}
-
-	for i := bitPatternLength - 8; i >= 0; i -= 8 {
-		currentBytes := bits[i : i+8]
-		newBits = append(newBits, currentBytes...)
-	}
-
-	if bitPatternLength != len(newBits) {
-		return nil, &bitPatternLengthError{len(newBits)}
-	}
-
-	return newBits, nil
-}
-
 // ToReducedBinaryBigEndian converts the provided variable to the corresponding bit
 // pattern using big-endian byte ordering. It also makes sure to pick the smallest
 // binary representation (i.e. one that is reduced modulo scalar field order).
-//
-// Raises a bitPatternLengthError if the number of bits in variable is not a
-// whole number of bytes.
-type ToReducedBigEndianGadget struct {
+type ToReducedBigEndian struct {
 	Variable frontend.Variable
 
 	Size int
 }
 
-func (gadget ToReducedBigEndianGadget) DefineGadget(api abstractor.API) interface{} {
+func (gadget ToReducedBigEndian) DefineGadget(api abstractor.API) interface{} {
 	bitsLittleEndian := api.ToBinary(gadget.Variable, gadget.Size)
 	extractor.CallVoid(api, ReducedModRCheck{Input: bitsLittleEndian})
-	return bitsLittleEndian
-}
 
-func ToReducedBinaryBigEndian(variable frontend.Variable, size int, api abstractor.API) (bitsBigEndian []frontend.Variable, err error) {
-	bitsLittleEndian := extractor.Call1(api, ToReducedBigEndianGadget{Variable: variable, Size: size})
-	return SwapBitArrayEndianness(bitsLittleEndian)
-}
-
-type FromBinaryBigEndianGadget struct {
-	Variable []frontend.Variable
-}
-
-func (gadget FromBinaryBigEndianGadget) DefineGadget(api abstractor.API) interface{} {
-	return api.FromBinary(gadget.Variable...)
+	// Swapping Endianness
+	// It does not introduce any new circuit constraints as it simply moves the
+	// variables (that will later be instantiated to bits) around in the slice to
+	// change the byte ordering. It has been verified to be a constraint-neutral
+	// operation, so please maintain this invariant when modifying it.
+	var newBits []frontend.Variable
+	for i := len(bitsLittleEndian) - 8; i >= 0; i -= 8 {
+		currentBytes := bitsLittleEndian[i : i+8]
+		newBits = append(newBits, currentBytes...)
+	}
+	return newBits
 }
 
 // FromBinaryBigEndian converts the provided bit pattern that uses big-endian
 // byte ordering to a variable that uses little-endian byte ordering.
-//
-// Raises a bitPatternLengthError if the number of bits in `bitsBigEndian` is not
-// a whole number of bytes.
-func FromBinaryBigEndian(bitsBigEndian []frontend.Variable, api abstractor.API) (variable frontend.Variable, err error) {
-	bitsLittleEndian, err := SwapBitArrayEndianness(bitsBigEndian)
-	if err != nil {
-		return nil, err
+type FromBinaryBigEndian struct {
+	Variable []frontend.Variable
+}
+
+func (gadget FromBinaryBigEndian) DefineGadget(api abstractor.API) interface{} {
+	// Swapping Endianness
+	// It does not introduce any new circuit constraints as it simply moves the
+	// variables (that will later be instantiated to bits) around in the slice to
+	// change the byte ordering. It has been verified to be a constraint-neutral
+	// operation, so please maintain this invariant when modifying it.
+	var newBits []frontend.Variable
+	for i := len(gadget.Variable) - 8; i >= 0; i -= 8 {
+		currentBytes := gadget.Variable[i : i+8]
+		newBits = append(newBits, currentBytes...)
 	}
-	return extractor.Call(api, FromBinaryBigEndianGadget{Variable: bitsLittleEndian}), nil
+	return api.FromBinary(newBits...)
 }
 
 func toBytesLE(b []byte) []byte {
