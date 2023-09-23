@@ -31,5 +31,4 @@ variable [Fact (Nat.Prime Order)]
 
 --   sorry
 
-
 def main : IO Unit := pure ()

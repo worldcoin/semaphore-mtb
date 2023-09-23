@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type DeletionMbuCircuit struct {
@@ -25,7 +26,7 @@ type DeletionMbuCircuit struct {
 	Depth     int
 }
 
-func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
+func (circuit *DeletionMbuCircuit) AbsDefine(api abstractor.API) error {
 	if circuit.Depth > 31 {
 		return fmt.Errorf("max depth supported is 31")
 	}
@@ -34,52 +35,41 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	// deletionIndices[0] || deletionIndices[1] || ... || deletionIndices[batchSize-1] || PreRoot || PostRoot
 	//        32          ||        32          || ... ||              32              ||   256   ||    256
 	var bits []frontend.Variable
-	var err error
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits_idx, err := ToReducedBinaryBigEndian(circuit.DeletionIndices[i], 32, api)
-		if err != nil {
-			return err
-		}
+		bits_idx := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.DeletionIndices[i], Size: 32})
 		bits = append(bits, bits_idx...)
-		// kh.Write(bits...)
 	}
 
-	bits_pre, err := ToReducedBinaryBigEndian(circuit.PreRoot, 256, api)
-	if err != nil {
-		return err
-	}
+	bits_pre := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
 	bits = append(bits, bits_pre...)
-	// kh.Write(bits...)
 
-	bits_post, err := ToReducedBinaryBigEndian(circuit.PostRoot, 256, api)
-	if err != nil {
-		return err
-	}
+	bits_post := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
-	// kh.Write(bits...)
 
-	sum, err := FromBinaryBigEndian(keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...), api)
-	if err != nil {
-		return err
-	}
+	hash := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...)
+	sum := extractor.Call(api, FromBinaryBigEndian{Variable: hash})
 
 	// The same endianness conversion has been performed in the hash generation
 	// externally, so we can safely assert their equality here.
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := abstractor.CallGadget(api, DeletionProof{
+	root := extractor.Call(api, DeletionProof{
 		DeletionIndices: circuit.DeletionIndices,
 		PreRoot: circuit.PreRoot,
 		IdComms: circuit.IdComms,
 		MerkleProofs: circuit.MerkleProofs,
 		BatchSize: circuit.BatchSize,
 		Depth: circuit.Depth,
-	})[0]
+	})
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)
 
 	return nil
+}
+
+func (circuit DeletionMbuCircuit) Define(api frontend.API) error {
+	return abstractor.Concretize(api, &circuit)
 }
