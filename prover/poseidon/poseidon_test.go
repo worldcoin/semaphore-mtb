@@ -7,8 +7,8 @@ import (
 	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
-	"github.com/reilabs/gnark-lean-extractor/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/extractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/extractor"
 )
 
 type TestPoseidonCircuit1 struct {

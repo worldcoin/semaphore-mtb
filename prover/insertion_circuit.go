@@ -4,8 +4,8 @@ import (
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
-	"github.com/reilabs/gnark-lean-extractor/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/extractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/extractor"
 )
 
 type InsertionMbuCircuit struct {
