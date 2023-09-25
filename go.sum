@@ -220,8 +220,8 @@ github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1
 github.com/prometheus/procfs v0.7.3/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/prometheus/procfs v0.8.0 h1:ODq8ZFEaYeCaZOJlZZdJA2AbQR98dSHSM1KW/You5mo=
 github.com/prometheus/procfs v0.8.0/go.mod h1:z7EfXMXOkbkqb9IINtpCn86r/to3BnA0uaxHdg830/4=
-github.com/reilabs/gnark-lean-extractor/v2 v2.0.0 h1:91HfzupfdD3RGTj0OFEjPN2k0OPAVlbvf6ACll0Q33o=
-github.com/reilabs/gnark-lean-extractor/v2 v2.0.0/go.mod h1:kSqrDOzPVw4WJdWBoiPlHbyuVDx39p6ksejwHydRDLY=
+github.com/reilabs/gnark-lean-extractor/v2 v2.1.0 h1:3W+JidULH2KlJU6i3kypv8owIDN9thOBxv7upY8264o=
+github.com/reilabs/gnark-lean-extractor/v2 v2.1.0/go.mod h1:kSqrDOzPVw4WJdWBoiPlHbyuVDx39p6ksejwHydRDLY=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDNXVBh4M=
 github.com/rogpeppe/go-internal v1.11.0/go.mod h1:ddIwULY96R17DhadqLgMfk9H9tvdUzkipdSkR5nkCZA=

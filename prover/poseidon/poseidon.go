@@ -3,7 +3,6 @@ package poseidon
 import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/v2/extractor"
 )
 
 type cfg struct {
@@ -41,35 +40,35 @@ type Poseidon1 struct {
 	In frontend.Variable
 }
 
-func (g Poseidon1) DefineGadget(api abstractor.API) interface{} {
+func (g Poseidon1) DefineGadget(api frontend.API) interface{} {
 	inp := []frontend.Variable{0, g.In}
-	return extractor.Call1(api, poseidon{inp})[0]
+	return abstractor.Call1(api, poseidon{inp})[0]
 }
 
 type Poseidon2 struct {
 	In1, In2 frontend.Variable
 }
 
-func (g Poseidon2) DefineGadget(api abstractor.API) interface{} {
+func (g Poseidon2) DefineGadget(api frontend.API) interface{} {
 	inp := []frontend.Variable{0, g.In1, g.In2}
-	return extractor.Call1(api, poseidon{inp})[0]
+	return abstractor.Call1(api, poseidon{inp})[0]
 }
 
 type poseidon struct {
 	Inputs []frontend.Variable
 }
 
-func (g poseidon) DefineGadget(api abstractor.API) interface{} {
+func (g poseidon) DefineGadget(api frontend.API) interface{} {
 	state := g.Inputs
 	cfg := cfgFor(len(state))
 	for i := 0; i < cfg.RF/2; i += 1 {
-		state = extractor.Call1(api, fullRound{state, cfg.constants[i]})
+		state = abstractor.Call1(api, fullRound{state, cfg.constants[i]})
 	}
 	for i := 0; i < cfg.RP; i += 1 {
-		state = extractor.Call1(api, halfRound{state, cfg.constants[cfg.RF/2+i]})
+		state = abstractor.Call1(api, halfRound{state, cfg.constants[cfg.RF/2+i]})
 	}
 	for i := 0; i < cfg.RF/2; i += 1 {
-		state = extractor.Call1(api, fullRound{state, cfg.constants[cfg.RF/2+cfg.RP+i]})
+		state = abstractor.Call1(api, fullRound{state, cfg.constants[cfg.RF/2+cfg.RP+i]})
 	}
 	return state
 }
@@ -78,7 +77,7 @@ type sbox struct {
 	Inp frontend.Variable
 }
 
-func (s sbox) DefineGadget(api abstractor.API) interface{} {
+func (s sbox) DefineGadget(api frontend.API) interface{} {
 	v2 := api.Mul(s.Inp, s.Inp)
 	v4 := api.Mul(v2, v2)
 	r := api.Mul(s.Inp, v4)
@@ -89,7 +88,7 @@ type mds struct {
 	Inp []frontend.Variable
 }
 
-func (m mds) DefineGadget(api abstractor.API) interface{} {
+func (m mds) DefineGadget(api frontend.API) interface{} {
 	var mds = make([]frontend.Variable, len(m.Inp))
 	cfg := cfgFor(len(m.Inp))
 	for i := 0; i < len(m.Inp); i += 1 {
@@ -107,12 +106,12 @@ type halfRound struct {
 	Consts []frontend.Variable
 }
 
-func (h halfRound) DefineGadget(api abstractor.API) interface{} {
+func (h halfRound) DefineGadget(api frontend.API) interface{} {
 	for i := 0; i < len(h.Inp); i += 1 {
 		h.Inp[i] = api.Add(h.Inp[i], h.Consts[i])
 	}
-	h.Inp[0] = extractor.Call(api, sbox{h.Inp[0]})
-	return extractor.Call1(api, mds{h.Inp})
+	h.Inp[0] = abstractor.Call(api, sbox{h.Inp[0]})
+	return abstractor.Call1(api, mds{h.Inp})
 }
 
 type fullRound struct {
@@ -120,12 +119,12 @@ type fullRound struct {
 	Consts []frontend.Variable
 }
 
-func (h fullRound) DefineGadget(api abstractor.API) interface{} {
+func (h fullRound) DefineGadget(api frontend.API) interface{} {
 	for i := 0; i < len(h.Inp); i += 1 {
 		h.Inp[i] = api.Add(h.Inp[i], h.Consts[i])
 	}
 	for i := 0; i < len(h.Inp); i += 1 {
-		h.Inp[i] = extractor.Call(api, sbox{h.Inp[i]})
+		h.Inp[i] = abstractor.Call(api, sbox{h.Inp[i]})
 	}
-	return extractor.Call1(api, mds{h.Inp})
+	return abstractor.Call1(api, mds{h.Inp})
 }

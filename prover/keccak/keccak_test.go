@@ -8,7 +8,6 @@ import (
 	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
-	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
 )
 
 type TestKeccakCircuit1 struct {
@@ -16,15 +15,11 @@ type TestKeccakCircuit1 struct {
 	Hash  frontend.Variable    `gnark:",public"`
 }
 
-func (circuit *TestKeccakCircuit1) AbsDefine(api abstractor.API) error {
+func (circuit *TestKeccakCircuit1) Define(api frontend.API) error {
 	hash := NewKeccak256(api, len(circuit.Input), circuit.Input[:]...)
 	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
-}
-
-func (circuit TestKeccakCircuit1) Define(api frontend.API) error {
-	return abstractor.Concretize(api, &circuit)
 }
 
 type TestKeccakCircuit2 struct {
@@ -32,15 +27,11 @@ type TestKeccakCircuit2 struct {
 	Hash  frontend.Variable    `gnark:",public"`
 }
 
-func (circuit *TestKeccakCircuit2) AbsDefine(api abstractor.API) error {
+func (circuit *TestKeccakCircuit2) Define(api frontend.API) error {
 	hash := NewKeccak256(api, 0)
 	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
-}
-
-func (circuit TestKeccakCircuit2) Define(api frontend.API) error {
-	return abstractor.Concretize(api, &circuit)
 }
 
 type TestSHACircuit struct {
@@ -48,15 +39,11 @@ type TestSHACircuit struct {
 	Hash  frontend.Variable    `gnark:",public"`
 }
 
-func (circuit *TestSHACircuit) AbsDefine(api abstractor.API) error {
+func (circuit *TestSHACircuit) Define(api frontend.API) error {
 	hash := NewSHA3_256(api, 0)
 	sum := api.FromBinary(hash...)
 	api.AssertIsEqual(circuit.Hash, sum)
 	return nil
-}
-
-func (circuit TestSHACircuit) Define(api frontend.API) error {
-	return abstractor.Concretize(api, &circuit)
 }
 
 func TestKeccak(t *testing.T) {

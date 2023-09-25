@@ -9,7 +9,6 @@ import (
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/v2/extractor"
 )
 
 type Proof struct {
@@ -41,11 +40,11 @@ type ProofRound struct {
 	Sibling   frontend.Variable
 }
 
-func (gadget ProofRound) DefineGadget(api abstractor.API) interface{} {
+func (gadget ProofRound) DefineGadget(api frontend.API) interface{} {
 	api.AssertIsBoolean(gadget.Direction)
 	d1 := api.Select(gadget.Direction, gadget.Hash, gadget.Sibling)
 	d2 := api.Select(gadget.Direction, gadget.Sibling, gadget.Hash)
-	sum := extractor.Call(api, poseidon.Poseidon2{In1: d1, In2: d2})
+	sum := abstractor.Call(api, poseidon.Poseidon2{In1: d1, In2: d2})
 	return sum
 }
 
@@ -56,10 +55,10 @@ type VerifyProof struct {
 	Path  []frontend.Variable
 }
 
-func (gadget VerifyProof) DefineGadget(api abstractor.API) interface{} {
+func (gadget VerifyProof) DefineGadget(api frontend.API) interface{} {
 	sum := gadget.Proof[0]
 	for i := 1; i < len(gadget.Proof); i++ {
-		sum = extractor.Call(api, ProofRound{Direction: gadget.Path[i-1], Hash: gadget.Proof[i], Sibling: sum})
+		sum = abstractor.Call(api, ProofRound{Direction: gadget.Path[i-1], Hash: gadget.Proof[i], Sibling: sum})
 	}
 	return sum
 }
@@ -73,7 +72,7 @@ type InsertionRound struct {
 	Depth int
 }
 
-func (gadget InsertionRound) DefineGadget(api abstractor.API) interface{} {
+func (gadget InsertionRound) DefineGadget(api frontend.API) interface{} {
 	currentPath := api.ToBinary(gadget.Index, gadget.Depth)
 
 	// len(circuit.MerkleProofs) === circuit.BatchSize
@@ -81,12 +80,12 @@ func (gadget InsertionRound) DefineGadget(api abstractor.API) interface{} {
 	// len(circuit.IdComms) === circuit.BatchSize
 	// Verify proof for empty leaf.
 	proof := append([]frontend.Variable{emptyLeaf}, gadget.Proof[:]...)
-	root := extractor.Call(api, VerifyProof{Proof: proof, Path: currentPath})
+	root := abstractor.Call(api, VerifyProof{Proof: proof, Path: currentPath})
 	api.AssertIsEqual(root, gadget.PrevRoot)
 
 	// Verify proof for idComm.
 	proof = append([]frontend.Variable{gadget.Item}, gadget.Proof[:]...)
-	root = extractor.Call(api, VerifyProof{Proof: proof, Path: currentPath})
+	root = abstractor.Call(api, VerifyProof{Proof: proof, Path: currentPath})
 
 	return root
 }
@@ -102,18 +101,18 @@ type InsertionProof struct {
 	Depth     int
 }
 
-func (gadget InsertionProof) DefineGadget(api abstractor.API) interface{} {
+func (gadget InsertionProof) DefineGadget(api frontend.API) interface{} {
 	prevRoot := gadget.PreRoot
 
 	// Individual insertions.
 	for i := 0; i < gadget.BatchSize; i += 1 {
 		currentIndex := api.Add(gadget.StartIndex, i)
-		prevRoot = extractor.Call(api, InsertionRound{
-			Index: currentIndex,
-			Item: gadget.IdComms[i],
+		prevRoot = abstractor.Call(api, InsertionRound{
+			Index:    currentIndex,
+			Item:     gadget.IdComms[i],
 			PrevRoot: prevRoot,
-			Proof: gadget.MerkleProofs[i],
-			Depth: gadget.Depth,
+			Proof:    gadget.MerkleProofs[i],
+			Depth:    gadget.Depth,
 		})
 	}
 
@@ -121,15 +120,15 @@ func (gadget InsertionProof) DefineGadget(api abstractor.API) interface{} {
 }
 
 type DeletionRound struct {
-	Root          frontend.Variable
-	Index         frontend.Variable
-	Item          frontend.Variable
-	MerkleProofs  []frontend.Variable
+	Root         frontend.Variable
+	Index        frontend.Variable
+	Item         frontend.Variable
+	MerkleProofs []frontend.Variable
 
-	Depth         int
+	Depth int
 }
 
-func (gadget DeletionRound) DefineGadget(api abstractor.API) interface{} {
+func (gadget DeletionRound) DefineGadget(api frontend.API) interface{} {
 	// We verify that the Leaf belongs to the Merkle Tree by verifying that the computed root
 	// matches gadget.Root. Then, we return the root computed with Leaf being empty.
 	currentPath := api.ToBinary(gadget.Index, gadget.Depth+1)
@@ -140,10 +139,10 @@ func (gadget DeletionRound) DefineGadget(api abstractor.API) interface{} {
 	currentPath = currentPath[:gadget.Depth]
 
 	// Verify proof for Item.
-	rootPreDeletion := extractor.Call(api, VerifyProof{append([]frontend.Variable{gadget.Item}, gadget.MerkleProofs[:]...), currentPath})
+	rootPreDeletion := abstractor.Call(api, VerifyProof{append([]frontend.Variable{gadget.Item}, gadget.MerkleProofs[:]...), currentPath})
 
 	// Verify proof for empty leaf.
-	rootPostDeletion := extractor.Call(api, VerifyProof{append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[:]...), currentPath})
+	rootPostDeletion := abstractor.Call(api, VerifyProof{append([]frontend.Variable{emptyLeaf}, gadget.MerkleProofs[:]...), currentPath})
 
 	preRootCorrect := api.IsZero(api.Sub(rootPreDeletion, gadget.Root))
 	preRootCorrectOrSkip := api.Or(preRootCorrect, skipFlag)
@@ -164,19 +163,19 @@ type DeletionProof struct {
 	Depth     int
 }
 
-func (gadget DeletionProof) DefineGadget(api abstractor.API) interface{} {
+func (gadget DeletionProof) DefineGadget(api frontend.API) interface{} {
 	// Actual batch merkle proof verification.
 	root := gadget.PreRoot
 
 	// Individual deletions.
 	for i := 0; i < gadget.BatchSize; i += 1 {
 		// Set root for next iteration.
-		root = extractor.Call(api, DeletionRound{
-			Root: root,
-			Index: gadget.DeletionIndices[i],
-			Item: gadget.IdComms[i],
+		root = abstractor.Call(api, DeletionRound{
+			Root:         root,
+			Index:        gadget.DeletionIndices[i],
+			Item:         gadget.IdComms[i],
 			MerkleProofs: gadget.MerkleProofs[i],
-			Depth: gadget.Depth,
+			Depth:        gadget.Depth,
 		})
 	}
 
@@ -189,7 +188,7 @@ type ReducedModRCheck struct {
 	Input []frontend.Variable
 }
 
-func (r ReducedModRCheck) DefineGadget(api abstractor.API) interface{} {
+func (r ReducedModRCheck) DefineGadget(api frontend.API) interface{} {
 	field := api.Compiler().Field()
 	if len(r.Input) < field.BitLen() {
 		// input is shorter than the field, so it's definitely reduced
@@ -221,9 +220,9 @@ type ToReducedBigEndian struct {
 	Size int
 }
 
-func (gadget ToReducedBigEndian) DefineGadget(api abstractor.API) interface{} {
+func (gadget ToReducedBigEndian) DefineGadget(api frontend.API) interface{} {
 	bitsLittleEndian := api.ToBinary(gadget.Variable, gadget.Size)
-	extractor.CallVoid(api, ReducedModRCheck{Input: bitsLittleEndian})
+	abstractor.CallVoid(api, ReducedModRCheck{Input: bitsLittleEndian})
 
 	// Swapping Endianness
 	// It does not introduce any new circuit constraints as it simply moves the
@@ -244,7 +243,7 @@ type FromBinaryBigEndian struct {
 	Variable []frontend.Variable
 }
 
-func (gadget FromBinaryBigEndian) DefineGadget(api abstractor.API) interface{} {
+func (gadget FromBinaryBigEndian) DefineGadget(api frontend.API) interface{} {
 	// Swapping Endianness
 	// It does not introduce any new circuit constraints as it simply moves the
 	// variables (that will later be instantiated to bits) around in the slice to
