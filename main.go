@@ -133,6 +133,30 @@ func main() {
 				},
 			},
 			{
+				Name: "export-vk",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
+					&cli.StringFlag{Name: "output", Usage: "output file", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					keys := context.String("keys-file")
+					ps, err := prover.ReadSystemFromFile(keys)
+					if err != nil {
+						return err
+					}
+					outPath := context.String("output")
+
+					file, err := os.Create(outPath)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					output := file
+					_, err = ps.VerifyingKey.WriteTo(output)
+					return err
+				},
+			},
+			{
 				Name: "gen-test-params",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
