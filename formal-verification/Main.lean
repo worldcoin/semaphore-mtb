@@ -31,4 +31,7 @@ variable [Fact (Nat.Prime Order)]
 
 --   sorry
 
+-- if gDeletionProof --> MerkleTree.itemat x = 0
+
+
 def main : IO Unit := pure ()
