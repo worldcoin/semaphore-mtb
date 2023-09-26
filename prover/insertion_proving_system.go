@@ -13,7 +13,6 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/iden3/go-iden3-crypto/keccak256"
-	"github.com/reilabs/gnark-lean-extractor/extractor"
 )
 
 type InsertionParameters struct {
@@ -92,12 +91,6 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 		return nil, err
 	}
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
-}
-
-func ExtractLean(treeDepth uint32) (string, error) {
-	// Not checking for treeDepth === 0
-	assignment := VerifyProof{Proof: make([]frontend.Variable, treeDepth+1), Path: make([]frontend.Variable, treeDepth)}
-	return extractor.GadgetToLeanWithName(&assignment, ecc.BN254, "SemaphoreMTB")
 }
 
 func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {

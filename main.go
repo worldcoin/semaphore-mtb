@@ -340,12 +340,14 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
 					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
+					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					path := context.String("output")
 					treeDepth := uint32(context.Uint("tree-depth"))
+					batchSize := uint32(context.Uint("batch-size"))
 					logging.Logger().Info().Msg("Extracting gnark circuit to Lean")
-					circuit_string, err := prover.ExtractLean(treeDepth)
+					circuit_string, err := prover.ExtractLean(treeDepth, batchSize)
 					if err != nil {
 						return err
 					}
