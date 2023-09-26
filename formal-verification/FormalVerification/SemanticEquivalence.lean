@@ -90,16 +90,17 @@ lemma VerifyProof_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k 
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
 
--- /-!
--- We need to prove that `DeletionRound_30` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
--- this is shown in `DeletionRound_uncps`.
--- Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
--- -/
+/-!
+We need to prove that `DeletionRound_30` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
+this is shown in `DeletionRound_uncps`.
+Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
+-/
 
--- -- Helper for proving `DeletionRound_uncps`
+-- Helper for proving `DeletionRound_uncps`
 lemma select_is_match {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ match zmod_to_bit b with
   | Bit.zero => out = i2
-  | Bit.one => out = i1 := by sorry
+  | Bit.one => out = i1 := by
+  sorry
 
 lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     (fun gate_2 =>
@@ -109,13 +110,31 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     Gates.eq gate_5 (1:F) ∧
     ∃gate_7, Gates.select cond b gate_2 gate_7 ∧
     k gate_7) = (fun gate_2 => match zmod_to_bit cond with
-    | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
-    | Bit.one => k b  -- Skip flag set, don't update the root
-  ) := by
+                  | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
+                  | Bit.one => k b  -- Skip flag set, don't update the root
+                ) := by
+  
   simp [select_is_match]
   sorry
 
-lemma is_vector_binary_partial {d n r} (x : Vector (ZMod n) d) : is_vector_binary x → is_vector_binary (x.take r) := by sorry
+lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) d) : is_vector_binary x → is_vector_binary (Vector.take (d-1) x) := by
+  intros
+  rename_i h
+  -- simp only [is_vector_binary] at *
+  -- rw [←Vector.ofFn_get (v := x)] at *
+  induction x using Vector.inductionOn
+  case h_nil => {
+    simp [Vector.take]
+    tauto
+  }
+  case h_cons x xs ih => {
+    --simp [is_vector_binary_cons] at h
+    --simp only [is_vector_binary] at *
+    --simp only [Vector.take]
+    --simp only [ih]
+    simp [is_vector_binary_cons]
+    sorry
+  }
 
 /-!
 `DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
