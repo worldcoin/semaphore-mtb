@@ -97,6 +97,28 @@ Then we need to show that `DeletionProof_4_4_30_4` is continuous application of 
 -/
 
 -- Helper for proving `DeletionRound_uncps`
+namespace List
+def front : α → List α → List α
+  | _, [] => []
+  | y, (z :: zs) => y :: front z zs
+end List
+
+namespace Vector
+
+def front : Vector α n → Vector α (n - 1)
+  | ⟨[], h⟩ => ⟨[], congrArg Nat.pred h⟩
+  | ⟨x :: xs, h⟩ => ⟨List.front x xs, by
+    induction xs generalizing x
+    case nil => {
+      apply congrArg Nat.pred h
+    }
+    case cons head tail ih => {
+      sorry
+    }⟩
+
+end Vector
+
+
 lemma select_is_match {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ match zmod_to_bit b with
   | Bit.zero => out = i2
   | Bit.one => out = i1 := by
@@ -117,6 +139,8 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
   simp [select_is_match]
   sorry
 
+--def vector_take_cons {n : Nat} {x : α } {xs : Vector α n} : (Vector.take (Nat.succ n - 1) (x ::ᵥ xs)) ↔ (x ::ᵥ (Vector.take (n - 1) xs)) := by sorry
+
 lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) d) : is_vector_binary x → is_vector_binary (Vector.take (d-1) x) := by
   intros
   rename_i h
@@ -128,11 +152,13 @@ lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) d) : is_vector_binary 
     tauto
   }
   case h_cons x xs ih => {
-    --simp [is_vector_binary_cons] at h
+    simp only [is_vector_binary_cons] at *
+    
+    -- Vector.Take (Nat.succ n - 1) (x ::ᵥ xs) ↔ x ::ᵥ Vector.Take (n - 1) xs
     --simp only [is_vector_binary] at *
     --simp only [Vector.take]
     --simp only [ih]
-    simp [is_vector_binary_cons]
+    
     sorry
   }
 
@@ -143,8 +169,8 @@ the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of t
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   gDeletionRound Root Index Item Proof k ↔
   ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
-  (match zmod_to_bit (out.get D) with
-    | Bit.zero => (MerkleTree.recover_tail poseidon₂ ((Dir.create_dir_vec out).take D) Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ ((Dir.create_dir_vec out).take D) Proof 0) -- Update the root
+  (match zmod_to_bit out.last with
+    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof 0) -- Update the root
     | Bit.one => k Root  -- Skip flag set, don't update the root
   ) := by
   unfold gDeletionRound
@@ -187,9 +213,9 @@ def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector
   | Nat.zero => k PreRoot
   | Nat.succ _ =>
     ∃out: Vector F (D+1), recover_binary_zmod' out = DeletionIndices.head ∧ is_vector_binary out ∧
-    match zmod_to_bit (out.get D) with
-      | Bit.zero => MerkleTree.recover_tail poseidon₂ ((Dir.create_dir_vec out).take D) MerkleProofs.head IdComms.head = PreRoot ∧
-        DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ ((Dir.create_dir_vec out).take D) MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
+    match zmod_to_bit out.last with
+      | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head IdComms.head = PreRoot ∧
+        DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
       | Bit.one => DeletionLoop DeletionIndices.tail PreRoot IdComms.tail MerkleProofs.tail k  -- Skip flag set, don't update the root
 
 lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
@@ -286,6 +312,6 @@ lemma InsertionProof_looped (StartIndex: F) (PreRoot: F) (IdComms: Vector F B) (
         rfl
 
 lemma InsertionProof_uncps {StartIndex: F} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
-    gInsertionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
-    InsertionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
+    gInsertionProof StartIndex PreRoot IdComms MerkleProofs k ↔
+    InsertionLoop StartIndex PreRoot IdComms MerkleProofs k := by
     simp only [InsertionProof_looped, insertion_rounds_uncps]
