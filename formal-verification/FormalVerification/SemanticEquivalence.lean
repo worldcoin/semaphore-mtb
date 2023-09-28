@@ -5,6 +5,7 @@ import ProvenZk.Merkle
 import FormalVerification
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
+import FormalVerification.ReducedCheck.SemanticEquivalence
 
 open SemaphoreMTB (F Order)
 
@@ -24,7 +25,7 @@ lemma Poseidon2_uncps (a b : F) (k : F -> Prop) : SemaphoreMTB.Poseidon2 a b k �
 `ProofRound_uncps` proves that `SemaphoreMTB.ProofRound` is equivalent to a
 single iteration of `MerkleTree.recover_tail`
 -/
-lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} : 
+lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} :
     SemaphoreMTB.ProofRound direction hash sibling k ↔
     is_bit direction ∧ k (match Dir.nat_to_dir direction.val with
     | Dir.left => poseidon₂ vec![sibling, hash]
