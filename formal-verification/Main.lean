@@ -31,7 +31,7 @@ open SemaphoreMTB renaming InsertionProof_2_3_2_2_3 → gInsertionProof
 --   MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec x) MerkleProofs.last 0 = post_root := by
 --   -- simp [DeletionProof_2_2_3_2_uncps]
 --   -- simp [DeletionLoop]
-  
+
 --   -- simp [SemaphoreMTB.DeletionProof_2_2_3_2]
 --   -- simp [DeletionRound_uncps]
 
@@ -53,11 +53,11 @@ theorem after_deletion_all_items_zero (Tree: MerkleTree F poseidon₂ D) (Deleti
     simp [DeletionProof_uncps]
     unfold DeletionLoop
     unfold item_is_zero_or_skip
-    
+
     -- conv =>
     --   arg 1;
     --   intro out;
-    --   . tactic => cases out; rename_i 
+    --   . tactic => cases out; rename_i
     sorry
 
 
@@ -100,13 +100,13 @@ lemma verify_proof_is_root {Tree: MerkleTree F poseidon₂ D} {Path: Vector Dir 
   (MerkleTree.recover_tail poseidon₂ Path Proof Item) = (MerkleTree.recover_tail poseidon₂ Path (Tree.proof Path) (Tree.item_at Path)) := by sorry
 
 
-def TreeInsert [Fact (perfect_hash poseidon₂)] (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
-  ∃out: Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧ ∃Tree: MerkleTree F poseidon₂ D, Tree.root = PrevRoot ∧
+def TreeInsert [Fact (perfect_hash poseidon₂)] (Index: F) (Item: F) (Tree : MerkleTree F poseidon₂ D) (Proof: Vector F D) (k: F -> Prop) : Prop :=
+  ∃out: Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
   MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof 0 = Tree.root ∧
   k (Tree.set (Dir.create_dir_vec out) Item).root
 
-axiom InsertIsSet [Fact (perfect_hash poseidon₂)] {Index: F} {Item: F} {PrevRoot: F} {Proof: Vector F D} {k: F -> Prop} :
-  insertion_round Index Item PrevRoot Proof k ↔
+theorem InsertIsSet [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F poseidon₂ D} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
+  insertion_round Index Item () Proof k ↔
   TreeInsert Index Item PrevRoot Proof k
   -- := by
   -- simp [InsertionRound_uncps]
@@ -120,13 +120,18 @@ axiom InsertIsSet [Fact (perfect_hash poseidon₂)] {Index: F} {Item: F} {PrevRo
   -- simp [this]
   -- have : (MerkleTree.item_at (MerkleTree.set Tree (Dir.create_dir_vec out) Item) (Dir.create_dir_vec out)) = Item := by sorry
   -- simp [this]
-  
+
   -- rw [MerkleTree.proof_ceritfies_item (Dir.create_dir_vec out) _ Proof 0]
   -- sorry
   -- sorry
 
-theorem before_insertion_all_items_zero [Fact (perfect_hash poseidon₂)] {Tree: MerkleTree F poseidon₂ D} (StartIndex: F) (PreRoot: F) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
-  (gInsertionProof StartIndex PreRoot IdComms MerkleProofs k) → item_is_zero Tree StartIndex PreRoot MerkleProofs := by
+theorem before_insertion_all_items_zero
+  [Fact (perfect_hash poseidon₂)]
+  {Tree: MerkleTree F poseidon₂ D}
+  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
+  gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs k →
+  (∀ i ∈ [StartIndex:StartIndex + B], Tree.item_at_nat i = 0) := by
+  --item_is_zero Tree StartIndex PreRoot MerkleProofs := by
     simp [gInsertionProof]
     simp [InsertionRound_uncps]
     simp only [InsertIsSet]
@@ -152,7 +157,7 @@ theorem before_insertion_all_items_zero [Fact (perfect_hash poseidon₂)] {Tree:
     -- --rw [←Vector.ofFn_get (v := MerkleProofs)] at *
     -- have : h₆ = (Vector.reverse MerkleProofs[0]) ∧ Tree = h₄ := by
     --   apply And.intro
-      
+
     --   sorry
     -- simp [this]
     -- assumption
@@ -162,7 +167,7 @@ theorem before_insertion_all_items_zero [Fact (perfect_hash poseidon₂)] {Tree:
     -- unfold Gates.add at *
     -- assumption
     -- apply And.intro
-    -- assumption    
+    -- assumption
     -- simp [recover_tail_reverse_equals_recover'] at *
     -- rw [MerkleTree.proof_ceritfies_item] at *
     -- assumption
@@ -223,8 +228,8 @@ theorem before_insertion_all_items_zero [Fact (perfect_hash poseidon₂)] {Tree:
 --   -- rw [MerkleTree.proof_ceritfies_item]
 --   -- assumption
 --   -- rename_i h₁ h₂ h₃ h₄ h₅ h₆ h₇ h₈
-  
-  
+
+
 --   --rw [MerkleTree.proof_ceritfies_item _ _ _ _]
 --   --rw [<-MerkleTree.recover_tail_reverse_equals_recover _ _ _ _]
 --   sorry
