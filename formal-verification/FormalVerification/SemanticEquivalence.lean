@@ -128,16 +128,31 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     (fun gate_2 =>
     ∃gate_3, gate_3 = Gates.sub a b ∧
     ∃gate_4, Gates.is_zero gate_3 gate_4 ∧
-    ∃gate_5, Gates.or gate_4 skip gate_5 ∧
+    ∃gate_5, Gates.or gate_4 cond gate_5 ∧
     Gates.eq gate_5 (1:F) ∧
     ∃gate_7, Gates.select cond b gate_2 gate_7 ∧
     k gate_7) = (fun gate_2 => match zmod_to_bit cond with
                   | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
                   | Bit.one => k b  -- Skip flag set, don't update the root
                 ) := by
-  
   simp [select_is_match]
-  sorry
+  cases cond
+  rename_i v h
+  cases (v)
+  case zero => {
+    simp only [zmod_to_bit]
+    simp only [Gates.or]
+    simp only [Gates.is_zero, Gates.sub, Gates.is_bool, Gates.eq]
+    simp
+    simp [and_assoc]
+    -- conv => lhs; intro gate_2; arg 1; intro gate_4;
+
+    sorry
+  }
+  case succ => {
+    sorry
+  }
+  
 
 --def vector_take_cons {n : Nat} {x : α } {xs : Vector α n} : (Vector.take (Nat.succ n - 1) (x ::ᵥ xs)) ↔ (x ::ᵥ (Vector.take (n - 1) xs)) := by sorry
 
@@ -255,11 +270,15 @@ lemma double_prop {a b c d : Prop} : (b ∧ a ∧ c ∧ a ∧ d) ↔ (b ∧ a �
   simp
   tauto
 
-lemma InsertionRound_uncps {Index: F} {Item: F} {PrevRoot: F} {Proof: Vector F D} {k: F -> Prop} :
-  gInsertionRound Index Item PrevRoot Proof k ↔
+def insertion_round (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
   ∃out: Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
   (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof 0 = PrevRoot) ∧
-  k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof Item) := by
+  k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) Proof Item)
+
+lemma InsertionRound_uncps {Index: F} {Item: F} {PrevRoot: F} {Proof: Vector F D} {k: F -> Prop} :
+  gInsertionRound Index Item PrevRoot Proof k ↔
+  insertion_round Index Item PrevRoot Proof k := by
+  simp [insertion_round]
   simp [gInsertionRound]
   simp [Gates.to_binary, Gates.eq]
   simp [VerifyProof_looped, proof_rounds_uncps]
@@ -297,7 +316,7 @@ lemma insertion_rounds_uncps {n} {StartIndex: F} {PreRoot: F} {IdComms: Vector F
   | cons => 
     unfold insertion_rounds
     unfold InsertionLoop
-    simp [InsertionRound_uncps]
+    simp [InsertionRound_uncps, insertion_round]
     rename_i ih
     simp [ih]
 
