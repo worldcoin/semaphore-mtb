@@ -415,6 +415,8 @@ theorem recover_binary_nat_snoc {vs : Vector Bit n}: recover_binary_nat (vs.snoc
     conv => lhs; enter [2]; rw [←Nat.mul_assoc]; arg 1; rw [Nat.mul_comm]
 
 
+lemma le_trans_lt {a b c : Nat} : (a < b) → (b ≤ c) → a < c := by intros; linarith
+
 theorem bit_comparison_is_lt {base arg : Vector Bit n}:
   binary_comparison_ix_free_bits base arg ↔ (recover_binary_nat base.reverse > recover_binary_nat arg.reverse) := by
   induction n with
@@ -423,6 +425,20 @@ theorem bit_comparison_is_lt {base arg : Vector Bit n}:
     cases arg using Vector.casesOn
     simp [binary_comparison_ix_free_bits]
   | succ n ih =>
-    cases base using Vector.casesOn
-    cases arg using Vector.casesOn
-    simp
+    cases base using Vector.casesOn; rename_i bhd btl
+    cases arg using Vector.casesOn; rename_i ahd atl
+    simp [binary_comparison_ix_free_bits]
+    cases ahd <;> (cases bhd; simp [Bit.toNat])
+    . simp [ih]
+    . simp [Bit.toNat]
+      apply lt_of_lt_of_le
+      apply binary_nat_lt
+      simp
+    . simp [Bit.toNat]
+      apply le_trans
+      apply le_of_lt
+      apply binary_nat_lt
+      simp
+    . simp [Bit.toNat, ih]
+
+
