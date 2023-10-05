@@ -37,6 +37,7 @@ open SemaphoreMTB renaming InsertionProof_2_3_2_2_3 → gInsertionProof
 
 --   sorry
 
+
 def list_to_vec_n (L : List Dir) (n : Nat) : Vector Dir n := ⟨List.takeI n L, List.takeI_length n L⟩
 
 def mod_two (inp : Nat) : Dir := match h:inp%2 with
@@ -48,12 +49,11 @@ def mod_two (inp : Nat) : Dir := match h:inp%2 with
    simp at this
    contradiction
  )
---  | _ => panic "Unreachable" -- Unreachable
 
 def nat_to_list_le : Nat → List Dir
   | 0 => [Dir.left]
   | 1 => [Dir.right]
-  | x+2 => mod_two x :: nat_to_list_le ((x + 2) / 2)  --- recover_binary_list ((x+2)/2)) ++ (x % 2)
+  | x+2 => mod_two x :: nat_to_list_le ((x + 2) / 2)
 termination_by nat_to_list_le x => x
 decreasing_by simp_wf; simp_arith; apply Nat.div_le_self
 
@@ -73,16 +73,47 @@ def dir_to_bit : Dir → Bit
 def nat_to_dir_vec (idx : Nat) (depth : Nat ): Vector Dir depth :=
   Vector.reverse $ list_to_vec_n (nat_to_list_le idx) depth
 
--- def nat_to_dir_vec (d: Nat) (ix: Nat): Vector Dir d := match d with
--- | 0 => Vector.nil
--- | Nat.succ d' => if ix ≥ 2^d'
---   then Dir.right ::ᵥ nat_to_list_be d' (ix - 2^d')
---   else Dir.left ::ᵥ nat_to_list_be d' ix
+lemma reverse_map_reverse_is_map {n : Nat} {x : Vector α n} {f : α → β} : Vector.reverse (Vector.map f (Vector.reverse x)) = Vector.map f x := by
+  apply Vector.eq
+  simp [Vector.toList_reverse, List.map_reverse]
+
+def bool_to_bit : Bool -> Bit := fun x => match x with
+  | false => Bit.zero
+  | true => Bit.one
+
+def bit_to_bool : Bit -> Bool := fun x => match x with
+  | Bit.zero => false
+  | Bit.one => true
+
+def bool_to_dir : Bool -> Dir := fun x => match x with
+  | false => Dir.left
+  | true => Dir.right
+
+def dir_to_bool : Dir -> Bool := fun x => match x with
+  | Dir.left => false
+  | Dir.right => true
+
+def dirvec_to_bitvec {n : Nat} (x : Vector Dir n) : Bitvec n :=
+  Vector.map dir_to_bool x
+
+def bitvec_to_dirvec {n : Nat} (x : Bitvec n) : Vector Dir n :=
+  Vector.map bool_to_dir x
+
+theorem bitvec_is_dirvec (n ix: Nat) : (list_to_vec_n (nat_to_list_le n) ix).reverse = bitvec_to_dirvec (Bitvec.ofNat ix n) :=
+  by
+  sorry
+
+-- #eval Bitvec.ofNat 3 11
+-- #eval (list_to_vec_n (nat_to_list_le 11) 3).reverse
 
 theorem nat_to_dir_vec_recover {ix d: ℕ} : ix < 2^d → recover_binary_nat (Vector.map dir_to_bit (nat_to_dir_vec d ix)).reverse = ix := by
-  induction d with
-  | zero => intro h; simp_arith at h; cases h; rfl
-  | succ n ih => sorry
+  induction' d with d ih generalizing ix
+  · intro h; simp_arith at h; cases h; rfl
+  · unfold nat_to_dir_vec at *
+    --simp [reverse_map_reverse_is_map] at *
+    simp [bitvec_is_dirvec] at *
+      
+    sorry
 
 def item_at_nat {depth : Nat} {F: Type} {H: Hash F 2} (t : MerkleTree F H depth) (idx : Nat) : F :=
   let p := nat_to_dir_vec idx depth
@@ -90,8 +121,6 @@ def item_at_nat {depth : Nat} {F: Type} {H: Hash F 2} (t : MerkleTree F H depth)
 
 def set_at_nat(t : MerkleTree F H depth) (idx: Nat) (newVal: F): MerkleTree F H depth :=
   t.set (nat_to_dir_vec idx depth) newVal
-
-#eval nat_to_dir_vec 7 4
 
 -- IdComms not needed because proving that all items are 0 after deletion
 -- def item_is_zero_or_skip {n} (Tree: MerkleTree F poseidon₂ D) (DeletionIndices: Vector F n) (PostRoot: F) (MerkleProofs: Vector (Vector F D) n) : Prop :=
