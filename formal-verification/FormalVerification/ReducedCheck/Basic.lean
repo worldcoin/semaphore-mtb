@@ -441,4 +441,75 @@ theorem bit_comparison_is_lt {base arg : Vector Bit n}:
       simp
     . simp [Bit.toNat, ih]
 
+theorem order_binary_le_is_order :
+  recover_binary_nat order_binary_le = Order := by eq_refl
 
+theorem ix_flip {n i : ℕ } {h : i < n} : n - (n - i - 1) - 1 = i := by
+  induction n with
+  | zero => contradiction
+  | succ n ih =>
+    cases h with
+    | refl => simp_arith
+    | step h =>
+      simp at h
+      rw [Nat.succ_le] at h
+      conv => rhs; rw [←@ih h]
+      -- apply congrArg₂
+      conv => lhs; enter [1, 2]; rw [Nat.sub_sub, Nat.succ_sub (h := h)]
+      conv => lhs; rw [Nat.succ_sub_succ]
+
+theorem forall_in_rev_range {P : (i : ℕ) → i ∈ [0:n] → Prop}: (∀ i, (h: i ∈ [0:n]) → P i h) ↔ ∀i, (h : n - i - 1 ∈ [0:n]) → P (n - i - 1) h := by
+  apply Iff.intro
+  . intro h i r
+    exact h (n - i - 1) (by
+      apply And.intro
+      . linarith
+      . cases r
+        cases n with
+        | zero => contradiction
+        | succ n => calc
+          Nat.succ n - i - 1 ≤ n := by simp_arith
+          _ < Nat.succ n := by simp_arith
+    )
+  . intro h i r
+    have := h (n - i - 1) (by
+      apply And.intro
+      . linarith
+      . cases r
+        cases n with
+        | zero => contradiction
+        | succ n => calc
+          Nat.succ n - i - 1 ≤ n := by simp_arith
+          _ < Nat.succ n := by simp_arith
+    )
+    rw [ix_flip] at this
+    . assumption
+    . cases r; assumption
+
+
+theorem vector_get_reverse {v : Vector α n} {i_ok : i < n}: (Vector.reverse v)[i] = v[n - i - 1]'(by sorry) := by
+  induction v using Vector.inductionOn with
+  | h_nil => cases i_ok
+  | @h_cons n h t ih =>
+    cases i_ok
+    . simp
+      simp_arith
+    . sorry
+
+theorem vector_binary_reverse : vector_binary (Vector.reverse v) ↔ vector_binary v := by
+  simp [vector_binary, vector_get_reverse]
+  apply forall_in_rev_range (P := λi, Gates.is_bool (v[i]))
+  apply Iff.intro
+  . intro h i p
+
+
+
+
+theorem binary_comp_unfold {base : Vector Bit (Nat.succ n)} {arg : Vector F (Nat.succ n)}
+  (range_check: vector_binary arg):
+  binary_comparison_with_constant base n ix_ok 0 0 arg ↔
+  recover_binary_nat base.reverse > recover_binary_nat (safe_vec_to_bit arg range_check).reverse := by
+  rw [binary_comp_ix_free_simp]
+  . rw [←bit_comparison]
+  rw [bit_comparison]
+  sorry
