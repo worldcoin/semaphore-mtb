@@ -91,9 +91,6 @@ def nat_to_list_le : Nat → List Dir
 termination_by nat_to_list_le x => x
 decreasing_by simp_wf; simp_arith; apply Nat.div_le_self
 
--- for len 2: res[0] = 1 iff ix >= 2 (== 2 ^ len-1)
--- for len 3: res[0] = 1 iff ix >= 4 (== 2 ^ len-1)
-
 def nat_to_list_be (d: Nat) (ix: Nat): Vector Dir d := match d with
 | 0 => Vector.nil
 | Nat.succ d' => if ix ≥ 2^d'
@@ -261,7 +258,6 @@ theorem vector_zmod_to_bit_cons : vector_zmod_to_bit (x ::ᵥ xs) = (nat_to_bit 
 
 -- theorem create_dir_vec_nat_to_dir : Vector.reverse (nat_to_dir_vec (recover_binary_nat (vector_zmod_to_bit w)) D) = Dir.create_dir_vec w := by
 
-
 theorem recover_binary_zmod_bit {w : Vector F n}: is_vector_binary w → recover_binary_zmod' w = recover_binary_zmod (vector_zmod_to_bit w) := by
   intro h
   induction w using Vector.inductionOn with
@@ -284,7 +280,6 @@ theorem dir_bit_dir : Dir.nat_to_dir x = bit_to_dir (nat_to_bit x) := by
   . rfl
   . rename_i x; cases x <;> rfl
 
-
 theorem create_dir_vec_bit : Dir.create_dir_vec w = Vector.map bit_to_dir (vector_zmod_to_bit w) := by
   induction w using Vector.inductionOn with
   | h_nil => rfl
@@ -294,6 +289,19 @@ theorem create_dir_vec_bit : Dir.create_dir_vec w = Vector.map bit_to_dir (vecto
     rw [dir_bit_dir]
 
 theorem bit_to_dir_to_bit : bit_to_dir (dir_to_bit x) = x := by cases x <;> rfl
+
+theorem vector_reverse_eq {x y : Vector α n} : (x.reverse = y) ↔ (x = y.reverse) := by
+  apply Iff.intro
+  case mp => {
+    intro
+    subst_vars
+    simp
+  }
+  case mpr => {
+    intro
+    subst_vars
+    simp
+  }
 
 theorem nat_to_dir_vec_correct {Index : F}:
   is_vector_binary w →
@@ -316,6 +324,16 @@ theorem nat_to_dir_vec_correct {Index : F}:
   rw [create_dir_vec_bit, ←this]
   simp [Vector.map_reverse, bit_to_dir_to_bit]
   rfl
+
+theorem nat_to_dir_vec_correct' {Index : F}:
+  is_vector_binary w →
+  recover_binary_zmod' w = Index →
+  (nat_to_dir_vec (Index.val) D) = (Dir.create_dir_vec w).reverse := by
+    intros
+    rw [<-vector_reverse_eq]
+    rw [nat_to_dir_vec_correct]
+    assumption
+    assumption
 
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
   insertion_round Index Item Tree.root Proof k ↔
@@ -347,8 +365,25 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTr
           assumption
         . assumption
         . assumption
-  . sorry
+  . intros
+    casesm* (_∧_)
+    rename_i h₁ h₂
+    unfold item_at_nat at h₁
+    simp at h₁
+    simp [set_at_nat] at h₂
+    rw [←MerkleTree.proof_insert_invariant (proof := Proof) (old := 0) (new := Item)] at h₂
+    rw [←MerkleTree.recover_tail_reverse_equals_recover] at h₂
+    --rw [nat_to_dir_vec_correct] at h₂
+    simp at h₂
+    rotate_left
+    
+    repeat (
+      sorry
+    )
 
+theorem insertion_round_uncps' [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
+  insertion_round Index Item Tree.root Proof k ↔
+  (MerkleTree.recover poseidon₂ (nat_to_dir_vec (Index.val) D) Proof.reverse 0 = Tree.root) ∧ k (set_at_nat Tree Index.val Item).root := by sorry
 
 theorem InsertIsSet [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F poseidon₂ D} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   insertion_round Index Item Tree.root Proof k ↔
@@ -366,11 +401,92 @@ theorem InsertIsSet [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F posei
     simp [<-MerkleTree.recover_tail_reverse_equals_recover] at this
     simp [this]
 
--- theorem nat_to_dir_vec_is_recovery {idx : Nat} {depth : Nat} {out : Vector F depth} { h : recover_binary_zmod' out = idx ∧ is_vector_binary out }:
---   (nat_to_dir_vec idx depth) = (Dir.create_dir_vec out).reverse := by
---   cases h
---   rename_i h₁ h₂
---   sorry
+def item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Vector Dir depth} {item₁ item₂ : F} {h₁ : ix₁ ≠ ix₂} {h₁ : depth > 0} :
+  (MerkleTree.item_at (tree.set ix₁ item₁) ix₂ = item₂) ↔ (tree.item_at ix₂ = item₂) := by
+    apply Iff.intro
+    case mp => {
+      intro h
+      induction depth
+      case zero => {
+        apply absurd h₁
+        linarith
+      }
+      case succ ih _ => {
+        simp [MerkleTree.set, MerkleTree.item_at] at h
+        split at h
+        case h_1 => {
+          have : Vector.head ix₂ = Dir.right := by
+            sorry
+          simp [this] at h
+          simp [MerkleTree.tree_for] at h
+          
+          sorry
+        }
+        case h_2 => {
+          sorry
+        }
+      }
+    }
+    case mpr => {
+      intro h
+      induction depth
+      case zero => {
+        apply absurd h₁
+        linarith
+      }
+      case succ _ ih => {
+        sorry
+      }
+    }
+
+-- def recover_invariant { depth : Nat } {F: Type} {H : Hash F 2} [Fact (perfect_hash H)] (tree : MerkleTree F H depth) (ix₁ ix₂ : Vector Dir depth) (proof : Vector F depth) (item₁ item₂ : F) :
+--   (MerkleTree.recover H ix₁ proof item₁ = MerkleTree.root (tree.set ix₂ item₂)) ↔ (MerkleTree.recover H ix₁ proof item₁ = tree.root) := by
+--     apply Iff.intro
+--     case mp => {
+--       intro h
+--       induction depth with
+--       | zero => 
+--         unfold MerkleTree.set at h
+--         unfold MerkleTree.root at h
+--         unfold MerkleTree.root
+        
+--         simp
+--         split
+--         sorry
+--         sorry
+--       | succ _ ih => sorry
+--     }
+--     case mpr => {
+--       sorry
+--     }
+
+-- def recover_invariant' { depth : Nat } {F: Type} {H : Hash F 2} [Fact (perfect_hash H)] {tree : MerkleTree F H depth} {ix₁ ix₂ : Vector Dir depth} {proof : Vector F depth} {item₁ item₂ : F} :
+--   (MerkleTree.recover H ix₁ proof item₁ = MerkleTree.root (tree.set ix₂ item₂)) → ((tree.set ix₂ item₂).item_at ix₁ = item₁) := by
+--     induction depth
+--     case zero => {
+--       intro h
+--       unfold MerkleTree.root at h
+--       unfold MerkleTree.set at h
+--       unfold MerkleTree.recover at h
+--       simp at h
+--       unfold MerkleTree.set
+--       unfold MerkleTree.item_at
+--       simp
+--       apply Eq.symm
+--       assumption
+--     }
+--     case succ _ _ => {
+--       intro h
+--       rw [MerkleTree.proof_ceritfies_item]
+--       assumption
+--       assumption
+--     }
+
+theorem val_nat_cast_of_lt {n a : ℕ} : (a : ZMod n).val = a := by
+  -- rwa [ZMod.val_nat_cast, Nat.mod_eq_of_lt]
+  sorry
+
+theorem val_nat_cast_with_sum {n a : ℕ} {b : ZMod n} : (ZMod.val ((a : ZMod n) + b)) = (a + b.val) := by sorry
 
 theorem before_insertion_all_items_zero
   [Fact (perfect_hash poseidon₂)]
@@ -378,51 +494,47 @@ theorem before_insertion_all_items_zero
   (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
   gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs k →
   (∀ i ∈ [StartIndex:StartIndex + B], item_at_nat Tree i = 0) := by
-  -- (∀ i ∈ [StartIndex:StartIndex + B], ∃out: Vector F D, recover_binary_zmod' out = i ∧ is_vector_binary out ∧
-  -- (Tree.item_at (Dir.create_dir_vec out).reverse) = 0) := by
     simp [gInsertionProof]
-    simp [InsertionRound_uncps, insertion_round_uncps]
+    simp [InsertionRound_uncps, insertion_round_uncps']
     intro h1 h2 _
     simp [Gates.add] at h1 h2
+    -- With longer batches, it will require more have statements. Is there a way to avoid the have statements?
+    have h₁ : (MerkleTree.set Tree (nat_to_dir_vec StartIndex D) IdComms[0]).item_at (nat_to_dir_vec (StartIndex + 1) D) = (0:F) := by
+      rw [MerkleTree.proof_ceritfies_item (proof:= (Vector.reverse MerkleProofs[1])) (item := (0:F))]
+      rw [val_nat_cast_with_sum] at h2
+      rw [val_nat_cast_of_lt] at h2
+      assumption
+    rw [item_at_invariant] at h₁
+    rotate_left
+    simp [congr_arg]
+    sorry
+    linarith
+    simp
+    have h₂ : Tree.item_at (nat_to_dir_vec StartIndex D) = (0:F) := by
+      rw [MerkleTree.proof_ceritfies_item (proof:= (Vector.reverse MerkleProofs[0])) (item := (0:F))]
+      rw [val_nat_cast_of_lt] at h1
+      assumption
+    simp [item_at_nat]
+    
     intro i range
     cases range; rename_i _ up
     cases up
-
-
-    sorry
-
-
-    -- -- First version!
-    -- repeat (
-    --   simp only [InsertIsSet]
-    --   unfold TreeInsert
-    -- )
-    -- simp
-    -- simp [item_at_nat]
-    -- simp [recover_tail_reverse_equals_recover']
-    -- intros
-    -- rename_i _ _ h₃ _ _ _ _ _ i hi
-    -- simp [Gates.add] at *
-    -- rw [MerkleTree.proof_ceritfies_item _ _ MerkleProofs[0].reverse _]
-    -- rw [nat_to_dir_vec_is_recovery]
-    -- apply h₃
-    -- rename_i h₈
-    -- simp [*]
-
-
-    -- -- Second version!
-    -- simp only [InsertIsSet]
-    -- unfold TreeInsert
-    -- simp
-    -- simp [recover_tail_reverse_equals_recover']
-    -- intros
-    -- apply Exists.intro
-    -- apply And.intro
-    -- rename_i i hi
-    -- sorry
-    -- apply And.intro
-    -- assumption
-    -- rw [MerkleTree.proof_ceritfies_item _ _ MerkleProofs[0].reverse _]
-    -- assumption
+    case intro.refl => {
+      assumption
+    }
+    case intro.step => {
+      rename_i h₃
+      simp_arith at h₃
+      cases h₃
+      assumption
+      rename_i h₃
+      simp at h₃
+      rename_i m s _
+      simp_arith at s
+      simp_arith at h₃
+      apply absurd h₃
+      simp [h₃]
+      linarith
+    }
 
 def main : IO Unit := pure ()
