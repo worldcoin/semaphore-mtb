@@ -84,12 +84,30 @@ def mod_two (inp : Nat) : Dir := match h:inp%2 with
    contradiction
  )
 
+def mod_two' (inp : Nat) : Bit := match h:inp%2 with
+ | 0 => Bit.zero
+ | 1 => Bit.one
+ | x + 2 => False.elim (by
+   have := Nat.mod_lt inp (y := 2)
+   rw [h] at this
+   simp at this
+   contradiction
+ )
+
 def nat_to_list_le : Nat → List Dir
   | 0 => [Dir.left]
   | 1 => [Dir.right]
   | x+2 => mod_two x :: nat_to_list_le ((x + 2) / 2)
 termination_by nat_to_list_le x => x
 decreasing_by simp_wf; simp_arith; apply Nat.div_le_self
+
+def nat_to_bits_le (l : Nat): Nat → Option (Vector Bit l) := match l with
+  | 0 => fun i => if i = 0 then some Vector.nil else none
+  | Nat.succ l => fun i => do
+    let x := i / 2
+    let y := mod_two' i
+    let xs ← nat_to_bits_le l x
+    some (y ::ᵥ xs)
 
 def nat_to_list_be (d: Nat) (ix: Nat): Vector Dir d := match d with
 | 0 => Vector.nil
@@ -105,8 +123,10 @@ def bit_to_dir : Bit → Dir
   | Bit.zero => Dir.left
   | Bit.one => Dir.right
 
-def nat_to_dir_vec (idx : Nat) (depth : Nat ): Vector Dir depth :=
-  Vector.reverse $ list_to_vec_n (nat_to_list_le idx) depth
+def nat_to_dir_vec (idx : Nat) (depth : Nat ): Option <| Vector Dir depth :=
+  (Vector.reverse ∘ Vector.map bit_to_dir) <$> nat_to_bits_le depth idx
+
+-- theorem nat_to_list_bits_le_recover {l i}: nat_to_bits_le l i
 
 lemma reverse_map_reverse_is_map {n : Nat} {x : Vector α n} {f : α → β} : Vector.reverse (Vector.map f (Vector.reverse x)) = Vector.map f x := by
   apply Vector.eq
@@ -144,44 +164,46 @@ theorem recover_binary_nat_zero {n : Nat} : recover_binary_nat (Vector.replicate
 -- #eval Bitvec.ofNat 3 11
 -- #eval (list_to_vec_n (nat_to_list_le 11) 3).reverse
 
-theorem nat_to_dir_vec_recover {ix d: ℕ} : ix < 2^d → recover_binary_nat (Vector.map dir_to_bit (nat_to_dir_vec ix d)).reverse = ix := by
-  induction' d with d ih generalizing ix
-  · intro h; simp_arith at h; cases h; rfl
-  · intro range
-    unfold nat_to_dir_vec at *
-    cases ix with
-    | zero =>
-      simp [nat_to_list_le, dir_to_bit, recover_binary_nat, recover_binary_nat_zero (n:=d)]
-    | succ ix =>
-      cases ix with
-      | zero =>
-        simp [nat_to_list_le, dir_to_bit, recover_binary_nat, recover_binary_nat_zero (n:=d)]
-      | succ ix =>
-        simp [nat_to_list_le, recover_binary_nat, mod_two]
-        rw [ih]
-        . split
-          . simp [Bit.toNat, dir_to_bit]
-            rw [←Nat.mod_add_div ix.succ.succ 2]
-            simp_arith
-            assumption
-          . simp [Bit.toNat, dir_to_bit]
-            rw [←Nat.mod_add_div ix.succ.succ 2]
-            simp_arith
-            apply Eq.symm
-            assumption
-          . contradiction
-        . rw [Nat.pow_succ, ← Nat.div_lt_iff_lt_mul] at range
-          have : Nat.succ (ix/2) = ix.succ.succ / 2 := by simp_arith
-          rw [this]
-          assumption
-          simp
+-- theorem nat_to_dir_vec_recover {ix d: ℕ} : ix < 2^d → recover_binary_nat (Vector.map dir_to_bit (nat_to_dir_vec ix d)).reverse = ix := by
+--   induction' d with d ih generalizing ix
+--   · intro h; simp_arith at h; cases h; rfl
+--   · intro range
+--     unfold nat_to_dir_vec at *
+--     cases ix with
+--     | zero =>
+--       simp [nat_to_list_le, dir_to_bit, recover_binary_nat, recover_binary_nat_zero (n:=d)]
+--     | succ ix =>
+--       cases ix with
+--       | zero =>
+--         simp [nat_to_list_le, dir_to_bit, recover_binary_nat, recover_binary_nat_zero (n:=d)]
+--       | succ ix =>
+--         simp [nat_to_list_le, recover_binary_nat, mod_two]
+--         rw [ih]
+--         . split
+--           . simp [Bit.toNat, dir_to_bit]
+--             rw [←Nat.mod_add_div ix.succ.succ 2]
+--             simp_arith
+--             assumption
+--           . simp [Bit.toNat, dir_to_bit]
+--             rw [←Nat.mod_add_div ix.succ.succ 2]
+--             simp_arith
+--             apply Eq.symm
+--             assumption
+--           . contradiction
+--         . rw [Nat.pow_succ, ← Nat.div_lt_iff_lt_mul] at range
+--           have : Nat.succ (ix/2) = ix.succ.succ / 2 := by simp_arith
+--           rw [this]
+--           assumption
+--           simp
 
-def item_at_nat {depth : Nat} {F: Type} {H: Hash F 2} (t : MerkleTree F H depth) (idx : Nat) : F :=
-  let p := nat_to_dir_vec idx depth
-  t.item_at p
+def item_at_nat {depth : Nat} {F: Type} {H: Hash F 2} (t : MerkleTree F H depth) (idx : Nat) : Option F := do
+  t.item_at <$> nat_to_dir_vec idx depth
 
-def set_at_nat(t : MerkleTree F H depth) (idx: Nat) (newVal: F): MerkleTree F H depth :=
-  t.set (nat_to_dir_vec idx depth) newVal
+def set_at_nat(t : MerkleTree F H depth) (idx: Nat) (newVal: F): Option (MerkleTree F H depth) :=
+  (t.set · newVal) <$> nat_to_dir_vec idx depth
+
+def proof_at_nat (t : MerkleTree F H depth) (idx: Nat): Option (Vector F depth) :=
+  t.proof <$> nat_to_dir_vec idx depth
 
 -- IdComms not needed because proving that all items are 0 after deletion
 -- def item_is_zero_or_skip {n} (Tree: MerkleTree F poseidon₂ D) (DeletionIndices: Vector F n) (PostRoot: F) (MerkleProofs: Vector (Vector F D) n) : Prop :=
@@ -303,87 +325,279 @@ theorem vector_reverse_eq {x y : Vector α n} : (x.reverse = y) ↔ (x = y.rever
     simp
   }
 
-theorem nat_to_dir_vec_correct {Index : F}:
-  is_vector_binary w →
-  recover_binary_zmod' w = Index →
-  (nat_to_dir_vec (Index.val) D).reverse = Dir.create_dir_vec w := by
-  intro bin recover_bin
-  rw [recover_binary_zmod_bit bin] at recover_bin
-  have : (2^D < Order) := by simp
-  have recover_w : recover_binary_nat (vector_zmod_to_bit w) = Index.val := by
-    rw [←binary_zmod_same_as_nat]
-    congr
-    assumption
-  have index_small : Index.val < 2 ^ D := by
-    rw [←recover_w]
-    apply binary_nat_lt
-  have := nat_to_dir_vec_recover index_small
-  rw [←recover_w] at this
-  have := binary_nat_unique _ _ this
-  rw [recover_w] at this
-  rw [create_dir_vec_bit, ←this]
-  simp [Vector.map_reverse, bit_to_dir_to_bit]
-  rfl
+-- -- @[simp]
+-- theorem odd_div_by_two : n = (1 + 2 * n ) / 2 := by
+--   induction n with
+--   | zero => rfl
+--   | succ n ih =>
+--     rw [Nat.add_div]
+--     simp
 
-theorem nat_to_dir_vec_correct' {Index : F}:
+
+theorem vector_eq_cons : (x ::ᵥ xs) = (y ::ᵥ ys) ↔ x = y ∧ xs = ys := by
+  simp [Vector.eq_cons_iff]
+
+
+theorem mod_two_bit_back : (Bit.toNat $ mod_two' n) = n % 2 := by
+  simp [mod_two']
+  split
+  . simp [*]
+  . simp [*]
+  . contradiction
+
+theorem recover_binary_nat_to_bits_le {w : Vector Bit d}:
+  recover_binary_nat w = v ↔
+  nat_to_bits_le d v = some w := by
+  apply Iff.intro
+  . induction d generalizing v with
+    | zero =>
+      cases w using Vector.casesOn
+      intro h; cases h; rfl
+    | succ d ih =>
+      cases w using Vector.casesOn; rename_i hd tl;
+      simp [recover_binary_nat, nat_to_bits_le]
+      intro h
+      rw [ih (v := v/2) (w := tl)]
+      . conv => lhs; whnf
+        congr
+        rw [←Nat.mod_add_div (m := v) (k := 2), ←mod_two_bit_back] at h
+        have := And.left (parity_bit_unique _ _ _ _ h)
+        apply Eq.symm
+        assumption
+      . subst_vars
+        unfold Bit.toNat
+        rw [Nat.add_div]
+        cases hd
+        . simp
+        . simp
+        . simp_arith
+  . induction d generalizing v with
+    | zero =>
+      cases w using Vector.casesOn
+      simp [recover_binary_nat, nat_to_bits_le]
+      tauto
+    | succ d ih =>
+      cases w using Vector.casesOn
+      simp [recover_binary_nat, nat_to_bits_le, Bind.bind]
+      intro tl htl veq
+      rw [vector_eq_cons] at veq
+      cases veq
+      subst_vars
+      rw [ih (v := v/2)]
+      . rw [mod_two_bit_back]
+        simp [Nat.mod_add_div]
+      . assumption
+
+
+
+
+-- theorem recover_binary_nat_to_bits_le {w : Vector Bit d}:
+--   recover_binary_nat w = v ↔
+--   nat_to_bits_le d v = some w := by
+--   induction d generalizing v with
+--   | zero =>
+--     cases w using Vector.casesOn
+--     intro h; cases h; rfl
+--   | succ d ih =>
+--     cases w using Vector.casesOn; rename_i hd tl;
+--     simp [recover_binary_nat, nat_to_bits_le]
+--     intro h
+--     rw [ih (v := v/2) (w := tl)]
+--     . conv => lhs; whnf
+--       congr
+--       rw [←Nat.mod_add_div (m := v) (k := 2), ←mod_two_bit_back] at h
+--       have := And.left (parity_bit_unique _ _ _ _ h)
+--       apply Eq.symm
+--       assumption
+--     . subst_vars
+--       unfold Bit.toNat
+--       rw [Nat.add_div]
+--       cases hd
+--       . simp
+--       . simp
+--       . simp_arith
+
+theorem recover_binary_zmod'_to_bits_le {w : Vector F d}:
+  2 ^ d < Order →
   is_vector_binary w →
-  recover_binary_zmod' w = Index →
-  (nat_to_dir_vec (Index.val) D) = (Dir.create_dir_vec w).reverse := by
-    intros
-    rw [<-vector_reverse_eq]
-    rw [nat_to_dir_vec_correct]
+  recover_binary_zmod' w = v →
+  nat_to_bits_le d v.val = some (vector_zmod_to_bit w) := by
+  intros
+  rw [←recover_binary_nat_to_bits_le]
+  subst_vars
+  rw [recover_binary_zmod_bit]
+  . apply Eq.symm
+    apply binary_zmod_same_as_nat
     assumption
-    assumption
+  . assumption
+
+theorem zmod_to_bit_coe {w : Vector Bit d} : vector_zmod_to_bit (Vector.map (Bit.toZMod (n := Order)) w) = w := by
+  induction w using Vector.inductionOn with
+  | h_nil => rfl
+  | h_cons ih =>
+    simp [vector_zmod_to_bit] at ih
+    simp [vector_zmod_to_bit, ih]
+    congr
+    unfold Bit.toZMod
+    split <;> rfl
+
+theorem coe_val {v : F} : ↑v.val = v := by
+  cases v
+  conv => lhs; whnf
+  congr
+  conv => lhs; arg 1; whnf
+  apply Nat.mod_eq_of_lt
+  assumption
+
+theorem vector_binary_of_bit_to_zmod {w : Vector Bit d }: is_vector_binary (w.map (Bit.toZMod (n := Order))) := by
+  induction w using Vector.inductionOn with
+  | h_nil => trivial
+  | h_cons ih =>
+    simp [is_vector_binary_cons]
+    apply And.intro
+    . unfold Bit.toZMod
+      split <;> trivial
+    . apply ih
+
+theorem recover_binary_of_to_bits {w : Vector Bit d} {v : F}:
+  nat_to_bits_le d v.val = some w →
+  recover_binary_zmod' (w.map Bit.toZMod) = v := by
+  rw [←recover_binary_nat_to_bits_le, recover_binary_zmod_bit, zmod_to_bit_coe]
+  intro h
+  rw [←binary_nat_zmod_equiv]
+  rw [h, coe_val]
+  apply vector_binary_of_bit_to_zmod
+
+-- theorem nat_to_dir_vec_correct {Index : F}:
+--   is_vector_binary w →
+--   recover_binary_zmod' w = Index →
+--   (nat_to_dir_vec (Index.val) D).reverse = Dir.create_dir_vec w := by
+--   intro bin recover_bin
+--   rw [recover_binary_zmod_bit bin] at recover_bin
+--   have : (2^D < Order) := by simp
+--   have recover_w : recover_binary_nat (vector_zmod_to_bit w) = Index.val := by
+--     rw [←binary_zmod_same_as_nat]
+--     congr
+--     assumption
+--   have index_small : Index.val < 2 ^ D := by
+--     rw [←recover_w]
+--     apply binary_nat_lt
+--   have := nat_to_dir_vec_recover index_small
+--   rw [←recover_w] at this
+--   have := binary_nat_unique _ _ this
+--   rw [recover_w] at this
+--   rw [create_dir_vec_bit, ←this]
+--   simp [Vector.map_reverse, bit_to_dir_to_bit]
+--   rfl
+
+-- theorem nat_to_dir_vec_correct' {Index : F}:
+--   is_vector_binary w →
+--   recover_binary_zmod' w = Index →
+--   (nat_to_dir_vec (Index.val) D) = (Dir.create_dir_vec w).reverse := by
+--     intros
+--     rw [<-vector_reverse_eq]
+--     rw [nat_to_dir_vec_correct]
+--     assumption
+--     assumption
+
+theorem recover_proof_reversible {H : Hash α 2} [Fact (perfect_hash H)] {Tree : MerkleTree α H d} {Proof : Vector α d}:
+  MerkleTree.recover H Index Proof Item = Tree.root →
+  Tree.proof Index = Proof := by
+  induction d with
+  | zero =>
+    cases Proof using Vector.casesOn
+    simp [MerkleTree.proof]
+  | succ d ih =>
+    cases Proof using Vector.casesOn
+    cases Index using Vector.casesOn
+    cases Tree
+    simp [MerkleTree.root, MerkleTree.recover, MerkleTree.proof]
+    intro h
+    split at h <;> {
+      have : perfect_hash H := (inferInstance : Fact (perfect_hash H)).out
+      have := this h
+      rw [vector_eq_cons, vector_eq_cons] at this
+      casesm* (_ ∧ _)
+      subst_vars
+      simp [MerkleTree.tree_for, Dir.swap, MerkleTree.left, MerkleTree.right]
+      congr
+      apply ih
+      assumption
+    }
+
+theorem recover_tail_equals_recover_reverse
+  {F depth}
+  (H : Hash F 2)
+  (ix : Vector Dir depth)
+  (proof : Vector F depth)
+  (item : F) :
+  MerkleTree.recover_tail H ix proof item = MerkleTree.recover H ix.reverse proof.reverse item := by
+  have : ix = ix.reverse.reverse:= by simp
+  rw [this]
+  have : proof = proof.reverse.reverse := by simp
+  rw [this]
+  rw [MerkleTree.recover_tail_reverse_equals_recover]
+  simp
+
 
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
   insertion_round Index Item Tree.root Proof k ↔
-  item_at_nat Tree Index.val = 0 ∧ k (set_at_nat Tree Index.val Item).root := by
+  item_at_nat Tree Index.val = some 0 ∧
+  proof_at_nat Tree Index.val = some Proof.reverse ∧
+  ∃postTree, set_at_nat Tree Index.val Item = some postTree ∧
+  k postTree.root := by
   unfold insertion_round
   apply Iff.intro
-  . intros
-    casesm* (∃_,_), (_∧_)
-    apply And.intro
-    . unfold item_at_nat
-      apply MerkleTree.proof_ceritfies_item (proof := Proof.reverse)
-      rw [←MerkleTree.recover_tail_reverse_equals_recover]
-      rw [nat_to_dir_vec_correct]
+  . rintro ⟨ixbin, _⟩
+    casesm* (_ ∧ _)
+    have : nat_to_bits_le D Index.val = some (vector_zmod_to_bit ixbin) := by
+      apply recover_binary_zmod'_to_bits_le
       . simp
-        assumption
       . assumption
       . assumption
-    . simp [set_at_nat]
-      rw [←MerkleTree.proof_insert_invariant (proof := Proof.reverse) (old := 0)]
+    unfold item_at_nat
+    unfold proof_at_nat
+    unfold set_at_nat
+    unfold nat_to_dir_vec
+    rw [this]
+    simp [←create_dir_vec_bit]
+    refine ⟨?_, ⟨?_, ?_⟩⟩
+    . apply MerkleTree.proof_ceritfies_item (proof := Proof.reverse)
+      simpa [←MerkleTree.recover_tail_reverse_equals_recover]
+    . apply recover_proof_reversible
       rw [←MerkleTree.recover_tail_reverse_equals_recover]
-      rw [nat_to_dir_vec_correct]
-      . simp
-        assumption
-      . assumption
-      . assumption
+      simpa
+    . rw [←MerkleTree.proof_insert_invariant (proof := Proof.reverse) (old := 0)]
       . rw [←MerkleTree.recover_tail_reverse_equals_recover]
-        rw [nat_to_dir_vec_correct]
-        . simp
-          assumption
-        . assumption
-        . assumption
-  . intros
-    casesm* (_∧_)
-    rename_i h₁ h₂
-    unfold item_at_nat at h₁
-    simp at h₁
-    simp [set_at_nat] at h₂
-    rw [←MerkleTree.proof_insert_invariant (proof := Proof) (old := 0) (new := Item)] at h₂
-    rw [←MerkleTree.recover_tail_reverse_equals_recover] at h₂
-    --rw [nat_to_dir_vec_correct] at h₂
-    simp at h₂
-    rotate_left
-    
-    repeat (
-      sorry
-    )
+        simpa
+      . rw [←MerkleTree.recover_tail_reverse_equals_recover]
+        simpa
+  . rintro ⟨hitem, ⟨hproof, ⟨ftree, ⟨hftree, hresult⟩⟩⟩⟩
+    simp [item_at_nat, nat_to_dir_vec] at hitem
+    rcases hitem with ⟨bits, ⟨hbits, hitem_at⟩⟩
+    simp [proof_at_nat, nat_to_dir_vec] at hproof
+    rcases hproof with ⟨bits', ⟨hbits', hproof_at⟩⟩
+    simp [hbits] at hbits'
+    subst_vars
+    simp [set_at_nat, nat_to_dir_vec] at hftree
+    rcases hftree with ⟨bits'', ⟨hbits'', hftree_at⟩⟩
+    simp [hbits''] at hbits
+    rw [←vector_reverse_eq] at hproof_at
+    subst_vars
+    exists (bits''.map Bit.toZMod)
+    refine ⟨?_, ⟨?_, ⟨?_, ?_⟩⟩⟩
+    . apply recover_binary_of_to_bits
+      assumption
+    . apply vector_binary_of_bit_to_zmod
+    . rw [recover_tail_equals_recover_reverse, create_dir_vec_bit, zmod_to_bit_coe, ←hitem_at]
+      simp [MerkleTree.recover_proof_is_root]
+    . rw [recover_tail_equals_recover_reverse, create_dir_vec_bit, zmod_to_bit_coe]
+      rw [MerkleTree.proof_insert_invariant _]
+      . assumption
+      . exact 0
+      . rw [← hitem_at]
+        simp [MerkleTree.recover_proof_is_root]
 
-theorem insertion_round_uncps' [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
-  insertion_round Index Item Tree.root Proof k ↔
-  (MerkleTree.recover poseidon₂ (nat_to_dir_vec (Index.val) D) Proof.reverse 0 = Tree.root) ∧ k (set_at_nat Tree Index.val Item).root := by sorry
 
 theorem InsertIsSet [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F poseidon₂ D} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   insertion_round Index Item Tree.root Proof k ↔
@@ -401,43 +615,22 @@ theorem InsertIsSet [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F posei
     simp [<-MerkleTree.recover_tail_reverse_equals_recover] at this
     simp [this]
 
-def item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Vector Dir depth} {item₁ item₂ : F} {h₁ : ix₁ ≠ ix₂} {h₁ : depth > 0} :
-  (MerkleTree.item_at (tree.set ix₁ item₁) ix₂ = item₂) ↔ (tree.item_at ix₂ = item₂) := by
-    apply Iff.intro
-    case mp => {
-      intro h
-      induction depth
-      case zero => {
-        apply absurd h₁
-        linarith
-      }
-      case succ ih _ => {
-        simp [MerkleTree.set, MerkleTree.item_at] at h
-        split at h
-        case h_1 => {
-          have : Vector.head ix₂ = Dir.right := by
-            sorry
-          simp [this] at h
-          simp [MerkleTree.tree_for] at h
-          
-          sorry
-        }
-        case h_2 => {
-          sorry
-        }
-      }
-    }
-    case mpr => {
-      intro h
-      induction depth
-      case zero => {
-        apply absurd h₁
-        linarith
-      }
-      case succ _ ih => {
-        sorry
-      }
-    }
+
+theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Vector Dir depth} {item₁ : F} {neq : ix₁ ≠ ix₂}:
+  (MerkleTree.item_at (tree.set ix₁ item₁) ix₂ = tree.item_at ix₂) := by
+  induction depth with
+  | zero =>
+    cases ix₁ using Vector.casesOn
+    cases ix₂ using Vector.casesOn
+    cases (neq rfl)
+  | succ depth ih =>
+    cases ix₁ using Vector.casesOn; rename_i ix₁_hd ix₁_tl
+    cases ix₂ using Vector.casesOn; rename_i ix₂_hd ix₂_tl
+    cases tree; rename_i tree_l tree_r
+    simp [MerkleTree.item_at, MerkleTree.set, MerkleTree.tree_for, MerkleTree.set, MerkleTree.left, MerkleTree.right]
+    simp [vector_eq_cons] at neq
+    split <;> { split <;> { simp [ih, neq] at * }}
+    cases ix₁_hd <;> { cases ix₂_hd <;> { simp [ih, neq] } }
 
 -- def recover_invariant { depth : Nat } {F: Type} {H : Hash F 2} [Fact (perfect_hash H)] (tree : MerkleTree F H depth) (ix₁ ix₂ : Vector Dir depth) (proof : Vector F depth) (item₁ item₂ : F) :
 --   (MerkleTree.recover H ix₁ proof item₁ = MerkleTree.root (tree.set ix₂ item₂)) ↔ (MerkleTree.recover H ix₁ proof item₁ = tree.root) := by
@@ -445,11 +638,11 @@ def item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTre
 --     case mp => {
 --       intro h
 --       induction depth with
---       | zero => 
+--       | zero =>
 --         unfold MerkleTree.set at h
 --         unfold MerkleTree.root at h
 --         unfold MerkleTree.root
-        
+
 --         simp
 --         split
 --         sorry
@@ -515,7 +708,7 @@ theorem before_insertion_all_items_zero
       rw [val_nat_cast_of_lt] at h1
       assumption
     simp [item_at_nat]
-    
+
     intro i range
     cases range; rename_i _ up
     cases up
