@@ -80,82 +80,6 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTr
       . rw [← hitem_at]
         simp [MerkleTree.recover_proof_is_root]
 
-theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Vector Dir depth} {item₁ : F} {neq : ix₁ ≠ ix₂}:
-  MerkleTree.item_at (tree.set ix₁ item₁) ix₂ = tree.item_at ix₂ := by
-  induction depth with
-  | zero =>
-    cases ix₁ using Vector.casesOn
-    cases ix₂ using Vector.casesOn
-    cases (neq rfl)
-  | succ depth ih =>
-    cases ix₁ using Vector.casesOn; rename_i ix₁_hd ix₁_tl
-    cases ix₂ using Vector.casesOn; rename_i ix₂_hd ix₂_tl
-    cases tree; rename_i tree_l tree_r
-    simp [MerkleTree.item_at, MerkleTree.set, MerkleTree.tree_for, MerkleTree.set, MerkleTree.left, MerkleTree.right]
-    simp [Vector.vector_eq_cons] at neq
-    cases ix₁_hd <;> { cases ix₂_hd <;> { simp [ih, neq] } }
-
-theorem vector_reverse_inj {a b : Vector α d} : Vector.reverse a = Vector.reverse b ↔ a = b := by
-  apply Iff.intro
-  . intro h
-    induction d with
-    | zero =>
-      cases a using Vector.casesOn
-      cases b using Vector.casesOn
-      rfl
-    | succ d ih =>
-      cases a using Vector.revCasesOn
-      cases b using Vector.revCasesOn
-      simp [Vector.eq_cons_iff] at h
-      cases h;
-      subst_vars
-      congr
-      apply ih
-      assumption
-  . intro h; congr
-
-theorem vector_map_inj {a b : Vector α d} {f_inj : ∀ a b, f a = f b → a = b}: a.map f = b.map f ↔ a = b := by
-  apply Iff.intro
-  . intro h
-    induction d with
-    | zero =>
-      cases a using Vector.casesOn
-      cases b using Vector.casesOn
-      rfl
-    | succ d ih =>
-      cases a using Vector.casesOn
-      cases b using Vector.casesOn
-      simp [Vector.eq_cons_iff] at h
-      rcases h with ⟨h, t⟩
-      have := f_inj _ _ h
-      have := ih t
-      congr
-
-theorem nat_to_dir_vec_unique {ix₁ ix₂ : Nat} {r₁ r₂ : Vector Dir d}:
-  Dir.nat_to_dir_vec ix₁ d = some r₁ → Dir.nat_to_dir_vec ix₂ d = some r₂ → r₁ = r₂ → ix₁ = ix₂ := by
-  simp [Dir.nat_to_dir_vec]
-  intros
-  subst_vars
-  rw [←recover_binary_nat_to_bits_le, vector_reverse_inj, vector_map_inj] at *
-  subst_vars
-  rfl
-  . intro a b; cases a <;> { cases b <;> tauto }
-
-
-theorem item_at_nat_invariant {H : Hash α 2} {tree tree': MerkleTree α H depth} { neq : ix₁ ≠ ix₂ }:
-  MerkleTree.set_at_nat tree ix₁ item₁ = some tree' →
-  MerkleTree.item_at_nat tree' ix₂ = MerkleTree.item_at_nat tree ix₂ := by
-  simp [MerkleTree.set_at_nat, MerkleTree.item_at_nat]
-  intros; subst_vars
-  cases h : Dir.nat_to_dir_vec ix₂ depth with
-  | none => rfl
-  | some ix =>
-    simp
-    rw [item_at_invariant]
-    intro hp
-    refine (neq ?_)
-    apply nat_to_dir_vec_unique <;> assumption
-
 theorem zmod_eq { a b : F} : a = b ↔ a.val = b.val := by
   apply Iff.intro
   . intros; simp [*]
@@ -190,6 +114,7 @@ theorem before_insertion_all_items_zero_loop
       assumption
     | @step StartIndex' h =>
       have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
+        -- ZMod to Nat
         apply zmod_eq.mpr
         apply Eq.symm
         apply Eq.trans
@@ -206,7 +131,7 @@ theorem before_insertion_all_items_zero_loop
             _ < Order := ixBound
       rw [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, this] at hp
       rcases hp with ⟨_, ⟨_, ⟨postTree, ⟨hinsert, hnext⟩⟩⟩⟩
-      rw [←item_at_nat_invariant hinsert]
+      rw [←MerkleTree.item_at_nat_invariant hinsert]
       apply ih hnext StartIndex'.succ
       . apply And.intro
         . simp_arith; assumption

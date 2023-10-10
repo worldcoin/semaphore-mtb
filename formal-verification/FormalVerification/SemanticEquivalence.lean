@@ -96,28 +96,6 @@ this is shown in `DeletionRound_uncps`.
 Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
 -/
 
--- Helper for proving `DeletionRound_uncps`
-namespace List
-def front : α → List α → List α
-  | _, [] => []
-  | y, (z :: zs) => y :: front z zs
-end List
-
-namespace Vector
-
--- def front : Vector α n → Vector α (n - 1)
---   | ⟨[], h⟩ => ⟨[], congrArg Nat.pred h⟩
---   | ⟨x :: xs, h⟩ => ⟨List.front x xs, by
---     induction xs generalizing x
---     case nil => {
---       apply congrArg Nat.pred h
---     }
---     case cons head tail ih => {
---       sorry
---     }⟩
-
-end Vector
-
 theorem or_rw (a b out : F) : Gates.or a b out ↔
   (Gates.is_bool a ∧ Gates.is_bool b ∧
   ( (out = 1 ∧ (a = 1 ∨ b = 1) ∨
@@ -193,61 +171,60 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
         . tauto
         . exists 1; tauto
 
+namespace Vector
+--def front { n : Nat } (v : Vector α (n+1)) : Vector α (min n (n + 1)) := Vector.take n v
+def front { n : Nat } (v : Vector α (n+1)) : Vector α n := Vector.removeNth n v
+end Vector
+
 --def vector_take_cons {n : Nat} {x : α } {xs : Vector α n} : (Vector.take (Nat.succ n - 1) (x ::ᵥ xs)) ↔ (x ::ᵥ (Vector.take (n - 1) xs)) := by sorry
 
--- lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) d) : is_vector_binary x → is_vector_binary (Vector.take (d-1) x) := by
---   intros
---   rename_i h
---   -- simp only [is_vector_binary] at *
---   -- rw [←Vector.ofFn_get (v := x)] at *
---   induction x using Vector.inductionOn
---   case h_nil => {
---     simp [Vector.take]
---     tauto
---   }
---   case h_cons x xs ih => {
---     simp only [is_vector_binary_cons] at *
+lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) (d+1)) : is_vector_binary x → is_vector_binary (x.front) := by
+  intros
+  rename_i h
+  induction d with
+  | zero =>
+    unfold is_vector_binary at *
+    unfold Vector.front
+    simp
+  | succ _ ih =>
+    unfold is_vector_binary at *
+    sorry
 
---     -- Vector.Take (Nat.succ n - 1) (x ::ᵥ xs) ↔ x ::ᵥ Vector.Take (n - 1) xs
---     --simp only [is_vector_binary] at *
---     --simp only [Vector.take]
---     --simp only [ih]
-
---     sorry
---   }
+-- write a theorem that proves is_vector_binary is a series of is_bit calls
+-- apply the theorem and prove that a subset of a vector is still is_vector_binary
 
 /-!
 `DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
 the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of the merkle tree with empty Leaf
 -/
--- lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
---   gDeletionRound Root Index Item Proof k ↔
---   ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
---   (match zmod_to_bit out.last with
---     | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof 0) -- Update the root
---     | Bit.one => k Root  -- Skip flag set, don't update the root
---   ) := by
---   unfold gDeletionRound
---   simp only [sub_zero_is_eq]
---   simp [VerifyProof_looped, proof_rounds_uncps]
---   simp [Gates.to_binary, and_assoc]
---   apply exists_congr
---   simp
---   intros
---   subst_vars
---   rename_i gate_0 h
---   rw [←Vector.ofFn_get (v := gate_0)]
---   rw [←Vector.ofFn_get (v := gate_0)] at h
---   rw [←Vector.ofFn_get (v := Proof)]
---   rw [and_iff_right]
---   tauto
---   have : is_vector_binary (gate_0.take 3) := by
---     apply is_vector_binary_partial
---     simp at h
---     assumption
---   rw [←Vector.ofFn_get (v := gate_0)]
---   rw [←Vector.ofFn_get (v := gate_0)] at this
---   assumption
+lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
+  gDeletionRound Root Index Item Proof k ↔
+  ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
+  (is_bit out.last ∧ match zmod_to_bit out.last with
+    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof 0) -- Update the root
+    | Bit.one => k Root  -- Skip flag set, don't update the root
+  ) := by
+  unfold gDeletionRound
+  simp only [sub_zero_is_eq]
+  simp [VerifyProof_looped, proof_rounds_uncps]
+  simp [Gates.to_binary, and_assoc]
+  apply exists_congr
+  simp
+  intros
+  subst_vars
+  rename_i gate_0 h
+  rw [←Vector.ofFn_get (v := gate_0)]
+  rw [←Vector.ofFn_get (v := gate_0)] at h
+  rw [←Vector.ofFn_get (v := Proof)]
+  rw [and_iff_right]
+  tauto
+  have : is_vector_binary (gate_0.front) := by
+    apply is_vector_binary_partial
+    simp at h
+    assumption
+  rw [←Vector.ofFn_get (v := gate_0)]
+  rw [←Vector.ofFn_get (v := gate_0)] at this
+  assumption
 
 /-!
 `deletion_rounds` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size
@@ -262,30 +239,30 @@ def deletion_rounds {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vec
 `DeletionLoop` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size through by chaining
 calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_4_4_30_4`
 -/
--- def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
---   match n with
---   | Nat.zero => k PreRoot
---   | Nat.succ _ =>
---     ∃out: Vector F (D+1), recover_binary_zmod' out = DeletionIndices.head ∧ is_vector_binary out ∧
---     match zmod_to_bit out.last with
---       | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head IdComms.head = PreRoot ∧
---         DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
---       | Bit.one => DeletionLoop DeletionIndices.tail PreRoot IdComms.tail MerkleProofs.tail k  -- Skip flag set, don't update the root
+def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
+  match n with
+  | Nat.zero => k PreRoot
+  | Nat.succ _ =>
+    ∃out: Vector F (D+1), recover_binary_zmod' out = DeletionIndices.head ∧ is_vector_binary out ∧
+    is_bit out.last ∧ match zmod_to_bit out.last with
+      | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head IdComms.head = PreRoot ∧
+        DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
+      | Bit.one => DeletionLoop DeletionIndices.tail PreRoot IdComms.tail MerkleProofs.tail k  -- Skip flag set, don't update the root
 
--- lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
---   deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k ↔
---   DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
---   induction DeletionIndices, IdComms, MerkleProofs using Vector.inductionOn₃ generalizing PreRoot with
---   | nil =>
---     unfold deletion_rounds
---     unfold DeletionLoop
---     rfl
---   | cons =>
---     unfold deletion_rounds
---     unfold DeletionLoop
---     simp [DeletionRound_uncps]
---     rename_i ih
---     simp [ih]
+lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
+  deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k ↔
+  DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
+  induction DeletionIndices, IdComms, MerkleProofs using Vector.inductionOn₃ generalizing PreRoot with
+  | nil =>
+    unfold deletion_rounds
+    unfold DeletionLoop
+    rfl
+  | cons =>
+    unfold deletion_rounds
+    unfold DeletionLoop
+    simp [DeletionRound_uncps]
+    rename_i ih
+    simp [ih]
 
 lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k =
@@ -300,10 +277,10 @@ lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: 
 /-!
 `DeletionProof_uncps` is the key lemma which shows that `DeletionProof_4_4_30_4` and `DeletionLoop` are equivalent
 -/
--- lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
---     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
---     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
---     simp only [DeletionProof_looped, deletion_rounds_uncps]
+lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
+    gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
+    DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
+    simp only [DeletionProof_looped, deletion_rounds_uncps]
 
 lemma double_prop {a b c d : Prop} : (b ∧ a ∧ c ∧ a ∧ d) ↔ (b ∧ a ∧ c ∧ d) := by
   simp
