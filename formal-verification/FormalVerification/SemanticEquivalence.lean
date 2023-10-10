@@ -118,41 +118,80 @@ namespace Vector
 
 end Vector
 
+theorem or_rw (a b out : F) : Gates.or a b out ↔
+  (Gates.is_bool a ∧ Gates.is_bool b ∧
+  ( (out = 1 ∧ (a = 1 ∨ b = 1) ∨
+    (out = 0 ∧ a = 0 ∧ b = 0)))) := by
+  unfold Gates.or
+  unfold Gates.is_bool
+  simp
+  intro ha hb
+  cases ha <;> cases hb <;> { subst_vars; simp }
 
--- lemma select_is_match {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ match zmod_to_bit b with
---   | Bit.zero => out = i2
---   | Bit.one => out = i1 := by
---   sorry
+lemma select_is_match {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ is_bit b ∧ match zmod_to_bit b with
+  | Bit.zero => out = i2
+  | Bit.one => out = i1 := by
+  unfold Gates.select
+  unfold Gates.is_bool
+  apply Iff.intro <;> {
+    intro h; rcases h with ⟨is_b, _⟩
+    refine ⟨is_b, ?_⟩
+    cases is_b <;> {simp [*] at *; assumption}
+  }
 
--- lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
---     (fun gate_2 =>
---     ∃gate_3, gate_3 = Gates.sub a b ∧
---     ∃gate_4, Gates.is_zero gate_3 gate_4 ∧
---     ∃gate_5, Gates.or gate_4 cond gate_5 ∧
---     Gates.eq gate_5 (1:F) ∧
---     ∃gate_7, Gates.select cond b gate_2 gate_7 ∧
---     k gate_7) = (fun gate_2 => match zmod_to_bit cond with
---                   | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
---                   | Bit.one => k b  -- Skip flag set, don't update the root
---                 ) := by
---   simp [select_is_match]
---   cases cond
---   rename_i v h
---   cases (v)
---   case zero => {
---     simp only [zmod_to_bit]
---     simp only [Gates.or]
---     simp only [Gates.is_zero, Gates.sub, Gates.is_bool, Gates.eq]
---     simp
---     simp [and_assoc]
---     -- conv => lhs; intro gate_2; arg 1; intro gate_4;
-
---     sorry
---   }
---   case succ => {
---     sorry
---   }
-
+lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
+    (fun gate_2 =>
+    ∃gate_3, gate_3 = Gates.sub a b ∧ -- gate_3 = a - b
+    ∃gate_4, Gates.is_zero gate_3 gate_4 ∧ -- gate_4 = (a - b) == 0 = a == b
+    ∃gate_5, Gates.or gate_4 cond gate_5 ∧ -- gate_5 = (a == b) ∨ cond
+    Gates.eq gate_5 (1:F) ∧                -- gate_5 == 1
+    ∃gate_7, Gates.select cond b gate_2 gate_7 ∧ -- return $ if cond then b else gate_2
+    k gate_7) = (fun gate_2 => is_bit cond ∧ match zmod_to_bit cond with
+                  | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
+                  | Bit.one => k b  -- Skip flag set, don't update the root
+                ) := by
+  funext g2
+  simp
+  unfold Gates.select
+  simp [or_rw]
+  unfold Gates.sub
+  unfold Gates.is_zero
+  unfold Gates.is_bool
+  unfold Gates.eq
+  apply Iff.intro
+  . intros; casesm* (∃ _, _), (_∧ _)
+    rename (cond = 0 ∨ cond = 1) => hp
+    cases hp
+    . simp at *; subst_vars; simp at *; subst_vars; simp at *
+      apply And.intro
+      . tauto
+      . apply And.intro
+        . apply eq_of_sub_eq_zero; assumption
+        . assumption
+    . subst_vars
+      apply And.intro
+      . tauto
+      . simp at *; subst_vars; assumption
+  . rintro ⟨is_b, rest⟩
+    cases is_b <;> (
+      subst_vars
+      conv at rest => whnf
+    )
+    . cases rest; subst_vars; simp; assumption
+    . simp
+      cases h: decide (a - b = 0) with
+      | false =>
+        simp at h;
+        exists 0
+        apply And.intro
+        . tauto
+        . exists 1; tauto
+      | true =>
+        simp at h;
+        exists 1;
+        apply And.intro
+        . tauto
+        . exists 1; tauto
 
 --def vector_take_cons {n : Nat} {x : α } {xs : Vector α n} : (Vector.take (Nat.succ n - 1) (x ::ᵥ xs)) ↔ (x ::ᵥ (Vector.take (n - 1) xs)) := by sorry
 
