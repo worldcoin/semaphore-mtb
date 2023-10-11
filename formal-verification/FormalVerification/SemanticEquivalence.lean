@@ -1,6 +1,7 @@
 import ProvenZk.Binary
 import ProvenZk.Hash
 import ProvenZk.Merkle
+import ProvenZk.Misc
 
 import FormalVerification
 import FormalVerification.Poseidon.Spec
@@ -96,27 +97,6 @@ this is shown in `DeletionRound_uncps`.
 Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
 -/
 
-theorem or_rw (a b out : F) : Gates.or a b out ↔
-  (Gates.is_bool a ∧ Gates.is_bool b ∧
-  ( (out = 1 ∧ (a = 1 ∨ b = 1) ∨
-    (out = 0 ∧ a = 0 ∧ b = 0)))) := by
-  unfold Gates.or
-  unfold Gates.is_bool
-  simp
-  intro ha hb
-  cases ha <;> cases hb <;> { subst_vars; simp }
-
-lemma select_rw {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ is_bit b ∧ match zmod_to_bit b with
-  | Bit.zero => out = i2
-  | Bit.one => out = i1 := by
-  unfold Gates.select
-  unfold Gates.is_bool
-  apply Iff.intro <;> {
-    intro h; rcases h with ⟨is_b, _⟩
-    refine ⟨is_b, ?_⟩
-    cases is_b <;> {simp [*] at *; assumption}
-  }
-
 lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     (fun gate_2 =>
     ∃gate_3, gate_3 = Gates.sub a b ∧ -- gate_3 = a - b
@@ -170,10 +150,6 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
         apply And.intro
         . tauto
         . exists 1; tauto
-
-lemma double_prop {a b c d : Prop} : (b ∧ a ∧ c ∧ a ∧ d) ↔ (b ∧ a ∧ c ∧ d) := by
-  simp
-  tauto
 
 /-!
 `DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that

@@ -9,7 +9,7 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git"@"26d0eab43f05db777d1cf31abd31d3a57954b2a9"
 
 require ProvenZK from git
-  "https://github.com/reilabs/proven-zk.git"@"6db07985788db8e23175ac2d99dd0e010f938516"
+  "https://github.com/reilabs/proven-zk.git"@"a5998e49053573324c19f4cb24fc93c7ca3d3e2b"
 
 lean_lib FormalVerification {
   moreLeanArgs := #["--tstack=65520", "-DmaxRecDepth=10000", "-DmaxHeartbeats=200000000"]
