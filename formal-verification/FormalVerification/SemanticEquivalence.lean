@@ -106,7 +106,7 @@ theorem or_rw (a b out : F) : Gates.or a b out ↔
   intro ha hb
   cases ha <;> cases hb <;> { subst_vars; simp }
 
-lemma select_is_match {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ is_bit b ∧ match zmod_to_bit b with
+lemma select_rw {b i1 i2 out : F} : (Gates.select b i1 i2 out) ↔ is_bit b ∧ match zmod_to_bit b with
   | Bit.zero => out = i2
   | Bit.one => out = i1 := by
   unfold Gates.select
@@ -171,27 +171,9 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
         . tauto
         . exists 1; tauto
 
-namespace Vector
---def front { n : Nat } (v : Vector α (n+1)) : Vector α (min n (n + 1)) := Vector.take n v
-def front { n : Nat } (v : Vector α (n+1)) : Vector α n := Vector.removeNth n v
-end Vector
-
---def vector_take_cons {n : Nat} {x : α } {xs : Vector α n} : (Vector.take (Nat.succ n - 1) (x ::ᵥ xs)) ↔ (x ::ᵥ (Vector.take (n - 1) xs)) := by sorry
-
-lemma is_vector_binary_partial {d n} (x : Vector (ZMod n) (d+1)) : is_vector_binary x → is_vector_binary (x.front) := by
-  intros
-  rename_i h
-  induction d with
-  | zero =>
-    unfold is_vector_binary at *
-    unfold Vector.front
-    simp
-  | succ _ ih =>
-    unfold is_vector_binary at *
-    sorry
-
--- write a theorem that proves is_vector_binary is a series of is_bit calls
--- apply the theorem and prove that a subset of a vector is still is_vector_binary
+lemma double_prop {a b c d : Prop} : (b ∧ a ∧ c ∧ a ∧ d) ↔ (b ∧ a ∧ c ∧ d) := by
+  simp
+  tauto
 
 /-!
 `DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
@@ -219,8 +201,13 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   rw [and_iff_right]
   tauto
   have : is_vector_binary (gate_0.front) := by
-    apply is_vector_binary_partial
-    simp at h
+    simp [is_vector_binary_equiv, Vector.front, is_vector_binary_rec_head_tail]
+    simp [is_vector_binary_equiv, is_vector_binary_rec_head_tail] at h
+    casesm* (_ ∧ _)
+    repeat (
+      apply And.intro
+      assumption
+    )
     assumption
   rw [←Vector.ofFn_get (v := gate_0)]
   rw [←Vector.ofFn_get (v := gate_0)] at this
@@ -281,10 +268,6 @@ lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: V
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
     simp only [DeletionProof_looped, deletion_rounds_uncps]
-
-lemma double_prop {a b c d : Prop} : (b ∧ a ∧ c ∧ a ∧ d) ↔ (b ∧ a ∧ c ∧ d) := by
-  simp
-  tauto
 
 def insertion_round (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
   ∃out: Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
