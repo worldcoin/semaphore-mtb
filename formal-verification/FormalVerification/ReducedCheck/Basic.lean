@@ -276,7 +276,7 @@ theorem binary_comp_snoc (base : Vector Bit (Nat.succ n)) (arg : Vector F (Nat.s
 abbrev vector_binary (v: Vector F n): Prop := ∀ i, (p : i ∈ [0:n]) → Gates.is_bool (v[i]'(by cases p; assumption))
 -- abbrev vector_binary' (v : Vector F n) : Prop := ∀ (i : F), i ∈ v → Gates.is_bool i
 
-theorem binary_comp_ix_free_simp (base : Vector Bit (Nat.succ n)) (arg : Vector F (Nat.succ n)):
+theorem binary_comp_ix_free_simp {base : Vector Bit (Nat.succ n)} {arg : Vector F (Nat.succ n)}:
   vector_binary arg →
   (binary_comparison_with_constant base n (by simp) 0 0 arg ↔ binary_comparison_ix_free base.reverse arg.reverse) := by
   intro range_checks
@@ -458,6 +458,12 @@ theorem ix_flip {n i : ℕ } {h : i < n} : n - (n - i - 1) - 1 = i := by
       conv => lhs; enter [1, 2]; rw [Nat.sub_sub, Nat.succ_sub (h := h)]
       conv => lhs; rw [Nat.succ_sub_succ]
 
+
+theorem cast_pred {P : (i : ℕ) → i ∈ [0:n] → Prop} {i j : ℕ} {p : i ∈ [0:n]} {q : j ∈ [0:n]}: i = j → (P i p ↔ P j q) := by
+  intro h
+  subst_vars
+  rfl
+
 theorem forall_in_rev_range {P : (i : ℕ) → i ∈ [0:n] → Prop}: (∀ i, (h: i ∈ [0:n]) → P i h) ↔ ∀i, (h : n - i - 1 ∈ [0:n]) → P (n - i - 1) h := by
   apply Iff.intro
   . intro h i r
@@ -478,38 +484,139 @@ theorem forall_in_rev_range {P : (i : ℕ) → i ∈ [0:n] → Prop}: (∀ i, (h
       . cases r
         cases n with
         | zero => contradiction
-        | succ n => calc
-          Nat.succ n - i - 1 ≤ n := by simp_arith
-          _ < Nat.succ n := by simp_arith
+        | succ n => rw [ix_flip] <;> assumption
     )
-    rw [ix_flip] at this
-    . assumption
-    . cases r; assumption
+    rw [cast_pred (P := P) (j := i)] at this
+    exact this
+    apply ix_flip
+    cases r
+    assumption
 
 
-theorem vector_get_reverse {v : Vector α n} {i_ok : i < n}: (Vector.reverse v)[i] = v[n - i - 1]'(by sorry) := by
-  induction v using Vector.inductionOn with
-  | h_nil => cases i_ok
-  | @h_cons n h t ih =>
-    cases i_ok
-    . simp
-      simp_arith
-    . sorry
+theorem flipped_ix_ok {n i : ℕ}: n.succ - i - 1 < n.succ := by simp_arith
 
-theorem vector_binary_reverse : vector_binary (Vector.reverse v) ↔ vector_binary v := by
-  simp [vector_binary, vector_get_reverse]
-  apply forall_in_rev_range (P := λi, Gates.is_bool (v[i]))
+theorem lt_of_lt_succ_and_ne : i < Nat.succ n → i ≠ n → i < n := by
+  intro h ne
+  cases h with
+  | refl => contradiction
+  | step =>
+    apply Nat.lt_of_succ_le
+    assumption
+
+theorem vector_get_reverse {v : Vector α (Nat.succ n)} {i_ok : i < Nat.succ n}: (Vector.reverse v)[i] = v[n.succ - i - 1]'(flipped_ix_ok) := by
+  induction n with
+  | zero =>
+    cases v using Vector.casesOn; rename_i tl
+    cases tl using Vector.casesOn
+    cases i
+    . rfl
+    . contradiction
+  | succ n ih =>
+    cases v using Vector.casesOn; rename_i hd tl
+    simp
+    cases i_ok with
+    | refl => simp
+    | step h =>
+      rw [snoc_get_not_last (ix_small := Nat.le_of_succ_le_succ h)]
+      rw [ih (i_ok := h)]
+      rw [←vector_get_cons_succ (v := hd)]
+      congr
+      rw [Nat.sub_sub, Nat.sub_sub, Nat.add_one, Nat.succ_sub_succ, Nat.succ_sub_succ, Nat.sub_add_comm]
+      apply Nat.le_of_succ_le_succ
+      exact h
+
+theorem cast_vec_ix {P : α → Prop} { i j : ℕ } {h₁ : i < n} {h₂ : j < n} {v : Vector α n}: i = j → (P (v[i]'h₁) ↔ P (v[j]'h₂)) := by
+  intro h
+  subst_vars
+  rfl
+
+theorem range_rev_mem : i ∈ [0:n] → n - i - 1 ∈ [0:n] := by
+  intro h
+  cases h
+  apply And.intro
+  . linarith
+  . cases n
+    . contradiction
+    . simp [Nat.succ_sub_succ]; simp_arith
+
+theorem vector_binary_reverse (v : Vector F (Nat.succ n)) : vector_binary (Vector.reverse v) ↔ vector_binary v := by
+  simp [vector_binary]
+  conv =>
+    lhs
+    intro i r
+    rw [vector_get_reverse]
   apply Iff.intro
-  . intro h i p
+  . intro h i r
+    have := h (n.succ - i - 1) (range_rev_mem r)
+    rw [cast_vec_ix (P := Gates.is_bool) (j := i)] at this
+    . assumption
+    . apply ix_flip; cases r; assumption
+  . intro h i r
+    exact h (n.succ - i - 1) (range_rev_mem r)
 
 
+theorem ofFn_snoc { fn : Fin n → α } :
+  Vector.snoc (Vector.ofFn fn) elt =
+  Vector.ofFn (fun (⟨i, p⟩  : Fin n.succ) =>
+    if h : i = n then elt else fn ⟨i, by apply lt_of_lt_succ_and_ne <;> assumption⟩) := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp [Vector.ofFn, ih]
+
+
+theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn x)) (fn n) := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    conv => lhs; rw [Vector.ofFn, ih]
+    simp [Vector.ofFn]
+    congr
+    . funext i;
+      congr
+      conv => lhs; whnf
+      conv => rhs; whnf
+      congr
+      rcases i with ⟨i, _⟩
+      simp [Nat.mod_eq_of_lt]
+      rw [Nat.mod_eq_of_lt]
+      linarith
+    . conv => lhs; whnf
+      conv => rhs; whnf
+      congr
+      simp [Nat.mod_eq_of_lt]
+
+theorem ofFn_reverse {fn : Fin (Nat.succ n) → α} : (Vector.ofFn fn).reverse = Vector.ofFn fun i => fn ⟨n.succ-i-1, flipped_ix_ok⟩ := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    conv => lhs; rw [Vector.ofFn, Vector.reverse_cons, ih]
+    simp [ofFn_snoc]
+    congr
+    funext i
+    split
+    . simp [*]
+    . congr
+      rename_i h
+      rcases i with ⟨v, p⟩
+      simp at h
+      have := lt_of_lt_succ_and_ne p h
+      simp [Nat.sub_sub]
+      rw [Nat.sub_add_comm]
+      linarith
+
+theorem safe_to_bit_reverse {v : Vector F (Nat.succ n)} {vecbin₁ : vector_binary v.reverse} {vecbin₂ : vector_binary v}:
+  safe_vec_to_bit (Vector.reverse v) vecbin₁ = Vector.reverse (safe_vec_to_bit v vecbin₂) := by
+  simp [safe_vec_to_bit, ofFn_reverse, vector_get_reverse]
 
 
 theorem binary_comp_unfold {base : Vector Bit (Nat.succ n)} {arg : Vector F (Nat.succ n)}
   (range_check: vector_binary arg):
   binary_comparison_with_constant base n ix_ok 0 0 arg ↔
-  recover_binary_nat base.reverse > recover_binary_nat (safe_vec_to_bit arg range_check).reverse := by
-  rw [binary_comp_ix_free_simp]
-  . rw [←bit_comparison]
-  rw [bit_comparison]
-  sorry
+  recover_binary_nat base > recover_binary_nat (safe_vec_to_bit arg range_check) := by
+  rw [binary_comp_ix_free_simp range_check]
+  rw [←bit_comparison]
+  . rw [bit_comparison_is_lt]
+    . rw [safe_to_bit_reverse]
+      . simp
+      . simp [vector_binary_reverse]; assumption
+      . assumption

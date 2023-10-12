@@ -22,15 +22,18 @@ lemma to_binary_reduced_unique:
   Gates.to_binary v 256 out₂ →
   SemaphoreMTB.ReducedModRCheck_256 out₂ →
   out₁ = out₂ := by
-  intro bin₁ red₁ bin₂ red₂
-
+  simp [←ReducedModRCheck_256_Fold]
+  rw [binary_comp_unfold, binary_comp_unfold]
+  rw [order_binary_le_is_order]
+  unfold Gates.to_binary
   have : vector_binary out₁ := by
     cases bin₁
     simp [*, old_vec_binary_equiv]
+  have : vector_binary out₂ := by
+    cases bin₂
+    simp [*, old_vec_binary_equiv]
+  all_goals try assumption
 
-  simp [←ReducedModRCheck_256_Fold] at *
-  rw [binary_comp_ix_free_simp _ _ this] at red₁
-  rw [←bit_comparison] at red₁
 
 
 
