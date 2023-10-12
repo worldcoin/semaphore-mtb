@@ -327,25 +327,6 @@ instance : Ord Bit where
   | Bit.one, Bit.zero => Ordering.gt
   | _, _ => Ordering.eq
 
--- def bit_cmp (base_bit : Bit) (arg_bit : F): Option Ordering := match base_bit with
---   | Bit.zero => match arg_bit with
---     | 0 => some Ordering.eq
---     | 1 => some Ordering.lt
---     | _ => none
---   | Bit.one => match arg_bit with
---     | 0 => some Ordering.gt
---     | 1 => some Ordering.eq
---     | _ => none
-
-def safe_to_bit (f : F) (prop : Gates.is_bool f) : Bit := match h:f.val with
-  | 0 => Bit.zero
-  | 1 => Bit.one
-  | Nat.succ (Nat.succ _) => False.elim (by
-    cases f
-    cases h
-    cases prop <;> { rename_i prop; cases prop }
-  )
-
 @[simp]
 theorem vector_binary_cons : vector_binary (v ::ᵥ vs) ↔ Gates.is_bool v ∧ vector_binary vs := by
   unfold vector_binary
@@ -360,15 +341,6 @@ theorem vector_binary_cons : vector_binary (v ::ᵥ vs) ↔ Gates.is_bool v ∧ 
     | zero => exact hhead
     | succ i => exact htail i (by cases p; apply And.intro <;> linarith)
 
-def safe_vec_to_bit (v : Vector F n) (prop : vector_binary v) : Vector Bit n :=
-  Vector.ofFn (λi => safe_to_bit (v[i]) (prop i (by apply And.intro <;> { cases i; linarith })))
-
-@[simp]
-theorem safe_vec_to_bit_cons (vs : Vector F n) (prop : vector_binary (v ::ᵥ vs)) :
-  safe_vec_to_bit (v ::ᵥ vs) prop =
-  safe_to_bit v (And.left $ vector_binary_cons.mp prop) ::ᵥ safe_vec_to_bit vs (And.right $ vector_binary_cons.mp prop) := by
-  rfl
-
 def binary_comparison_ix_free_bits (base arg: Vector Bit n): Prop := match n with
 | 0 => False
 | Nat.succ _ => match compare base.head arg.head with
@@ -378,7 +350,7 @@ def binary_comparison_ix_free_bits (base arg: Vector Bit n): Prop := match n wit
 
 
 theorem bit_cmp_same_as_compare_for_bool {base_bit : Bit} {arg_bit : F} {prop : Gates.is_bool arg_bit}:
-  bit_cmp base_bit arg_bit = some (compare base_bit (safe_to_bit arg_bit prop)) := by
+  bit_cmp base_bit arg_bit = some (compare base_bit (nat_to_bit arg_bit.val)) := by
   cases base_bit <;> {
     cases prop <;> {
       subst_vars
@@ -387,7 +359,7 @@ theorem bit_cmp_same_as_compare_for_bool {base_bit : Bit} {arg_bit : F} {prop : 
   }
 
 theorem bit_comparison {arg : Vector F n} (range_check : vector_binary arg):
-  binary_comparison_ix_free_bits base (safe_vec_to_bit arg range_check) ↔ binary_comparison_ix_free base arg := by
+  binary_comparison_ix_free_bits base (vector_zmod_to_bit arg) ↔ binary_comparison_ix_free base arg := by
   induction n with
   | zero => rfl
   | succ n ih =>
@@ -604,19 +576,15 @@ theorem ofFn_reverse {fn : Fin (Nat.succ n) → α} : (Vector.ofFn fn).reverse =
       rw [Nat.sub_add_comm]
       linarith
 
-theorem safe_to_bit_reverse {v : Vector F (Nat.succ n)} {vecbin₁ : vector_binary v.reverse} {vecbin₂ : vector_binary v}:
-  safe_vec_to_bit (Vector.reverse v) vecbin₁ = Vector.reverse (safe_vec_to_bit v vecbin₂) := by
-  simp [safe_vec_to_bit, ofFn_reverse, vector_get_reverse]
-
+theorem vector_zmod_to_bit_reverse {v : Vector F n} : vector_zmod_to_bit v.reverse = (vector_zmod_to_bit v).reverse := by
+  simp [vector_zmod_to_bit, Vector.map_reverse]
 
 theorem binary_comp_unfold {base : Vector Bit (Nat.succ n)} {arg : Vector F (Nat.succ n)}
   (range_check: vector_binary arg):
   binary_comparison_with_constant base n ix_ok 0 0 arg ↔
-  recover_binary_nat base > recover_binary_nat (safe_vec_to_bit arg range_check) := by
+  recover_binary_nat base > recover_binary_nat (vector_zmod_to_bit arg) := by
   rw [binary_comp_ix_free_simp range_check]
   rw [←bit_comparison]
   . rw [bit_comparison_is_lt]
-    . rw [safe_to_bit_reverse]
-      . simp
-      . simp [vector_binary_reverse]; assumption
-      . assumption
+    simp [vector_zmod_to_bit_reverse]
+  . rw [vector_binary_reverse]; assumption
