@@ -11,13 +11,13 @@ open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-abbrev D := 3 -- Tree depth
-abbrev B := 2 -- Batch sizes
-open SemaphoreMTB renaming VerifyProof_4_3 → gVerifyProof
-open SemaphoreMTB renaming DeletionRound_3_3 → gDeletionRound
-open SemaphoreMTB renaming DeletionProof_2_2_3_2_2_3 → gDeletionProof
-open SemaphoreMTB renaming InsertionRound_3_3 → gInsertionRound
-open SemaphoreMTB renaming InsertionProof_2_3_2_2_3 → gInsertionProof
+abbrev D := 30 -- Tree depth
+abbrev B := 4 -- Batch sizes
+open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
+open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
+open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
+open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
+open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 -- Poseidon semantic equivalence
 

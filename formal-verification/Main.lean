@@ -12,11 +12,11 @@ open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-open SemaphoreMTB renaming VerifyProof_4_3 → gVerifyProof
-open SemaphoreMTB renaming DeletionRound_3_3 → gDeletionRound
-open SemaphoreMTB renaming DeletionProof_2_2_3_2_2_3 → gDeletionProof
-open SemaphoreMTB renaming InsertionRound_3_3 → gInsertionRound
-open SemaphoreMTB renaming InsertionProof_2_3_2_2_3 → gInsertionProof
+open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
+open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
+open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
+open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
+open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 def TreeInsert [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
   MerkleTree.item_at_nat Tree Index.val = some 0 ∧
