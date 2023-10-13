@@ -19,11 +19,15 @@ open SemaphoreMTB renaming DeletionProof_2_2_3_2_2_3 → gDeletionProof
 open SemaphoreMTB renaming InsertionRound_3_3 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_2_3_2_2_3 → gInsertionProof
 
+-- Poseidon semantic equivalence
+
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
 
 lemma Poseidon2_uncps (a b : F) (k : F -> Prop) : SemaphoreMTB.Poseidon2 a b k ↔ k (poseidon₂ vec![a, b]) := by
     simp [SemaphoreMTB.Poseidon2, poseidon₂, poseidon_3_correct, getElem]
     rfl
+
+-- Verify Proof semantic equivalence
 
 /-!
 `ProofRound_uncps` proves that `SemaphoreMTB.ProofRound` is equivalent to a
@@ -91,6 +95,8 @@ lemma VerifyProof_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k 
     is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
 
+-- Deletion round semantic equivalence
+
 /-!
 We need to prove that `DeletionRound_30` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
 this is shown in `DeletionRound_uncps`.
@@ -99,7 +105,7 @@ Then we need to show that `DeletionProof_4_4_30_4` is continuous application of 
 
 lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     (fun gate_2 =>
-    ∃gate_3, gate_3 = Gates.sub a b ∧ -- gate_3 = a - b
+    ∃gate_3, gate_3 = Gates.sub a b ∧      -- gate_3 = a - b
     ∃gate_4, Gates.is_zero gate_3 gate_4 ∧ -- gate_4 = (a - b) == 0 = a == b
     ∃gate_5, Gates.or gate_4 cond gate_5 ∧ -- gate_5 = (a == b) ∨ cond
     Gates.eq gate_5 (1:F) ∧                -- gate_5 == 1
@@ -159,7 +165,7 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   gDeletionRound Root Index Item Proof k ↔
   ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
   (is_bit out.last ∧ match zmod_to_bit out.last with
-    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front Proof 0) -- Update the root
+    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof 0) -- Update the root
     | Bit.one => k Root  -- Skip flag set, don't update the root
   ) := by
   unfold gDeletionRound
@@ -176,14 +182,9 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   rw [←Vector.ofFn_get (v := Proof)]
   rw [and_iff_right]
   tauto
-  have : is_vector_binary (gate_0.front) := by
-    simp [is_vector_binary_equiv, Vector.front, is_vector_binary_rec_head_tail]
-    simp [is_vector_binary_equiv, is_vector_binary_rec_head_tail] at h
-    casesm* (_ ∧ _)
-    repeat (
-      apply And.intro
-      assumption
-    )
+  have : is_vector_binary (gate_0.dropLast) := by
+    simp at h
+    apply is_vector_binary_dropLast
     assumption
   rw [←Vector.ofFn_get (v := gate_0)]
   rw [←Vector.ofFn_get (v := gate_0)] at this
@@ -208,8 +209,8 @@ def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector
   | Nat.succ _ =>
     ∃out: Vector F (D+1), recover_binary_zmod' out = DeletionIndices.head ∧ is_vector_binary out ∧
     is_bit out.last ∧ match zmod_to_bit out.last with
-      | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head IdComms.head = PreRoot ∧
-        DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).front MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
+      | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast MerkleProofs.head IdComms.head = PreRoot ∧
+        DeletionLoop DeletionIndices.tail (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast MerkleProofs.head 0) IdComms.tail MerkleProofs.tail k -- Update the root
       | Bit.one => DeletionLoop DeletionIndices.tail PreRoot IdComms.tail MerkleProofs.tail k  -- Skip flag set, don't update the root
 
 lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
@@ -244,6 +245,8 @@ lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: V
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
     simp only [DeletionProof_looped, deletion_rounds_uncps]
+
+-- Insertion round semantic equivalence
 
 def insertion_round (Index: F) (Item: F) (PrevRoot: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
   ∃out: Vector F D, recover_binary_zmod' out = Index ∧ is_vector_binary out ∧

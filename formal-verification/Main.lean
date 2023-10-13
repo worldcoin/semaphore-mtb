@@ -80,13 +80,6 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTr
       . rw [← hitem_at]
         simp [MerkleTree.recover_proof_is_root]
 
-theorem zmod_eq { a b : F} : a = b ↔ a.val = b.val := by
-  apply Iff.intro
-  . intros; simp [*]
-  . intros
-    cases a; cases b;
-    congr
-
 theorem before_insertion_all_items_zero_loop
   [Fact (perfect_hash poseidon₂)]
   {Tree: MerkleTree F poseidon₂ D}
@@ -114,21 +107,7 @@ theorem before_insertion_all_items_zero_loop
       assumption
     | @step StartIndex' h =>
       have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
-        -- ZMod to Nat
-        apply zmod_eq.mpr
-        apply Eq.symm
-        apply Eq.trans
-        apply ZMod.val_cast_of_lt
-        . calc
-            StartIndex + 1 ≤ StartIndex + B.succ := by simp_arith
-            _ < Order := ixBound
-        . rw [ZMod.val_add, hStartIndexCast, Nat.mod_eq_of_lt]
-          rfl
-          calc
-            StartIndex + ZMod.val (1 : F) ≤ StartIndex + B.succ := by
-              conv => lhs; arg 2; whnf
-              simp_arith
-            _ < Order := ixBound
+        simp [Fin.ext]
       rw [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, this] at hp
       rcases hp with ⟨_, ⟨_, ⟨postTree, ⟨hinsert, hnext⟩⟩⟩⟩
       rw [←MerkleTree.item_at_nat_invariant hinsert]
