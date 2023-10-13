@@ -303,7 +303,10 @@ lemma InsertionProof_looped (StartIndex: F) (PreRoot: F) (IdComms: Vector F B) (
       insertion_rounds StartIndex PreRoot IdComms MerkleProofs k := by
         unfold gInsertionProof
         simp [insertion_rounds]
+        simp [InsertionRound_uncps]
         simp [Gates.add]
+        rw [add_assoc]
+        rw [add_assoc]
         rw [←Vector.ofFn_get (v := IdComms)]
         rw [←Vector.ofFn_get (v := MerkleProofs)]
         rfl
