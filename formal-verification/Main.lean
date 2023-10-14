@@ -36,46 +36,51 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTr
       apply recover_binary_zmod'_to_bits_le
       . simp
       . assumption
-      . assumption
+      . rename_i h _ _ _; simp[h]
     unfold MerkleTree.item_at_nat
     unfold MerkleTree.proof_at_nat
     unfold MerkleTree.set_at_nat
     unfold Dir.nat_to_dir_vec
     rw [this]
     simp [←Dir.create_dir_vec_bit]
+    rename_i h₀ h₁ h₂ h₃
     refine ⟨?_, ⟨?_, ?_⟩⟩
     . apply MerkleTree.proof_ceritfies_item (proof := Proof.reverse)
-      simpa [←MerkleTree.recover_tail_reverse_equals_recover]
-    . apply MerkleTree.recover_proof_reversible
       rw [←MerkleTree.recover_tail_reverse_equals_recover]
-      simpa
+      simp [h₂]
+    . apply MerkleTree.recover_proof_reversible
+      rw [←MerkleTree.recover_tail_reverse_equals_recover (item := (0:F))]
+      simp [h₂]
     . rw [←MerkleTree.proof_insert_invariant (proof := Proof.reverse) (old := 0)]
       . rw [←MerkleTree.recover_tail_reverse_equals_recover]
-        simpa
+        simp [h₃]
       . rw [←MerkleTree.recover_tail_reverse_equals_recover]
-        simpa
+        simp [h₂]
   . rintro ⟨hitem, ⟨hproof, ⟨ftree, ⟨hftree, hresult⟩⟩⟩⟩
     simp [MerkleTree.item_at_nat, Dir.nat_to_dir_vec] at hitem
     rcases hitem with ⟨bits, ⟨hbits, hitem_at⟩⟩
     simp [MerkleTree.proof_at_nat, Dir.nat_to_dir_vec] at hproof
     rcases hproof with ⟨bits', ⟨hbits', hproof_at⟩⟩
     simp [hbits] at hbits'
-    subst_vars
+    simp [hbits'] at *
     simp [MerkleTree.set_at_nat, Dir.nat_to_dir_vec] at hftree
     rcases hftree with ⟨bits'', ⟨hbits'', hftree_at⟩⟩
     simp [hbits''] at hbits
     rw [←Vector.vector_reverse_eq] at hproof_at
-    subst_vars
-    exists (bits''.map Bit.toZMod)
+    simp [hbits] at *
+    simp [<-hproof_at]
+    let t : Vector F D := (Vector.map Bit.toZMod bits')
+    refine ⟨t, ?_⟩
     refine ⟨?_, ⟨?_, ⟨?_, ?_⟩⟩⟩
     . apply recover_binary_of_to_bits
-      assumption
+      simp [hbits'']
     . apply vector_binary_of_bit_to_zmod
     . rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe, ←hitem_at]
       simp [MerkleTree.recover_proof_is_root]
-    . rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe]
+    . rw [<-hftree_at] at hresult
+      rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe]
       rw [MerkleTree.proof_insert_invariant _]
-      . assumption
+      . apply hresult
       . exact 0
       . rw [← hitem_at]
         simp [MerkleTree.recover_proof_is_root]
@@ -104,7 +109,8 @@ theorem before_insertion_all_items_zero_loop
     | refl =>
       simp [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, hStartIndexCast] at hp
       cases hp
-      assumption
+      rename_i l r
+      simp [l]
     | @step StartIndex' h =>
       have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
         simp [Fin.ext]
@@ -113,13 +119,12 @@ theorem before_insertion_all_items_zero_loop
       rw [←MerkleTree.item_at_nat_invariant hinsert]
       apply ih hnext StartIndex'.succ
       . apply And.intro
-        . simp_arith; assumption
+        . simp_arith; simp [Nat.le] at h; simp [h]
         . simp; linarith
       . linarith
       . rw [hStartIndexCast]
         apply Nat.ne_of_lt
-        simp_arith
-        assumption
+        simp_arith; simp [Nat.le] at h; simp [h]
 
 theorem before_insertion_all_items_zero
   [Fact (perfect_hash poseidon₂)]
@@ -130,6 +135,6 @@ theorem before_insertion_all_items_zero
   (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.item_at_nat Tree i = some 0) := by
   rw [InsertionProof_looped]
   apply before_insertion_all_items_zero_loop
-  assumption
+  simp [ixBound]
 
 def main : IO Unit := pure ()
