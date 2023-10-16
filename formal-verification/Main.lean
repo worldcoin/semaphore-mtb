@@ -24,6 +24,14 @@ def TreeInsert [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon�
   ∃postTree, MerkleTree.set_at_nat Tree Index.val Item = some postTree ∧
   k postTree.root
 
+def TreeDelete [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
+  match nat_to_bit (Nat.land Index.val 1) with
+  | Bit.zero => MerkleTree.item_at_nat Tree (Nat.shiftr Index.val 1) = some Item ∧
+      MerkleTree.proof_at_nat Tree (Nat.shiftr Index.val 1) = some Proof.reverse ∧
+      ∃postTree, MerkleTree.set_at_nat Tree (Nat.shiftr Index.val 1) 0 = some postTree ∧
+      k postTree.root
+  | Bit.one => k Tree.root
+
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
   insertion_round Index Item Tree.root Proof k ↔
   TreeInsert Tree Index Item Proof k := by
@@ -136,5 +144,105 @@ theorem before_insertion_all_items_zero
   rw [InsertionProof_looped]
   apply before_insertion_all_items_zero_loop
   simp [ixBound]
+
+-- theorem after_deletion_all_items_zero
+--   [Fact (perfect_hash poseidon₂)]
+--   {Tree: MerkleTree F poseidon₂ D}
+--   (DeletionIndices: Vector F B) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
+--   gDeletionProof DeletionIndices Tree.root IdComms MerkleProofs fun nextRoot =>
+--   Tree.root = nextRoot ∧
+--   (∀ i ∈ [0:B], DeletionIndices[i]!.val < Order ∧ MerkleTree.item_at_nat Tree DeletionIndices[i]!.val = some 0) := by
+--   rw [DeletionProof_looped]
+--   rw [deletion_rounds_uncps]
+--   sorry
+
+-- Dir.nat_to_dir_vec idx depth
+  -- | Dir.left => 0
+  -- | Dir.right => 1
+-- def a : Nat := 1
+-- #eval some (Dir.nat_to_dir (Nat.land a 1)) -- Get Skip flag
+-- #eval Vector.last <$> (Dir.nat_to_dir_vec a 3)
+-- #eval Vector.dropLast <$> (Dir.nat_to_dir_vec a 3)
+-- #eval (Dir.nat_to_dir_vec (Nat.shiftr a 1) 2) -- Get Index
+
+-- Nat.shiftr (ZMod.val (recover_binary_zmod (vector_zmod_to_bit w))) 1
+theorem binary_zmod_same_as_nat_drop_last {n d} (rep : Vector Bit d):
+  2 ^ d < n ->
+  Nat.shiftr (recover_binary_zmod rep : ZMod n).val 1 = recover_binary_nat rep.dropLast := by
+  intro d_small
+  rw [binary_nat_zmod_equiv_mod_p]
+  sorry
+  -- apply Nat.mod_eq_of_lt
+  -- apply @lt_trans _ _ _ (2^d)
+  -- . apply binary_nat_lt
+  -- . assumption
+
+theorem recover_binary_zmod'_to_bits_le_drop_last {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) (d)}:
+  2 ^ d < n →
+  is_vector_binary w →
+  recover_binary_zmod' w = v →
+  nat_to_bits_le (d-1) (Nat.shiftr v.val 1) = some (vector_zmod_to_bit w).dropLast := by
+  intros
+  rw [←recover_binary_nat_to_bits_le]
+  subst_vars
+  rw [recover_binary_zmod_bit]
+  . apply Eq.symm
+    apply binary_zmod_same_as_nat_drop_last
+    assumption
+  . assumption
+
+theorem vectorToListIff {x₁ : α} {xs : Vector α d} : (x₁ ::ᵥ xs) ↔ (x₁ :: xs.toList) := by
+  sorry
+
+theorem dropLast_toList {d : Nat} {x₁ x₂ : α} {xs : Vector α d} :
+  (x₁ ::ᵥ x₂ ::ᵥ xs).dropLast = (x₁ ::ᵥ (x₂ ::ᵥ xs).dropLast) ↔
+  (x₁ ::ᵥ x₂ ::ᵥ xs).dropLast.toList = x₁ :: (x₂ ::ᵥ xs).dropLast.toList := by
+
+  sorry
+
+theorem dropLast_cons {d : Nat} {x₁ x₂ : α} {xs : Vector α d}: Vector.dropLast (x₁ ::ᵥ x₂ ::ᵥ xs) = (x₁ ::ᵥ Vector.dropLast (x₂ ::ᵥ xs)) := by
+  rw [dropLast_toList]
+  simp only [Vector.toList_dropLast]
+  rw [Vector.toList_cons, Vector.toList_cons, List.dropLast_cons]
+
+theorem dropLastComm {n d : Nat} {x : Vector (ZMod n) d} : (vector_zmod_to_bit x.dropLast) = (vector_zmod_to_bit x).dropLast := by
+  induction x using Vector.inductionOn with
+  | h_nil => 
+    simp [vector_zmod_to_bit, Vector.dropLast, Vector.map]
+  | h_cons h =>
+    simp [vector_zmod_to_bit_cons]
+    simp [vector_zmod_to_bit]
+    simp [Vector.map]
+    sorry
+
+theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
+  deletion_round Tree.root Index Item Proof k ↔
+  TreeDelete Tree Index Item Proof k := by
+  unfold deletion_round
+  unfold TreeDelete
+  apply Iff.intro
+  . rintro ⟨ixbin, _⟩
+    casesm* (_ ∧ _)
+    have : nat_to_bits_le D (Nat.shiftr Index.val 1) = some (vector_zmod_to_bit ixbin.dropLast) := by
+      rw [dropLastComm]
+      apply recover_binary_zmod'_to_bits_le_drop_last (v := Index) (w := ixbin)
+      sorry
+      sorry
+      sorry
+    unfold MerkleTree.item_at_nat
+    unfold MerkleTree.proof_at_nat
+    unfold MerkleTree.set_at_nat
+    unfold Dir.nat_to_dir_vec
+    rw [this]
+    simp [←Dir.create_dir_vec_bit]
+    sorry
+  sorry
+  -- apply Iff.intro
+  -- . rintro ⟨ixbin, h⟩
+  --   casesm* (_ ∧ _)
+    
+  --   sorry
+  -- . rintro ⟨hitem, ⟨hproof, ⟨ftree, ⟨hftree, hresult⟩⟩⟩⟩
+  --   sorry
 
 def main : IO Unit := pure ()

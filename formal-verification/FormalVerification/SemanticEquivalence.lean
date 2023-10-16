@@ -157,17 +157,21 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
         . tauto
         . exists 1; tauto
 
+def deletion_round (Root: F) (Index: F) (Item: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
+  ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
+  (is_bit out.last ∧ match zmod_to_bit out.last with
+    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof Item = Root) ∧
+                k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof 0) -- Update the root
+    | Bit.one => k Root  -- Skip flag set, don't update the root
+  )
+
 /-!
 `DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
 the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of the merkle tree with empty Leaf
 -/
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   gDeletionRound Root Index Item Proof k ↔
-  ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
-  (is_bit out.last ∧ match zmod_to_bit out.last with
-    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof Item = Root) ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof 0) -- Update the root
-    | Bit.one => k Root  -- Skip flag set, don't update the root
-  ) := by
+  deletion_round Root Index Item Proof k := by
   unfold gDeletionRound
   simp only [sub_zero_is_eq]
   simp [VerifyProof_looped, proof_rounds_uncps]
@@ -224,7 +228,7 @@ lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdCo
   | cons =>
     unfold deletion_rounds
     unfold DeletionLoop
-    simp [DeletionRound_uncps]
+    simp [DeletionRound_uncps, deletion_round]
     rename_i ih
     simp [ih]
 
