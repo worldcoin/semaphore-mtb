@@ -18,6 +18,8 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
+set_option pp.coercions false
+
 def TreeInsert [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
   MerkleTree.item_at_nat Tree Index.val = some 0 ∧
   MerkleTree.proof_at_nat Tree Index.val = some Proof.reverse ∧
@@ -185,19 +187,16 @@ theorem insertion_is_set
           rw [<-MerkleTree.recover_tail_equals_recover_reverse]
           simp [h₂]
         simp [this] at h₃
-        
-        --rw [ZMod.int_cast_zmod_cast (a := (↑StartIndex:F))]
+        have : ((Nat.cast (Fin.val (Nat.cast StartIndex:F))) + (1:F)) = Nat.cast (StartIndex + 1) := by
+          simp [Nat.cast, NatCast.natCast]
+          simp [Order]
+          rw [<-ZMod.val_nat_cast, ZMod.val_cast_of_lt]
+          simp [Order] at ixBound
+          linarith [ixBound]
+        rw [this]
         apply ih
-        simp
-        rw [<-ZMod.val_nat_cast]
-        simp [Nat.succ] at ixBound
-        simp [ZMod.val_cast_of_lt]
-        have this : (↑↑StartIndex + 1:Nat) = (StartIndex + 1:Nat) := by
-          simp [Fin.ext]
-        
-        sorry
-        simp
-        sorry
+        linarith only [ixBound]
+        simp [h₃]
   . induction b generalizing StartIndex Tree with
     | zero =>
       simp [InsertionLoop, insertion_circuit]
@@ -224,21 +223,7 @@ theorem insertion_is_set
       . simp [<-hproof_at]
         rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe, ←hitem_at]
         simp [MerkleTree.recover_proof_is_root]
-      . 
-        -- (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec t) (Vector.head MerkleProofs) (Vector.head IdComms))
-        -- needs to be equal to
-        -- ftree == MerkleTree.set Tree (Vector.reverse (Vector.map Dir.bit_to_dir bits')) (Vector.head IdComms)
-
-
-        -- MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) MerkleProofs.head 0 = Tree.root
-        -- corresponds to
-        -- MerkleTree.item_at_nat Tree StartIndex.val = some 0 ∧
-        -- MerkleTree.proof_at_nat Tree StartIndex.val = some MerkleProofs.head.reverse
-
-        -- (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out) MerkleProofs.head IdComms.head)
-        -- corresponds to
-        -- MerkleTree.set_at_nat Tree StartIndex.val IdComms.head = some postTree
-        rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe]
+      . rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe]
         rw [MerkleTree.proof_insert_invariant (tree := Tree) (old := (0:F)) (new := IdComms.head)]
         have this : (↑StartIndex + 1:F) = ↑(StartIndex + 1) := by
           simp [Fin.ext]
@@ -246,11 +231,17 @@ theorem insertion_is_set
         apply ih
         linarith only [ixBound]
         rw [<-hftree_at] at hresult
-        rotate_left
+        have : ((Nat.cast (Fin.val (Nat.cast StartIndex:F))) + (1:F)) = Nat.cast (StartIndex + 1) := by
+          simp [Nat.cast, NatCast.natCast]
+          simp [Order]
+          rw [<-ZMod.val_nat_cast, ZMod.val_cast_of_lt]
+          simp [Order] at ixBound
+          linarith [ixBound]
+        rw [this] at hresult
+        apply hresult
         simp [<-hproof_at]
         simp [<-hitem_at]
         simp [MerkleTree.recover_proof_is_root]
-        sorry
 
 theorem insertion_is_set_circuit
   [Fact (perfect_hash poseidon₂)]
