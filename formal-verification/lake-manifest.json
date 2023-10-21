@@ -14,6 +14,12 @@
     "name": "Cli",
     "inputRev?": "nightly"}},
   {"git":
+   {"url": "https://github.com/reilabs/proven-zk.git",
+    "subDir?": null,
+    "rev": "d1ac1762aba5cb9a892de075d29139a35a446f3a",
+    "name": "ProvenZK",
+    "inputRev?": "d1ac1762aba5cb9a892de075d29139a35a446f3a"}},
+  {"git":
    {"url": "https://github.com/leanprover-community/mathlib4.git",
     "subDir?": null,
     "rev": "26d0eab43f05db777d1cf31abd31d3a57954b2a9",
@@ -36,5 +42,4 @@
     "subDir?": null,
     "rev": "dff883c55395438ae2a5c65ad5ddba084b600feb",
     "name": "std",
-    "inputRev?": "main"}},
-  {"path": {"name": "ProvenZk", "dir": ".\\..\\..\\proven-zk"}}]}
+    "inputRev?": "main"}}]}
