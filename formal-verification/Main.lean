@@ -8,6 +8,8 @@ import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
 import FormalVerification.SemanticEquivalence
 
+import FormalVerification.InsertionCircuit
+
 open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
@@ -18,231 +20,154 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
-def TreeInsert [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
-  MerkleTree.item_at_nat Tree Index.val = some 0 ∧
-  MerkleTree.proof_at_nat Tree Index.val = some Proof.reverse ∧
-  ∃postTree, MerkleTree.set_at_nat Tree Index.val Item = some postTree ∧
-  k postTree.root
+set_option pp.coercions false
 
-def TreeDelete [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
-  match nat_to_bit (Nat.land Index.val 1) with
-  | Bit.zero => MerkleTree.item_at_nat Tree (Nat.shiftr Index.val 1) = some Item ∧
-      MerkleTree.proof_at_nat Tree (Nat.shiftr Index.val 1) = some Proof.reverse ∧
-      ∃postTree, MerkleTree.set_at_nat Tree (Nat.shiftr Index.val 1) 0 = some postTree ∧
-      k postTree.root
+------------------ MISC
+
+lemma vector_zmod_to_bit_last {n d : Nat} {xs : Vector (ZMod n) (d+1)} :
+  (vector_zmod_to_bit xs).last = (zmod_to_bit xs.last) := by
+  simp [vector_zmod_to_bit, Vector.last]
+
+lemma dropLast_symm {n} {xs : Vector Bit d} :
+  Vector.map (fun i => @Bit.toZMod n i) (Vector.dropLast xs) = (Vector.map (fun i => @Bit.toZMod n i) xs).dropLast := by
+  induction xs using Vector.inductionOn with
+  | h_nil =>
+    simp [Vector.dropLast, Vector.map]
+  | h_cons ih₁ =>
+    rename_i x₁ xs
+    induction xs using Vector.inductionOn with
+    | h_nil =>
+      simp [Vector.dropLast, Vector.map]
+    | h_cons _ =>
+      rename_i x₂ xs
+      simp [Vector.vector_list_vector]
+      simp [ih₁]
+
+lemma zmod_to_bit_to_zmod {n : Nat} [Fact (n > 1)] {x : (ZMod n)} (h : is_bit x):
+  Bit.toZMod (zmod_to_bit x) = x := by
+  simp [is_bit] at h
+  cases h with
+  | inl =>
+    subst_vars
+    simp [zmod_to_bit, Bit.toZMod]
+  | inr =>
+    subst_vars
+    simp [zmod_to_bit, ZMod.val_one, Bit.toZMod]
+
+lemma bit_to_zmod_to_bit {n : Nat} [Fact (n > 1)] {x : Bit}:
+  zmod_to_bit (@Bit.toZMod n x) = x := by
+  cases x with
+  | zero =>
+    simp [zmod_to_bit, Bit.toZMod]
+  | one =>
+    simp [zmod_to_bit, Bit.toZMod]
+    simp [zmod_to_bit, ZMod.val_one, Bit.toZMod]
+
+lemma vector_zmod_to_bit_to_zmod {n d : Nat} [Fact (n > 1)] {xs : Vector (ZMod n) d} (h : is_vector_binary xs) :
+  Vector.map Bit.toZMod (vector_zmod_to_bit xs) = xs := by
+  induction xs using Vector.inductionOn with
+  | h_nil => simp
+  | h_cons ih =>
+    simp [is_vector_binary_cons] at h
+    cases h
+    simp [vector_zmod_to_bit]
+    simp [vector_zmod_to_bit] at ih
+    rw [zmod_to_bit_to_zmod]
+    rw [ih]
+    assumption
+    assumption
+
+lemma vector_bit_to_zmod_to_bit {d n : Nat} [Fact (n > 1)] {xs : Vector Bit d} :
+  vector_zmod_to_bit (Vector.map (fun i => @Bit.toZMod n i) xs) = xs := by
+  induction xs using Vector.inductionOn with
+  | h_nil => simp
+  | h_cons ih =>
+    rename_i x xs
+    simp [vector_zmod_to_bit]
+    simp [vector_zmod_to_bit] at ih
+    simp [ih]
+    rw [bit_to_zmod_to_bit]
+
+lemma vector_zmod_to_bit_last' {n d : Nat} [Fact (n > 1)] {xs : Vector (ZMod n) (d+1)} (h : is_vector_binary xs) :
+  Vector.map Bit.toZMod (Vector.dropLast (vector_zmod_to_bit xs)) = (Vector.dropLast xs) := by
+  simp [dropLast_symm]
+  rw [vector_zmod_to_bit_to_zmod]
+  assumption
+
+------------------
+
+def TreeDelete [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) (Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
+  match Skip with
+  | Bit.zero => 
+      MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = Item ∧
+      MerkleTree.proof Tree (Dir.create_dir_vec Path).reverse = Proof.reverse ∧
+      k (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse 0).root
   | Bit.one => k Tree.root
 
-theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
-  insertion_round Index Item Tree.root Proof k ↔
-  TreeInsert Tree Index Item Proof k := by
-  unfold insertion_round
-  unfold TreeInsert
+def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop): Prop :=
+  ∃path, nat_to_bits_le (D+1) Index.val = some path ∧
+  TreeDelete Tree (path.last) (Vector.map Bit.toZMod path.dropLast) Item Proof k
+
+theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop):
+  deletion_round Tree.root Skip Path Item Proof k ↔
+  TreeDelete Tree Skip Path Item Proof k := by
+  unfold deletion_round
+  unfold TreeDelete
+  split
+  . simp
+    simp [MerkleTree.recover_tail_equals_recover_reverse]
+    rw [<-MerkleTree.recover_equivalence]
+    simp [and_assoc]
+    intro hitem_at hproof
+    rw [MerkleTree.proof_insert_invariant (ix := (Vector.reverse (Dir.create_dir_vec Path))) (tree := Tree) (old := Item) (new := (0:F)) (proof := Vector.reverse Proof)]
+    rw [<-MerkleTree.recover_equivalence]
+    apply And.intro
+    rw [hitem_at]
+    rw [hproof]
+  . simp
+
+theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop) : 
+  deletion_round_prep Tree.root Index Item Proof k ↔
+  TreeDeletePrep Tree Index Item Proof k := by
+  unfold deletion_round_prep
+  unfold TreeDeletePrep
+  simp [deletion_round_uncps]
   apply Iff.intro
   . rintro ⟨ixbin, _⟩
     casesm* (_ ∧ _)
-    have : nat_to_bits_le D Index.val = some (vector_zmod_to_bit ixbin) := by
+    have : nat_to_bits_le (D+1) Index.val = some (vector_zmod_to_bit ixbin) := by
       apply recover_binary_zmod'_to_bits_le
       . simp
       . assumption
       . rename_i h _ _ _; simp[h]
-    unfold MerkleTree.item_at_nat
-    unfold MerkleTree.proof_at_nat
-    unfold MerkleTree.set_at_nat
-    unfold Dir.nat_to_dir_vec
     rw [this]
     simp [←Dir.create_dir_vec_bit]
-    rename_i h₀ h₁ h₂ h₃
-    refine ⟨?_, ⟨?_, ?_⟩⟩
-    . apply MerkleTree.proof_ceritfies_item (proof := Proof.reverse)
-      rw [←MerkleTree.recover_tail_reverse_equals_recover]
-      simp [h₂]
-    . apply MerkleTree.recover_proof_reversible
-      rw [←MerkleTree.recover_tail_reverse_equals_recover (item := (0:F))]
-      simp [h₂]
-    . rw [←MerkleTree.proof_insert_invariant (proof := Proof.reverse) (old := 0)]
-      . rw [←MerkleTree.recover_tail_reverse_equals_recover]
-        simp [h₃]
-      . rw [←MerkleTree.recover_tail_reverse_equals_recover]
-        simp [h₂]
-  . rintro ⟨hitem, ⟨hproof, ⟨ftree, ⟨hftree, hresult⟩⟩⟩⟩
-    simp [MerkleTree.item_at_nat, Dir.nat_to_dir_vec] at hitem
-    rcases hitem with ⟨bits, ⟨hbits, hitem_at⟩⟩
-    simp [MerkleTree.proof_at_nat, Dir.nat_to_dir_vec] at hproof
-    rcases hproof with ⟨bits', ⟨hbits', hproof_at⟩⟩
-    simp [hbits] at hbits'
-    simp [hbits'] at *
-    simp [MerkleTree.set_at_nat, Dir.nat_to_dir_vec] at hftree
-    rcases hftree with ⟨bits'', ⟨hbits'', hftree_at⟩⟩
-    simp [hbits''] at hbits
-    rw [←Vector.vector_reverse_eq] at hproof_at
-    simp [hbits] at *
-    simp [<-hproof_at]
-    let t : Vector F D := (Vector.map Bit.toZMod bits')
+    simp [vector_zmod_to_bit_last]
+    rw [vector_zmod_to_bit_last']
+    assumption
+    assumption
+  . rintro ⟨ixbin, h⟩
+    casesm* (_ ∧ _)
+    rename_i l r
+    let t : Vector F (D+1) := (Vector.map Bit.toZMod ixbin)
     refine ⟨t, ?_⟩
     refine ⟨?_, ⟨?_, ⟨?_, ?_⟩⟩⟩
     . apply recover_binary_of_to_bits
-      simp [hbits'']
-    . apply vector_binary_of_bit_to_zmod
-    . rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe, ←hitem_at]
-      simp [MerkleTree.recover_proof_is_root]
-    . rw [<-hftree_at] at hresult
-      rw [MerkleTree.recover_tail_equals_recover_reverse, Dir.create_dir_vec_bit, zmod_to_bit_coe]
-      rw [MerkleTree.proof_insert_invariant _]
-      . apply hresult
-      . exact 0
-      . rw [← hitem_at]
-        simp [MerkleTree.recover_proof_is_root]
-
-theorem before_insertion_all_items_zero_loop
-  [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  {StartIndex B: Nat}
-  {ixBound: StartIndex + B < Order}
-  {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
-  insertion_rounds ↑StartIndex Tree.root IdComms MerkleProofs k →
-  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.item_at_nat Tree i = some 0) := by
-  induction B generalizing StartIndex Tree with
-  | zero =>
-    intro _ i range
-    rcases range with ⟨lo, hi⟩
-    have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
-    contradiction
-  | succ B ih =>
-    intro hp i range
-    rcases range with ⟨lo, hi⟩; simp at lo hi
-    have hStartIndexCast : ZMod.val (StartIndex : F) = StartIndex := by
-      apply ZMod.val_cast_of_lt
-      linarith
-    cases lo with
-    | refl =>
-      simp [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, hStartIndexCast] at hp
-      cases hp
-      rename_i l r
       simp [l]
-    | @step StartIndex' h =>
-      have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
-        simp [Fin.ext]
-      rw [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, this] at hp
-      rcases hp with ⟨_, ⟨_, ⟨postTree, ⟨hinsert, hnext⟩⟩⟩⟩
-      rw [←MerkleTree.item_at_nat_invariant hinsert]
-      apply ih hnext StartIndex'.succ
-      . apply And.intro
-        . simp_arith; simp [Nat.le] at h; simp [h]
-        . simp; linarith
-      . linarith
-      . rw [hStartIndexCast]
-        apply Nat.ne_of_lt
-        simp_arith; simp [Nat.le] at h; simp [h]
-
-theorem before_insertion_all_items_zero
-  [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop)
-  {ixBound: StartIndex + B < Order}:
-  gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs k →
-  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.item_at_nat Tree i = some 0) := by
-  rw [InsertionProof_looped]
-  apply before_insertion_all_items_zero_loop
-  simp [ixBound]
-
--- theorem after_deletion_all_items_zero
---   [Fact (perfect_hash poseidon₂)]
---   {Tree: MerkleTree F poseidon₂ D}
---   (DeletionIndices: Vector F B) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
---   gDeletionProof DeletionIndices Tree.root IdComms MerkleProofs fun nextRoot =>
---   Tree.root = nextRoot ∧
---   (∀ i ∈ [0:B], DeletionIndices[i]!.val < Order ∧ MerkleTree.item_at_nat Tree DeletionIndices[i]!.val = some 0) := by
---   rw [DeletionProof_looped]
---   rw [deletion_rounds_uncps]
---   sorry
-
--- Dir.nat_to_dir_vec idx depth
-  -- | Dir.left => 0
-  -- | Dir.right => 1
--- def a : Nat := 1
--- #eval some (Dir.nat_to_dir (Nat.land a 1)) -- Get Skip flag
--- #eval Vector.last <$> (Dir.nat_to_dir_vec a 3)
--- #eval Vector.dropLast <$> (Dir.nat_to_dir_vec a 3)
--- #eval (Dir.nat_to_dir_vec (Nat.shiftr a 1) 2) -- Get Index
-
--- Nat.shiftr (ZMod.val (recover_binary_zmod (vector_zmod_to_bit w))) 1
-theorem binary_zmod_same_as_nat_drop_last {n d} (rep : Vector Bit d):
-  2 ^ d < n ->
-  Nat.shiftr (recover_binary_zmod rep : ZMod n).val 1 = recover_binary_nat rep.dropLast := by
-  intro d_small
-  rw [binary_nat_zmod_equiv_mod_p]
-  sorry
-  -- apply Nat.mod_eq_of_lt
-  -- apply @lt_trans _ _ _ (2^d)
-  -- . apply binary_nat_lt
-  -- . assumption
-
-theorem recover_binary_zmod'_to_bits_le_drop_last {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) (d)}:
-  2 ^ d < n →
-  is_vector_binary w →
-  recover_binary_zmod' w = v →
-  nat_to_bits_le (d-1) (Nat.shiftr v.val 1) = some (vector_zmod_to_bit w).dropLast := by
-  intros
-  rw [←recover_binary_nat_to_bits_le]
-  subst_vars
-  rw [recover_binary_zmod_bit]
-  . apply Eq.symm
-    apply binary_zmod_same_as_nat_drop_last
-    assumption
-  . assumption
-
-theorem vectorToListIff {x₁ : α} {xs : Vector α d} : (x₁ ::ᵥ xs) ↔ (x₁ :: xs.toList) := by
-  sorry
-
-theorem dropLast_toList {d : Nat} {x₁ x₂ : α} {xs : Vector α d} :
-  (x₁ ::ᵥ x₂ ::ᵥ xs).dropLast = (x₁ ::ᵥ (x₂ ::ᵥ xs).dropLast) ↔
-  (x₁ ::ᵥ x₂ ::ᵥ xs).dropLast.toList = x₁ :: (x₂ ::ᵥ xs).dropLast.toList := by
-
-  sorry
-
-theorem dropLast_cons {d : Nat} {x₁ x₂ : α} {xs : Vector α d}: Vector.dropLast (x₁ ::ᵥ x₂ ::ᵥ xs) = (x₁ ::ᵥ Vector.dropLast (x₂ ::ᵥ xs)) := by
-  rw [dropLast_toList]
-  simp only [Vector.toList_dropLast]
-  rw [Vector.toList_cons, Vector.toList_cons, List.dropLast_cons]
-
-theorem dropLastComm {n d : Nat} {x : Vector (ZMod n) d} : (vector_zmod_to_bit x.dropLast) = (vector_zmod_to_bit x).dropLast := by
-  induction x using Vector.inductionOn with
-  | h_nil => 
-    simp [vector_zmod_to_bit, Vector.dropLast, Vector.map]
-  | h_cons h =>
-    simp [vector_zmod_to_bit_cons]
-    simp [vector_zmod_to_bit]
-    simp [Vector.map]
-    sorry
-
-theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
-  deletion_round Tree.root Index Item Proof k ↔
-  TreeDelete Tree Index Item Proof k := by
-  unfold deletion_round
-  unfold TreeDelete
-  apply Iff.intro
-  . rintro ⟨ixbin, _⟩
-    casesm* (_ ∧ _)
-    have : nat_to_bits_le D (Nat.shiftr Index.val 1) = some (vector_zmod_to_bit ixbin.dropLast) := by
-      rw [dropLastComm]
-      apply recover_binary_zmod'_to_bits_le_drop_last (v := Index) (w := ixbin)
-      sorry
-      sorry
-      sorry
-    unfold MerkleTree.item_at_nat
-    unfold MerkleTree.proof_at_nat
-    unfold MerkleTree.set_at_nat
-    unfold Dir.nat_to_dir_vec
-    rw [this]
-    simp [←Dir.create_dir_vec_bit]
-    sorry
-  sorry
-  -- apply Iff.intro
-  -- . rintro ⟨ixbin, h⟩
-  --   casesm* (_ ∧ _)
-    
-  --   sorry
-  -- . rintro ⟨hitem, ⟨hproof, ⟨ftree, ⟨hftree, hresult⟩⟩⟩⟩
-  --   sorry
+    . apply vector_binary_of_bit_to_zmod
+    . simp [Bit.toZMod, is_bit, Vector.last]
+      split
+      simp
+      simp
+    . simp
+      simp [dropLast_symm] at r
+      have : (Vector.last ixbin) = zmod_to_bit (Vector.last (Vector.map (fun i => @Bit.toZMod Order i) ixbin)) := by
+        rw [<-vector_zmod_to_bit_last]
+        simp [vector_bit_to_zmod_to_bit]
+      rw [<-this]
+      assumption
 
 def main : IO Unit := pure ()

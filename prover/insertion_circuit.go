@@ -4,8 +4,7 @@ import (
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark/frontend"
-	"github.com/reilabs/gnark-lean-extractor/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/extractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
 )
 
 type InsertionMbuCircuit struct {
@@ -25,7 +24,7 @@ type InsertionMbuCircuit struct {
 	Depth     int
 }
 
-func (circuit *InsertionMbuCircuit) AbsDefine(api abstractor.API) error {
+func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	// Hash private inputs.
 	// We keccak hash all input to save verification gas. Inputs are arranged as follows:
 	// StartIndex || PreRoot || PostRoot || IdComms[0] || IdComms[1] || ... || IdComms[batchSize-1]
@@ -35,45 +34,41 @@ func (circuit *InsertionMbuCircuit) AbsDefine(api abstractor.API) error {
 	// We convert all the inputs to the keccak hash to use big-endian (network) byte
 	// ordering so that it agrees with Solidity. This ensures that we don't have to
 	// perform the conversion inside the contract and hence save on gas.
-	bits_start := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.StartIndex, Size: 32})
+	bits_start := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.StartIndex, Size: 32})
 	bits = append(bits, bits_start...)
 
-	bits_pre := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
+	bits_pre := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
 	bits = append(bits, bits_pre...)
 
-	bits_post := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
+	bits_post := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits_id := extractor.Call1(api, ToReducedBigEndian{Variable: circuit.IdComms[i], Size: 256})
+		bits_id := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.IdComms[i], Size: 256})
 		bits = append(bits, bits_id...)
 	}
 
 	hash := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32, bits...)
-	sum := extractor.Call(api, FromBinaryBigEndian{Variable: hash})
+	sum := abstractor.Call(api, FromBinaryBigEndian{Variable: hash})
 
 	// The same endianness conversion has been performed in the hash generation
 	// externally, so we can safely assert their equality here.
 	api.AssertIsEqual(circuit.InputHash, sum)
 
 	// Actual batch merkle proof verification.
-	root := extractor.Call(api, InsertionProof{
+	root := abstractor.Call(api, InsertionProof{
 		StartIndex: circuit.StartIndex,
-		PreRoot: circuit.PreRoot,
-		IdComms: circuit.IdComms,
+		PreRoot:    circuit.PreRoot,
+		IdComms:    circuit.IdComms,
 
 		MerkleProofs: circuit.MerkleProofs,
 
 		BatchSize: circuit.BatchSize,
-		Depth: circuit.Depth,
+		Depth:     circuit.Depth,
 	})
 
 	// Final root needs to match.
 	api.AssertIsEqual(root, circuit.PostRoot)
 
 	return nil
-}
-
-func (circuit InsertionMbuCircuit) Define(api frontend.API) error {
-	return abstractor.Concretize(api, &circuit)
 }

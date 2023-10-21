@@ -4,8 +4,7 @@ import (
 	"math"
 
 	"github.com/consensys/gnark/frontend"
-	"github.com/reilabs/gnark-lean-extractor/abstractor"
-	"github.com/reilabs/gnark-lean-extractor/extractor"
+	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
 )
 
 // Implemention of the Keccak in gnark following the specification of the Keccak team
@@ -14,41 +13,41 @@ import (
 const laneSize = 64
 const stateSize = 5
 
-func NewKeccak256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
-	hash := extractor.Call1(api, KeccakGadget{
-		InputSize: inputSize,
-		InputData: data,
-		OutputSize: 256,
-		Rounds: 24,
-		BlockSize: 1088,     
+func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
+	hash := abstractor.Call1(api, KeccakGadget{
+		InputSize:       inputSize,
+		InputData:       data,
+		OutputSize:      256,
+		Rounds:          24,
+		BlockSize:       1088,
 		RotationOffsets: R,
-		RoundConstants: RC,
-		Domain: 0x01,
+		RoundConstants:  RC,
+		Domain:          0x01,
 	})
 	return hash
 }
 
-func NewSHA3_256(api abstractor.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
-	hash := extractor.Call1(api, KeccakGadget{
-		InputSize: inputSize,
-		InputData: data,
-		OutputSize: 256,
-		Rounds: 24,
-		BlockSize: 1088,     
+func NewSHA3_256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
+	hash := abstractor.Call1(api, KeccakGadget{
+		InputSize:       inputSize,
+		InputData:       data,
+		OutputSize:      256,
+		Rounds:          24,
+		BlockSize:       1088,
 		RotationOffsets: R,
-		RoundConstants: RC,
-		Domain: 0x06,
+		RoundConstants:  RC,
+		Domain:          0x06,
 	})
 	return hash
 }
 
 func allZeroes(v []frontend.Variable) bool {
-    for _, v := range v {
-        if v != 0 {
-            return false
-        }
-    }
-    return true
+	for _, v := range v {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 type KeccakRound struct {
@@ -57,7 +56,7 @@ type KeccakRound struct {
 	RotationOffsets [5][5]int
 }
 
-func (g KeccakRound) DefineGadget(api abstractor.API) interface{} {
+func (g KeccakRound) DefineGadget(api frontend.API) interface{} {
 	// C[x] = A[x,0] xor A[x,1] xor A[x,2] xor A[x,3] xor A[x,4], for x in 0…4
 	C := make([][]frontend.Variable, stateSize)
 	for i := 0; i < int(stateSize); i++ {
@@ -65,7 +64,7 @@ func (g KeccakRound) DefineGadget(api abstractor.API) interface{} {
 	}
 
 	for x := 0; x < stateSize; x += 1 {
-		C[x] = extractor.Call1(api, Xor5{g.A[x][0], g.A[x][1], g.A[x][2], g.A[x][3], g.A[x][4],})
+		C[x] = abstractor.Call1(api, Xor5{g.A[x][0], g.A[x][1], g.A[x][2], g.A[x][3], g.A[x][4]})
 	}
 
 	// D[x] = C[x-1] xor rot(C[x+1],1), for x in 0…4
@@ -74,14 +73,14 @@ func (g KeccakRound) DefineGadget(api abstractor.API) interface{} {
 		D[i] = make([]frontend.Variable, laneSize)
 	}
 	for x := 0; x < stateSize; x += 1 {
-		tmp := extractor.Call1(api, Rot{C[(x+1)%stateSize], 1})
-		D[x] = extractor.Call1(api, Xor{C[(x+4)%stateSize], tmp})
+		tmp := abstractor.Call1(api, Rot{C[(x+1)%stateSize], 1})
+		D[x] = abstractor.Call1(api, Xor{C[(x+4)%stateSize], tmp})
 	}
 
 	// A[x,y] = A[x,y] xor D[x], for x in 0…4 and y in 0…4
 	for x := 0; x < stateSize; x += 1 {
 		for y := 0; y < stateSize; y += 1 {
-			g.A[x][y] = extractor.Call1(api, Xor{g.A[x][y], D[x]})
+			g.A[x][y] = abstractor.Call1(api, Xor{g.A[x][y], D[x]})
 		}
 	}
 
@@ -95,38 +94,38 @@ func (g KeccakRound) DefineGadget(api abstractor.API) interface{} {
 	}
 	for x := 0; x < stateSize; x += 1 {
 		for y := 0; y < stateSize; y += 1 {
-			B[y][(2*x+3*y)%stateSize] = extractor.Call1(api, Rot{g.A[x][y], g.RotationOffsets[x][y]})
+			B[y][(2*x+3*y)%stateSize] = abstractor.Call1(api, Rot{g.A[x][y], g.RotationOffsets[x][y]})
 		}
 	}
 
 	// A[x,y] = B[x,y] xor ((not B[x+1,y]) and B[x+2,y]), for x in 0…4 and y in 0…4
 	for x := 0; x < stateSize; x += 1 {
 		for y := 0; y < stateSize; y += 1 {
-			left := extractor.Call1(api, Not{B[(x+1)%stateSize][y]})
+			left := abstractor.Call1(api, Not{B[(x+1)%stateSize][y]})
 			right := B[(x+2)%stateSize][y]
-			tmp := extractor.Call1(api, And{left, right})
-			g.A[x][y] = extractor.Call1(api, Xor{B[x][y], tmp})
+			tmp := abstractor.Call1(api, And{left, right})
+			g.A[x][y] = abstractor.Call1(api, Xor{B[x][y], tmp})
 		}
 	}
 
 	// A[0,0] = A[0,0] xor RC
-	g.A[0][0] = extractor.Call1(api, Xor{g.A[0][0], g.RC[:]})
+	g.A[0][0] = abstractor.Call1(api, Xor{g.A[0][0], g.RC[:]})
 
 	return g.A
 }
 
 type KeccakF struct {
 	A               [][][]frontend.Variable
-	Rounds int
+	Rounds          int
 	RotationOffsets [5][5]int
-	RoundConstants [24][64]frontend.Variable
+	RoundConstants  [24][64]frontend.Variable
 }
 
-func (g KeccakF) DefineGadget(api abstractor.API) interface{} {
+func (g KeccakF) DefineGadget(api frontend.API) interface{} {
 	for i := 0; i < g.Rounds; i += 1 {
-		g.A = extractor.Call3(api, KeccakRound{
-			A: g.A,
-			RC: g.RoundConstants[i],
+		g.A = abstractor.Call3(api, KeccakRound{
+			A:               g.A,
+			RC:              g.RoundConstants[i],
 			RotationOffsets: g.RotationOffsets,
 		})
 	}
@@ -144,7 +143,7 @@ type KeccakGadget struct {
 	Domain          int
 }
 
-func (g KeccakGadget) DefineGadget(api abstractor.API) interface{} {
+func (g KeccakGadget) DefineGadget(api frontend.API) interface{} {
 	// Padding
 	paddingSize := int(math.Ceil(float64(g.InputSize)/float64(g.BlockSize))) * g.BlockSize
 	if len(g.InputData) == 0 {
@@ -211,15 +210,15 @@ func (g KeccakGadget) DefineGadget(api abstractor.API) interface{} {
 					if allZeroes(Pi) {
 						continue
 					}
-					S[x][y] = extractor.Call1(api, Xor{S[x][y], Pi})
+					S[x][y] = abstractor.Call1(api, Xor{S[x][y], Pi})
 				}
 			}
 		}
-		S = extractor.Call3(api, KeccakF{
-			A: S,
-			Rounds: g.Rounds,
+		S = abstractor.Call3(api, KeccakF{
+			A:               S,
+			Rounds:          g.Rounds,
 			RotationOffsets: g.RotationOffsets,
-			RoundConstants: g.RoundConstants,
+			RoundConstants:  g.RoundConstants,
 		})
 	}
 
@@ -236,11 +235,11 @@ func (g KeccakGadget) DefineGadget(api abstractor.API) interface{} {
 			}
 		}
 		if i < g.OutputSize-laneSize {
-			S = extractor.Call3(api, KeccakF{
-				A: S,
-				Rounds: g.Rounds,
+			S = abstractor.Call3(api, KeccakF{
+				A:               S,
+				Rounds:          g.Rounds,
 				RotationOffsets: g.RotationOffsets,
-				RoundConstants: g.RoundConstants,
+				RoundConstants:  g.RoundConstants,
 			})
 		}
 	}
@@ -260,7 +259,7 @@ type Xor5Round struct {
 	E frontend.Variable
 }
 
-func (g Xor5Round) DefineGadget(api abstractor.API) interface{} {
+func (g Xor5Round) DefineGadget(api frontend.API) interface{} {
 	tmp_ab := api.Xor(g.A, g.B)
 	tmp_abc := api.Xor(g.C, tmp_ab)
 	tmp_abcd := api.Xor(g.D, tmp_abc)
@@ -276,10 +275,10 @@ type Xor5 struct {
 	E []frontend.Variable
 }
 
-func (g Xor5) DefineGadget(api abstractor.API) interface{} {
+func (g Xor5) DefineGadget(api frontend.API) interface{} {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(g.A); i += 1 {
-		c[i] = extractor.Call(api, Xor5Round{g.A[i], g.B[i], g.C[i], g.D[i], g.E[i]})
+		c[i] = abstractor.Call(api, Xor5Round{g.A[i], g.B[i], g.C[i], g.D[i], g.E[i]})
 	}
 	return c[:]
 }
@@ -289,7 +288,7 @@ type Xor struct {
 	B []frontend.Variable
 }
 
-func (g Xor) DefineGadget(api abstractor.API) interface{} {
+func (g Xor) DefineGadget(api frontend.API) interface{} {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(g.A); i += 1 {
 		c[i] = api.Xor(g.A[i], g.B[i])
@@ -302,7 +301,7 @@ type Rot struct {
 	R int
 }
 
-func (g Rot) DefineGadget(api abstractor.API) interface{} {
+func (g Rot) DefineGadget(api frontend.API) interface{} {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(g.A); i += 1 {
 		c[i] = g.A[(i+(laneSize-g.R))%len(g.A)]
@@ -315,7 +314,7 @@ type And struct {
 	B []frontend.Variable
 }
 
-func (g And) DefineGadget(api abstractor.API) interface{} {
+func (g And) DefineGadget(api frontend.API) interface{} {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(g.A); i += 1 {
 		c[i] = api.And(g.A[i], g.B[i])
@@ -327,7 +326,7 @@ type Not struct {
 	A []frontend.Variable
 }
 
-func (g Not) DefineGadget(api abstractor.API) interface{} {
+func (g Not) DefineGadget(api frontend.API) interface{} {
 	var c [laneSize]frontend.Variable
 	for i := 0; i < len(g.A); i += 1 {
 		c[i] = api.Sub(1, g.A[i])
