@@ -89,3 +89,100 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
         simp [vector_bit_to_zmod_to_bit]
       rw [<-this]
       assumption
+
+theorem after_deletion_item_zero_recover
+  [Fact (perfect_hash poseidon₂)]
+  {Tree: MerkleTree F poseidon₂ D}
+  {DeletionIndex: F} 
+  {Item: F}
+  {MerkleProof: Vector F D} 
+  {postRoot : F } :
+  (deletion_round_prep Tree.root DeletionIndex Item MerkleProof fun newRoot => newRoot = postRoot) →
+  ∃path, nat_to_bits_le (D+1) DeletionIndex.val = some path ∧
+  match path.last with
+  | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)) MerkleProof (0:F) = postRoot
+  | Bit.one => True := by
+  simp [deletion_round_prep_uncps]
+  simp only [TreeDeletePrep, TreeDelete]
+  rintro ⟨ixbin, _⟩
+  casesm* (_ ∧ _)
+  rename_i l r
+  let t : Vector Bit (D+1) := (ixbin)
+  refine ⟨t, ?_⟩
+  simp
+  split
+  . apply And.intro
+    . simp [l]
+    . rename_i hbit
+      simp [hbit] at r
+      casesm* (_ ∧ _)
+      rename_i hitem_at hproof hroot
+      rw [MerkleTree.recover_tail_equals_recover_reverse]
+      rw [MerkleTree.proof_insert_invariant (tree := Tree) (old := (Item)) (new := (0:F))]
+      simp
+      simp [hroot]
+      rw [<-MerkleTree.recover_equivalence]
+      apply And.intro
+      simp [hitem_at]
+      simp [hproof]
+  . apply And.intro
+    . simp [l]
+    . simp
+
+theorem after_deletion_item_zero_loop
+  [Fact (perfect_hash poseidon₂)]
+  {Tree: MerkleTree F poseidon₂ D}
+  {DeletionIndex: F} 
+  {Item: F}
+  {MerkleProof: Vector F D} 
+  {postRoot : F } :
+  (deletion_round_prep Tree.root DeletionIndex Item MerkleProof fun newRoot => newRoot = postRoot) →
+  ∃path, nat_to_bits_le (D+1) DeletionIndex.val = some path ∧
+  match path.last with
+  | Bit.zero => (MerkleTree.set Tree (Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)).reverse (0:F)).item_at (Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)).reverse = (0:F)
+  | Bit.one => True := by
+  simp [deletion_round_prep_uncps]
+  simp only [TreeDeletePrep, TreeDelete]
+  
+  rintro ⟨ixbin, _⟩
+  casesm* (_ ∧ _)
+  rename_i l r
+  let t : Vector Bit (D+1) := (ixbin)
+  refine ⟨t, ?_⟩
+  simp
+  split
+  . let ix := (Vector.reverse (Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) (Vector.dropLast ixbin))))
+    let t := MerkleTree.set Tree ix (0:F)
+    rw [MerkleTree.proof_ceritfies_item (ix := ix) (tree := t) (proof := MerkleProof.reverse) (item := (0:F))]
+    simp
+    assumption
+    simp
+    rename_i hbit
+    simp [hbit] at r
+    casesm* (_ ∧ _)
+    rename_i hitem_at hproof hroot
+    simp [hroot]
+    rw [MerkleTree.proof_insert_invariant (tree := Tree) (old := (Item)) (new := (0:F))]
+    assumption
+    rw [<-MerkleTree.recover_equivalence]
+    apply And.intro
+    simp [hitem_at]
+    simp [hproof]
+  . apply And.intro
+    . simp [l]
+    . simp
+
+theorem after_deletion_all_items_zero_loop
+  [Fact (perfect_hash poseidon₂)]
+  {B : Nat}
+  {Tree: MerkleTree F poseidon₂ D}
+  {DeletionIndices: Vector F B}
+  {IdComms: Vector F B}
+  {MerkleProofs: Vector (Vector F D) B}
+  {postRoot : F } :
+  deletion_rounds DeletionIndices Tree.root IdComms MerkleProofs (fun newRoot => newRoot = postRoot) →
+  (∀ i ∈ [0:B], ∃path, nat_to_bits_le (D+1) DeletionIndices[i]!.val = some path ∧
+  match path.last with
+  | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)) MerkleProof (0:F) = postRoot
+  | Bit.one => True ) := by
+    sorry
