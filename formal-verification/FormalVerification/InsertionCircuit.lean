@@ -105,14 +105,14 @@ theorem before_insertion_all_items_zero_loop
       linarith
     cases lo with
     | refl =>
-      simp [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, hStartIndexCast] at hp
+      simp [insertion_rounds, InsertionRound_uncps, insertion_round_uncps, TreeInsert, hStartIndexCast] at hp
       cases hp
       rename_i l r
       simp [l]
     | @step StartIndex' h =>
       have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
         simp [Fin.ext]
-      rw [insertion_rounds,  InsertionRound_uncps, insertion_round_uncps, TreeInsert, this] at hp
+      rw [insertion_rounds, InsertionRound_uncps, insertion_round_uncps, TreeInsert, this] at hp
       rcases hp with ⟨_, ⟨_, ⟨postTree, ⟨hinsert, hnext⟩⟩⟩⟩
       rw [←MerkleTree.item_at_nat_invariant hinsert]
       apply ih hnext StartIndex'.succ
