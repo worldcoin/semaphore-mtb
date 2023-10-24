@@ -144,7 +144,6 @@ theorem after_deletion_item_zero_loop
   | Bit.one => True := by
   simp [deletion_round_prep_uncps]
   simp only [TreeDeletePrep, TreeDelete]
-
   rintro ⟨ixbin, _⟩
   casesm* (_ ∧ _)
   rename_i l r
@@ -187,13 +186,6 @@ def TreeDeletePrepT [Fact (perfect_hash poseidon₂)]
   ∃path, nat_to_bits_le (D+1) Index.val = some path ∧
   TreeDeleteT Tree (path.last) (Vector.map Bit.toZMod path.dropLast) Item Proof k
 
-def deletion_circuit [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : (MerkleTree F poseidon₂ D) → Prop) : Prop :=
-  match b with
-  | Nat.zero => k Tree
-  | Nat.succ _ => TreeDeletePrepT Tree Indices.head IdComms.head Proofs.head k ∧
-                  deletion_circuit Tree Indices.tail IdComms.tail Proofs.tail k
-
 theorem TreeDelete_equivalence [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) (Item : F) (Proof : Vector F D) (k : F → Prop) :
   TreeDelete Tree Skip Path Item Proof k ↔
@@ -207,12 +199,35 @@ theorem TreeDeletePrepT_equivalence [Fact (perfect_hash poseidon₂)]
   simp [TreeDeletePrep, TreeDeletePrepT]
   simp [TreeDelete_equivalence]
 
+def deletion_circuit [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : F → Prop) : Prop :=
+  match b with
+  | Nat.zero => k Tree.root
+  | Nat.succ _ => TreeDeletePrepT Tree Indices.head IdComms.head Proofs.head fun next =>
+                  deletion_circuit next Indices.tail IdComms.tail Proofs.tail k
+
+theorem deletion_round_equivalence [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop) :
+  TreeDeletePrepT Tree Index Item Proof (fun t => k t.root) ↔
+  DeletionRound Index Tree.root Item Proof k := by
+  rw [<-TreeDeletePrepT_equivalence]
+  rw [<-deletion_round_prep_uncps]
+  simp [deletion_round_prep, deletion_round]
+  simp [DeletionRound]
+  simp [Dir.dropLastOrder]
+
 theorem deletion_circuit_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : F → Prop) :
-  deletion_circuit Tree Indices IdComms Proofs (fun t => k t.root) ↔
+  deletion_circuit Tree Indices IdComms Proofs k ↔
   DeletionLoop Indices Tree.root IdComms Proofs k := by
-
-  sorry
+  induction b generalizing Tree with
+  | zero =>
+    simp [deletion_circuit, DeletionLoop]
+  | succ _ ih =>
+    simp [deletion_circuit]
+    simp [DeletionLoop]
+    rw [<-deletion_round_equivalence]
+    simp [ih]
 
 -- theorem after_deletion_all_items_zero_loop
 --   [Fact (perfect_hash poseidon₂)]
