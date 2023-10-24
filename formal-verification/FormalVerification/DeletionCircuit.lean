@@ -215,7 +215,8 @@ theorem after_deletion_all_items_zero_loop
         assumption
       | @step i' hstep =>
         simp [deletion_rounds, DeletionRound_uncps] at hp
-        simp [deletion_rounds, DeletionRound_uncps] at ih
+        --conv ih
+        --simp [deletion_rounds, DeletionRound_uncps] at ih
         let callback := fun next => deletion_rounds (Vector.tail DeletionIndices) next (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
         --let hnext := deletion_rounds (Vector.tail DeletionIndices) next (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
         --apply ih (i'.succ)
