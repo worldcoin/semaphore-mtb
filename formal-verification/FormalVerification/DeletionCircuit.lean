@@ -200,9 +200,9 @@ theorem TreeDeletePrepT_equivalence [Fact (perfect_hash poseidon₂)]
   simp [TreeDelete_equivalence]
 
 def deletion_circuit [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : F → Prop) : Prop :=
+  (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : (MerkleTree F poseidon₂ D) → Prop) : Prop :=
   match b with
-  | Nat.zero => k Tree.root
+  | Nat.zero => k Tree
   | Nat.succ _ => TreeDeletePrepT Tree Indices.head IdComms.head Proofs.head fun next =>
                   deletion_circuit next Indices.tail IdComms.tail Proofs.tail k
 
@@ -218,7 +218,7 @@ theorem deletion_round_equivalence [Fact (perfect_hash poseidon₂)]
 
 theorem deletion_circuit_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (Indices: Vector F b) (IdComms: Vector F b) (Proofs: Vector (Vector F D) b) (k : F → Prop) :
-  deletion_circuit Tree Indices IdComms Proofs k ↔
+  deletion_circuit Tree Indices IdComms Proofs (fun t => k t.root) ↔
   DeletionLoop Indices Tree.root IdComms Proofs k := by
   induction b generalizing Tree with
   | zero =>
@@ -229,52 +229,67 @@ theorem deletion_circuit_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-deletion_round_equivalence]
     simp [ih]
 
--- theorem after_deletion_all_items_zero_loop
---   [Fact (perfect_hash poseidon₂)]
---   {B : Nat}
---   {h : i ∈ [0:B]}
---   {Tree: MerkleTree F poseidon₂ D}
---   {DeletionIndices: Vector F B}
---   {IdComms: Vector F B}
---   {MerkleProofs: Vector (Vector F D) B}
---   {postRoot : F}
---   {k₁ : F → Prop}
---   :
---   deletion_rounds DeletionIndices Tree.root IdComms MerkleProofs k₁ →
---   ∃path, nat_to_bits_le (D+1) (DeletionIndices[i]'(by rcases h; simp_arith; linarith)).val = some path ∧
---   match path.last with
---   | Bit.zero =>
---     let ix := Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)
---     let root := MerkleTree.recover_tail poseidon₂ ix (MerkleProofs[i]'(by rcases h; simp_arith; linarith)) (0:F)
---     deletion_rounds (Vector.tail DeletionIndices) root (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
---   | Bit.one => True := by
---     induction B generalizing Tree with
---     | zero =>
---       intro hp
---       rcases h with ⟨lo, hi⟩
---       have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
---       contradiction
---     | succ B ih =>
---       intro hp
---       rcases h with ⟨lo, hi⟩; --simp at lo hi
---       cases lo with
---       | refl =>
---         simp [deletion_rounds, DeletionRound_uncps] at hp
---         simp
---         let callback := fun next => deletion_rounds (Vector.tail DeletionIndices) next (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
---         apply after_deletion_item_zero_recover (Tree := Tree) (Item := IdComms.head) (k := callback)
---         simp
---         rw [←Vector.ofFn_get (v := DeletionIndices)]
---         rw [←Vector.ofFn_get (v := DeletionIndices)] at hp
---         rw [←Vector.ofFn_get (v := MerkleProofs)]
---         rw [←Vector.ofFn_get (v := MerkleProofs)] at hp
---         assumption
---       | @step i' hstep =>
---         simp [deletion_rounds, DeletionRound_uncps] at hp
---         --conv ih
---         --simp [deletion_rounds, DeletionRound_uncps] at ih
---         let callback := fun next => deletion_rounds (Vector.tail DeletionIndices) next (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
---         --let hnext := deletion_rounds (Vector.tail DeletionIndices) next (Vector.tail IdComms) (Vector.tail MerkleProofs) k₁
---         --apply ih (i'.succ)
---         --apply after_deletion_item_zero_recover (Tree := Tree) (Item := IdComms.head) (k := callback)
---         sorry
+theorem after_deletion_round_item_zero
+  [Fact (perfect_hash poseidon₂)]
+  {OldTree NewTree: MerkleTree F poseidon₂ D}
+  {Index: F}
+  {Item: F}
+  {Proof: Vector F D}
+  :
+  (TreeDeletePrepT OldTree Index Item Proof fun newTree => newTree = NewTree) →
+  ∃path, nat_to_bits_le (D+1) Index.val = some path ∧
+  match path.last with
+  | Bit.zero =>
+    let ix := Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)
+    MerkleTree.item_at NewTree ix.reverse = (0:F)
+  | Bit.one => True := by
+  simp [TreeDeletePrepT]
+  intros
+  rename_i ixbin l r
+  refine ⟨ixbin, ?_⟩
+  apply And.intro
+  simp [l]
+  simp [TreeDeleteT] at r
+  split
+  rename_i hskip
+  . simp [hskip] at r
+    casesm* (_ ∧ _)
+    rename_i hroot
+    apply MerkleTree.set_implies_item_at (t₁ := OldTree)
+    simp [hroot]
+  . simp
+
+theorem after_deletion_all_items_zero_loop
+  [Fact (perfect_hash poseidon₂)]
+  {B : Nat}
+  {h : i ∈ [0:B]}
+  {OldTree: MerkleTree F poseidon₂ D}
+  --{NewTree: MerkleTree F poseidon₂ D}
+  {DeletionIndices: Vector F B}
+  {IdComms: Vector F B}
+  {MerkleProofs: Vector (Vector F D) B}
+  --{postRoot : F}
+  :
+  --(deletion_circuit OldTree DeletionIndices IdComms MerkleProofs fun t => t = NewTree) →
+  (deletion_circuit OldTree DeletionIndices IdComms MerkleProofs fun t =>
+  ∃path, nat_to_bits_le (D+1) (DeletionIndices[i]'(by rcases h; simp_arith; linarith)).val = some path ∧
+  match path.last with
+  | Bit.zero =>
+    let ix := Dir.create_dir_vec (Vector.map (fun ix => @Bit.toZMod Order ix) path.dropLast)
+    MerkleTree.item_at t ix.reverse = (0:F)
+  | Bit.one => True) := by
+    simp
+    induction B generalizing OldTree with
+    | zero =>
+      rcases h with ⟨lo, hi⟩
+      have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
+      contradiction
+    | succ B ih =>
+      rcases h with ⟨lo, hi⟩; --simp at lo hi
+      cases lo with
+      | refl =>
+        simp [deletion_circuit]
+        simp at ih
+        sorry
+      | @step i' hstep =>
+        sorry
