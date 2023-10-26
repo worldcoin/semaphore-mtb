@@ -6,6 +6,8 @@ import ProvenZk.Ext.Vector
 import FormalVerification
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
+import FormalVerification.Keccak.SemanticEquivalence
+
 import FormalVerification.SemanticEquivalence
 
 open SemaphoreMTB (F Order)
