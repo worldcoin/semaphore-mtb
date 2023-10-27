@@ -14,7 +14,7 @@ open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
 open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 
--- set_option pp.coercions false
+set_option pp.coercions false
 
 def TreeDelete [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D): F :=
@@ -82,11 +82,11 @@ def fin_to_bits_le {d : Nat} (n : Fin (2 ^ d)): Vector Bit d := match h: nat_to_
 def fin_to_dir_vec {depth : Nat} (idx : Fin (2 ^ depth)): Vector Dir depth :=
   Vector.reverse (Vector.map Dir.bit_to_dir (fin_to_bits_le idx))
 
-def tree_item_at_fin (Tree : MerkleTree α H d) (i : Fin (2^d)): α :=
-  MerkleTree.item_at Tree (fin_to_dir_vec i)
+def tree_item_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^(d+1))): F :=
+  MerkleTree.item_at Tree (fin_to_dir_vec i).dropLast.reverse
 
-def tree_proof_at_fin (Tree : MerkleTree α H d) (i : Fin (2^d)): Vector α d :=
-  MerkleTree.proof Tree (fin_to_dir_vec i)
+def tree_proof_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^(d+1))): Vector F d :=
+  MerkleTree.proof Tree (fin_to_dir_vec i).dropLast.reverse
 
 theorem deletion_round_prep_index_validation
   (Root Index Item : F) (Proof : Vector F D) (k : F → Prop) :
@@ -105,9 +105,50 @@ def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeDelete Tree (path.last) (Vector.map Bit.toZMod path.dropLast)
 
+-- theorem recover_binary_nat_to_dir {w : Vector Dir d}:
+--   recover_binary_nat w = v ↔
+--   nat_to_bits_le d v = some w := by
+--   sorry
+
+theorem recover_binary_zmod'_to_dir {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) d}:
+  v.val < 2^d →
+  is_vector_binary w →
+  recover_binary_zmod' w = v →
+  fin_to_dir_vec (ZMod.cast v) = (Dir.create_dir_vec w) := by
+  intros
+  simp [fin_to_dir_vec]
+  simp [fin_to_bits_le]
+  split
+  sorry
+
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : Index.val < 2^(D+1)) (k : F → Prop) :
-  deletion_round_prep Tree.root Index (tree_item_at_fin Index) (MerkleTree.proof Tree (Dir.create_dir_vec Path).reverse).reverse k ↔
+  deletion_round_prep Tree.root Index (tree_item_at_fin Tree Index.val) (tree_proof_at_fin Tree Index.val).reverse k ↔
+  k (TreeDeletePrep Tree Index ix_small) := by
+  unfold deletion_round_prep
+  apply Iff.intro
+  . rintro ⟨ixbin, _⟩
+    casesm* (_ ∧ _)
+    rename_i h
+    simp [tree_item_at_fin] at h
+    simp [tree_proof_at_fin] at h
+    rw [recover_binary_zmod'_to_dir (w := ixbin)] at h
+    rotate_left
+    assumption
+    assumption
+    assumption
+    unfold TreeDeletePrep
+    let t := Tree
+    let s := (zmod_to_bit (Vector.last ixbin))
+    let p := ixbin.dropLast
+
+    rw [<-Dir.dropLastOrder] at h
+    rw [deletion_round_uncps t s p] at h
+    simp at h
+    sorry
+  .
+    sorry
+
 
 --   deletion_round_prep Tree.root Index Item Proof k ↔
 --   TreeDeletePrep Tree Index Item Proof k := by
