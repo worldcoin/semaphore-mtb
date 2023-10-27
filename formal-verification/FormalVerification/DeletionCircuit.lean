@@ -105,11 +105,6 @@ def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeDelete Tree (path.last) (Vector.map Bit.toZMod path.dropLast)
 
--- theorem recover_binary_nat_to_dir {w : Vector Dir d}:
---   recover_binary_nat w = v ↔
---   nat_to_bits_le d v = some w := by
---   sorry
-
 theorem recover_binary_zmod'_to_dir {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) d}:
   v.val < 2^d →
   is_vector_binary w →
@@ -119,6 +114,8 @@ theorem recover_binary_zmod'_to_dir {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : V
   simp [fin_to_dir_vec]
   simp [fin_to_bits_le]
   split
+  simp [Dir.create_dir_vec]
+
   sorry
 
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
