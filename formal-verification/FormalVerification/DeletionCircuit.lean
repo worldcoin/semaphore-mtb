@@ -196,6 +196,22 @@ theorem fin_to_bits_le_to_recover_binary_zmod' {n d : Nat} [Fact (n > 1)] {v : Z
   simp at this
   rw [this]
 
+lemma vector_bit_to_zmod_last {d n : Nat} [Fact (n > 1)] {xs : Vector Bit (d+1)} :
+  (zmod_to_bit (Vector.last (Vector.map (fun i => @Bit.toZMod n i) xs))) = Vector.last xs := by
+  cases xs using Vector.casesOn
+  simp
+  rename_i x xs
+  rw [<-vector_zmod_to_bit_last]
+  simp
+  have hx : nat_to_bit (ZMod.val (@Bit.toZMod n x)) = x := by
+    simp [Bit.toZMod, is_bit, nat_to_bit]
+    cases x
+    . simp
+    . simp [ZMod.val_one]
+  have hxs : vector_zmod_to_bit (Vector.map (fun i => @Bit.toZMod n i) xs) = xs := by
+    simp [vector_bit_to_zmod_to_bit]
+  rw [hx, hxs]
+
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : Index.val < 2^(D+1)) (k : F → Prop) :
   deletion_round_prep Tree.root Index (tree_item_at_fin Tree Index.val) (tree_proof_at_fin Tree Index.val).reverse k ↔
@@ -214,11 +230,10 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     assumption
     assumption
     unfold TreeDeletePrep
-    let t := Tree
-    let s := (zmod_to_bit (Vector.last ixbin))
-    let p := ixbin.dropLast
     rw [<-Dir.dropLastOrder] at h
-    rw [deletion_round_uncps t s p] at h
+    let s := zmod_to_bit (Vector.last ixbin)
+    let p := ixbin.dropLast
+    rw [deletion_round_uncps Tree s p] at h
     simp at h
     simp
     rw [fin_to_bits_le_to_recover_binary_zmod' (v := Index) (w := ixbin)]
@@ -233,9 +248,40 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     rotate_left
     assumption
     simp [h]
-  .
-    sorry
-
+  . intro h
+    simp [TreeDeletePrep] at h
+    let t : Vector F (D+1) := Vector.map Bit.toZMod (fin_to_bits_le ⟨Index.val, ix_small⟩)
+    refine ⟨t, ?_⟩
+    rw [tree_item_at_fin]
+    rw [tree_proof_at_fin]
+    rw [recover_binary_zmod'_to_dir (w := t)]
+    rw [<-Dir.dropLastOrder]
+    let s := (zmod_to_bit (Vector.last t))
+    let p := (Vector.dropLast t)
+    rw [deletion_round_uncps Tree s p]
+    simp
+    refine ⟨?_, ⟨?_, ⟨?_, ?_⟩⟩⟩
+    . rw [recover_binary_of_to_bits]
+      simp [fin_to_bits_le]
+      split
+      . assumption
+      . contradiction
+    . simp [vector_binary_of_bit_to_zmod]
+    . simp [Bit.toZMod, is_bit, Vector.last]
+      split
+      simp
+      simp
+    . rw [<-dropLast_symm]
+      rw [vector_bit_to_zmod_last]
+      simp [h]
+    . simp [ix_small]
+    . simp [Order]
+    . simp [vector_binary_of_bit_to_zmod]
+    . rw [recover_binary_of_to_bits]
+      simp [fin_to_bits_le]
+      split
+      . assumption
+      . contradiction
 
 --   deletion_round_prep Tree.root Index Item Proof k ↔
 --   TreeDeletePrep Tree Index Item Proof k := by
