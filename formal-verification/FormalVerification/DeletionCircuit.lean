@@ -80,7 +80,7 @@ def fin_to_bits_le {d : Nat} (n : Fin (2 ^ d)): Vector Bit d := match h: nat_to_
   )
 
 def fin_to_dir_vec {depth : Nat} (idx : Fin (2 ^ depth)): Vector Dir depth :=
-  Vector.reverse (Vector.map Dir.bit_to_dir (fin_to_bits_le idx))
+  (Vector.map Dir.bit_to_dir (fin_to_bits_le idx))
 
 def tree_item_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^(d+1))): F :=
   MerkleTree.item_at Tree (fin_to_dir_vec i).dropLast.reverse
@@ -105,18 +105,96 @@ def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeDelete Tree (path.last) (Vector.map Bit.toZMod path.dropLast)
 
+lemma zmod_to_bit_and_dir {n : Nat} [Fact (n > 1)] {x : ZMod n} {h : is_bit x}:
+  Dir.bit_to_dir (zmod_to_bit x) = Dir.nat_to_dir (ZMod.val x) := by
+  simp only [zmod_to_bit]
+  simp only [Dir.bit_to_dir]
+  simp only [Dir.nat_to_dir]
+  cases h with
+  | inl =>
+    rename_i h
+    simp [h]
+  | inr =>
+    rename_i h
+    simp [h]
+    rw [ZMod.val_one]
+
+lemma vector_zmod_to_bit_and_dir {n : Nat} [Fact (n > 1)] {w : Vector (ZMod n) d} :
+  is_vector_binary w →
+  Vector.map (fun x => Dir.bit_to_dir (zmod_to_bit x)) w = Vector.map (fun x => Dir.nat_to_dir (ZMod.val x)) w := by
+  induction w using Vector.inductionOn with
+  | h_nil =>
+    simp
+  | h_cons ih =>
+    intro h
+    simp [is_vector_binary_cons] at h
+    cases h
+    rename_i y ys
+    simp
+    rw [zmod_to_bit_and_dir]
+    rw [ih]
+    assumption
+    assumption
+
 theorem recover_binary_zmod'_to_dir {n : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) d}:
   v.val < 2^d →
+  n > 2^d →
   is_vector_binary w →
   recover_binary_zmod' w = v →
-  fin_to_dir_vec (ZMod.cast v) = (Dir.create_dir_vec w) := by
+  fin_to_dir_vec v.val = (Dir.create_dir_vec w) := by
   intros
   simp [fin_to_dir_vec]
   simp [fin_to_bits_le]
   split
-  simp [Dir.create_dir_vec]
+  . simp [Dir.create_dir_vec]
+    rename_i r _
+    have : some r = some (vector_zmod_to_bit w) := by
+      rw [<-@recover_binary_zmod'_to_bits_le (v:= v)]
+      apply Eq.symm
+      rename_i h
+      rw [ZMod.cast_eq_val] at h
+      rw [Fin.val_cast_of_lt] at h
+      assumption
+      assumption
+      assumption
+      linarith
+      assumption
+      assumption
+    simp at this
+    rw [this]
+    simp [vector_zmod_to_bit]
+    rw [vector_zmod_to_bit_and_dir]
+    assumption
+  . rename_i hfin _ _ _ h
+    rw [ZMod.cast_eq_val] at h
+    rw [Fin.val_cast_of_lt] at h
+    apply False.elim (by
+      have := nat_to_bits_le_some_of_lt hfin
+      cases this
+      simp [*] at h
+    )
+    assumption
 
-  sorry
+theorem fin_to_bits_le_to_recover_binary_zmod' {n d : Nat} [Fact (n > 1)] {v : ZMod n} {w : Vector (ZMod n) d} {h : v.val < 2^d }:
+  n > 2^d →
+  is_vector_binary w →
+  recover_binary_zmod' w = v →
+  fin_to_bits_le ⟨v.val, by simp[h]⟩ = vector_zmod_to_bit w := by
+  intros
+  have : some (fin_to_bits_le ⟨v.val, by simp[h]⟩) = some (vector_zmod_to_bit w) := by
+    rw [<-recover_binary_zmod'_to_bits_le]
+    rotate_left
+    linarith
+    assumption
+    assumption
+    simp [recover_binary_nat_to_bits_le]
+    simp [fin_to_bits_le]
+    split
+    rename_i h
+    simp [h]
+    contradiction
+  simp at this
+  rw [this]
 
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : Index.val < 2^(D+1)) (k : F → Prop) :
@@ -127,22 +205,34 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   . rintro ⟨ixbin, _⟩
     casesm* (_ ∧ _)
     rename_i h
-    simp [tree_item_at_fin] at h
-    simp [tree_proof_at_fin] at h
+    simp only [tree_item_at_fin] at h
+    simp only [tree_proof_at_fin] at h
     rw [recover_binary_zmod'_to_dir (w := ixbin)] at h
     rotate_left
     assumption
+    simp [Order]
     assumption
     assumption
     unfold TreeDeletePrep
     let t := Tree
     let s := (zmod_to_bit (Vector.last ixbin))
     let p := ixbin.dropLast
-
     rw [<-Dir.dropLastOrder] at h
     rw [deletion_round_uncps t s p] at h
     simp at h
-    sorry
+    simp
+    rw [fin_to_bits_le_to_recover_binary_zmod' (v := Index) (w := ixbin)]
+    rotate_left
+    simp [ix_small]
+    simp [Order]
+    assumption
+    assumption
+    assumption
+    simp [vector_zmod_to_bit_last]
+    rw [vector_zmod_to_bit_dropLast]
+    rotate_left
+    assumption
+    simp [h]
   .
     sorry
 
