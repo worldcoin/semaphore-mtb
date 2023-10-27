@@ -78,39 +78,31 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   . rintro ⟨ixbin, _⟩
     casesm* (_ ∧ _)
     rename_i h
-    simp only [MerkleTree.tree_item_at_fin] at h
-    simp only [MerkleTree.tree_proof_at_fin] at h
+    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin] at h
     rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)] at h
-    rotate_left
-    assumption
-    simp [Order]
-    assumption
-    assumption
-    unfold TreeDeletePrep
-    rw [<-Dir.dropLastOrder] at h
-    let s := zmod_to_bit (Vector.last ixbin)
-    let p := ixbin.dropLast
-    rw [deletion_round_uncps Tree s p] at h
-    simp at h
-    simp
-    rw [fin_to_bits_le_to_recover_binary_zmod' (v := Index) (w := ixbin)]
-    rotate_left
-    simp [ix_small]
-    simp [Order]
-    assumption
-    assumption
-    assumption
-    simp [vector_zmod_to_bit_last]
-    rw [vector_zmod_to_bit_dropLast]
-    rotate_left
-    assumption
-    simp [h]
+    . unfold TreeDeletePrep
+      rw [<-Dir.dropLastOrder] at h
+      let s := zmod_to_bit (Vector.last ixbin)
+      let p := ixbin.dropLast
+      rw [deletion_round_uncps Tree s p] at h
+      rw [fin_to_bits_le_to_recover_binary_zmod' (v := Index) (w := ixbin)]
+      . simp [vector_zmod_to_bit_last]
+        rw [vector_zmod_to_bit_dropLast]
+        simp [h]
+        assumption
+      . simp [ix_small]
+      . assumption
+      . assumption
+      . assumption
+    . assumption
+    . simp [Order]
+    . assumption
+    . assumption
   . intro h
     simp [TreeDeletePrep] at h
     let t : Vector F (D+1) := Vector.map Bit.toZMod (fin_to_bits_le ⟨Index.val, ix_small⟩)
     refine ⟨t, ?_⟩
-    rw [MerkleTree.tree_item_at_fin]
-    rw [MerkleTree.tree_proof_at_fin]
+    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin]
     rw [Dir.recover_binary_zmod'_to_dir (w := t)]
     rw [<-Dir.dropLastOrder]
     let s := (zmod_to_bit (Vector.last t))
@@ -119,15 +111,15 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     simp
     refine ⟨?_, ⟨?_, ⟨?_, ?_⟩⟩⟩
     . rw [recover_binary_of_to_bits]
-      simp [fin_to_bits_le]
+      rw [fin_to_bits_le]
       split
       . assumption
       . contradiction
     . simp [vector_binary_of_bit_to_zmod]
     . simp [Bit.toZMod, is_bit, Vector.last]
       split
-      simp
-      simp
+      . simp
+      . simp
     . rw [<-dropLast_symm]
       rw [vector_bit_to_zmod_last]
       simp [h]
