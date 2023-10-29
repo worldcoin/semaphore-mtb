@@ -205,13 +205,6 @@ def deletion_rounds {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vec
   | Nat.succ _ => gDeletionRound PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
     deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
-def DeletionRound (Index: F) (Root: F) (Item: F) (Proof: Vector F D) (k : F -> Prop) : Prop :=
-    ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
-    is_bit out.last ∧ match zmod_to_bit out.last with
-      | Bit.zero => MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof Item = Root ∧
-        k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec out).dropLast Proof 0)-- Update the root
-      | Bit.one => k Root  -- Skip flag set, don't update the root
-
 /-!
 `DeletionLoop` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size through by chaining
 calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_4_4_30_4`
@@ -220,7 +213,7 @@ def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector
   match n with
   | Nat.zero => k PreRoot
   | Nat.succ _ =>
-    DeletionRound DeletionIndices.head PreRoot IdComms.head MerkleProofs.head fun next =>
+    deletion_round_prep PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
       DeletionLoop DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
 lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
@@ -234,10 +227,9 @@ lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdCo
   | cons =>
     unfold deletion_rounds
     unfold DeletionLoop
-    unfold DeletionRound
-    simp [DeletionRound_uncps, deletion_round_prep, deletion_round, Dir.dropLastOrder]
     rename_i ih
     simp [ih]
+    simp [DeletionRound_uncps, Dir.dropLastOrder]
 
 lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k =

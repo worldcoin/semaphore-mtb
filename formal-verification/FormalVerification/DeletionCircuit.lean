@@ -16,21 +16,55 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 
 set_option pp.coercions false
 
+------------------- MISC
+
+def is_index_in_range {n : Nat} (D : Nat) (a : ZMod n) : Prop :=
+  a.val < 2^D
+
+def are_indices_in_range {d n : Nat} (D : Nat) (a : Vector (ZMod n) d) : Prop :=
+  List.foldr (fun x r => (is_index_in_range D x) ∧ r) True a.toList
+
+theorem are_indices_in_range_cons {d n : Nat} (D : Nat) (a : ZMod n) (vec : Vector (ZMod n) d) :
+  are_indices_in_range D (a ::ᵥ vec) ↔ is_index_in_range D a ∧ are_indices_in_range D vec := by
+  unfold are_indices_in_range
+  conv => lhs; unfold List.foldr; simp
+
+theorem are_indices_in_range_split {d n : Nat} (D : Nat) (a : Vector (ZMod n) (d+1)) :
+  are_indices_in_range D a ↔ is_index_in_range D a.head ∧ are_indices_in_range D a.tail := by
+  rw [<-are_indices_in_range_cons]
+  simp
+
+lemma head_index_in_range {b : Nat} (D : Nat) (Index : Vector F (b+1)) (xs_small : are_indices_in_range D Index) :
+  is_index_in_range D (Vector.head Index) := by
+  rw [are_indices_in_range_split] at xs_small
+  cases xs_small
+  rename_i x xs
+  simp [x]
+
+lemma tail_index_in_range {b : Nat} (D : Nat) (Index : Vector F (b+1)) (xs_small : are_indices_in_range D Index) :
+  are_indices_in_range D (Vector.tail Index) := by
+  rw [are_indices_in_range_split] at xs_small
+  cases xs_small
+  rename_i x xs
+  simp [xs]
+
+------------------
+
 def TreeDelete [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D): F :=
+  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D): MerkleTree F poseidon₂ D :=
   match Skip with
-  | Bit.zero => (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse 0).root
-  | Bit.one => Tree.root
+  | Bit.zero => (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse 0)
+  | Bit.one => Tree
 
 theorem deletion_round_item_validation [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop):
+  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop) :
   deletion_round Tree.root Bit.zero Path Item Proof k → Item = MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse := by
   intro ⟨H, _⟩
   rw [MerkleTree.recover_tail_equals_recover_reverse] at H
   exact Eq.symm (MerkleTree.proof_ceritfies_item _ _ _ _ H)
 
 theorem deletion_round_proof_validation [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop):
+  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop) :
   deletion_round Tree.root Bit.zero Path Item Proof k → Proof = (MerkleTree.proof Tree (Dir.create_dir_vec Path).reverse).reverse := by
   intro ⟨H, _⟩
   rw [MerkleTree.recover_tail_equals_recover_reverse] at H
@@ -38,9 +72,10 @@ theorem deletion_round_proof_validation [Fact (perfect_hash poseidon₂)]
   rw [Vector.vector_reverse_eq]
   exact MerkleTree.recover_proof_reversible H
 
-theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) (k : F → Prop):
+theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) (k : F → Prop) :
   deletion_round Tree.root Skip Path (MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse) (MerkleTree.proof Tree (Dir.create_dir_vec Path).reverse).reverse k ↔
-  k (TreeDelete Tree Skip Path) := by
+  k (TreeDelete Tree Skip Path).root := by
   unfold deletion_round
   unfold TreeDelete
   cases Skip with
@@ -54,25 +89,26 @@ theorem deletion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTre
 
 theorem deletion_round_prep_index_validation
   (Root Index Item : F) (Proof : Vector F D) (k : F → Prop) :
-  deletion_round_prep Root Index Item Proof k → Index.val < 2^(D+1) := by
+  deletion_round_prep Root Index Item Proof k → is_index_in_range (D+1) Index := by
   unfold deletion_round_prep
   intro ⟨out, prop, is_bin, _⟩
   rw [recover_binary_zmod_bit is_bin] at prop
   rw [←prop]
+  simp [is_index_in_range]
   rw [binary_nat_zmod_equiv_mod_p]
   apply Nat.lt_of_le_of_lt
   apply Nat.mod_le
   apply binary_nat_lt
 
 def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : Index.val < 2^(D+1)): F :=
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) : MerkleTree F poseidon₂ D :=
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeDelete Tree (path.last) (Vector.map Bit.toZMod path.dropLast)
 
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : Index.val < 2^(D+1)) (k : F → Prop) :
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) (k : F → Prop) :
   deletion_round_prep Tree.root Index (MerkleTree.tree_item_at_fin Tree Index.val) (MerkleTree.tree_proof_at_fin Tree Index.val).reverse k ↔
-  k (TreeDeletePrep Tree Index ix_small) := by
+  k (TreeDeletePrep Tree Index ix_small).root := by
   unfold deletion_round_prep
   apply Iff.intro
   . rintro ⟨ixbin, _⟩
@@ -123,7 +159,8 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     . rw [<-dropLast_symm]
       rw [vector_bit_to_zmod_last]
       simp [h]
-    . simp [ix_small]
+    . simp [is_index_in_range] at ix_small
+      simp [ix_small]
     . simp [Order]
     . simp [vector_binary_of_bit_to_zmod]
     . rw [recover_binary_of_to_bits]
@@ -131,6 +168,83 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       split
       . assumption
       . contradiction
+
+def TreeDeleteZero [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) : Prop :=
+  let path := fin_to_bits_le ⟨Index.val, ix_small⟩
+  let skipFlag := path.last
+  let idx := Vector.map (fun x => @Bit.toZMod Order x) path.dropLast
+  match skipFlag with
+  | Bit.zero => MerkleTree.item_at Tree (Dir.create_dir_vec idx).reverse = (0:F)
+  | Bit.one => True
+
+theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
+  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) :
+  TreeDeletePrep Tree₁ Index ix_small = t →
+  TreeDeleteZero t Index ix_small := by
+  intro htree
+  unfold TreeDeletePrep at htree
+  unfold TreeDelete at htree
+  simp [TreeDeleteZero]
+  split
+  . rename_i hskip
+    simp [hskip] at htree
+    apply MerkleTree.set_implies_item_at (t₁ := Tree₁)
+    simp [htree]
+  . simp
+
+def TreeDeleteCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) : MerkleTree F poseidon₂ D :=
+  match b with
+  | Nat.zero => Tree
+  | Nat.succ _ =>
+    let newTree := TreeDeletePrep Tree Index.head (by apply head_index_in_range (D+1); simp [xs_small])
+    TreeDeleteCircuit newTree Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
+
+def TreeDeleteCircuitZero [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) : Prop :=
+  match b with
+  | Nat.zero => True
+  | Nat.succ _ =>
+    TreeDeleteZero Tree Index.head (by apply head_index_in_range (D+1); simp [xs_small]) ∧
+    TreeDeleteCircuitZero Tree Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
+
+theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {B : Nat}
+  (Tree₁ t : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  TreeDeleteCircuit Tree₁ DeletionIndices xs_small = t →
+  TreeDeleteCircuitZero t DeletionIndices xs_small := by
+  -- let t := TreeDeleteCircuit Tree₁ DeletionIndices xs_small
+  -- refine ⟨t, ?_⟩
+
+  -- Version 1 using Vector.inductionOn
+  -- induction DeletionIndices using Vector.inductionOn generalizing Tree₁ with
+  -- | h_nil =>
+  --   intro htree
+  --   simp [TreeDeleteCircuitZero]
+  -- | h_cons ih =>
+  --   rename_i x xs
+  --   intro htree
+  --   apply And.intro
+  --   .
+  --     sorry
+  --   .
+  --     sorry
+
+  -- Version 1 induction on `b`
+  induction B generalizing Tree₁ t with
+  | zero =>
+    intro htree
+    simp [TreeDeleteCircuitZero]
+  | succ _ ih =>
+    intro htree
+    simp [TreeDeleteCircuitZero]
+    dsimp [TreeDeleteCircuit] at htree
+    apply And.intro
+    .
+      sorry
+    .
+      sorry
+
 
 --   deletion_round_prep Tree.root Index Item Proof k ↔
 --   TreeDeletePrep Tree Index Item Proof k := by
