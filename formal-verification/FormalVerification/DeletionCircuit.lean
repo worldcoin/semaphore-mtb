@@ -209,98 +209,57 @@ def TreeDeleteCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
   match b with
   | Nat.zero => InitialTree = FinalTree
   | Nat.succ _ =>
-    --let newTree := TreeDeletePrep Tree Index.head (by apply head_index_in_range (D+1); simp [xs_small])
-    ∃newTree, TreeDeletePrep InitialTree Index.head (by apply head_index_in_range (D+1); simp [xs_small]) = newTree →
+    ∃newTree, TreeDeletePrep InitialTree Index.head (by apply head_index_in_range (D+1); simp [xs_small]) = newTree ∧
     TreeDeleteCircuit newTree FinalTree Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
 
--- TEST
-theorem after_deletion_zero [Fact (perfect_hash poseidon₂)] {B : Nat}
-  (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F (B+2)) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  TreeDeletePrep Tree₁ DeletionIndices.head (by apply head_index_in_range (D+1); simp [xs_small]) = t₁ →
-  TreeDeletePrep t₁ DeletionIndices.tail.head (by
-  rw [are_indices_in_range_split] at xs_small
-  cases xs_small
-  rename_i h
-  rw [are_indices_in_range_split] at h
-  cases h
-  assumption) = t₂ →
-  ∃t, TreeDeleteZero t DeletionIndices.head (by apply head_index_in_range (D+1); simp [xs_small]) := by
-  intro htree₁ _
-  let t := t₁
-  refine ⟨t, ?_⟩
-  apply deletion_round_set_zero Tree₁
-  simp [htree₁]
-
-theorem after_deletion_zeroes [Fact (perfect_hash poseidon₂)] --{B : Nat}
-  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  TreeDeleteCircuit Tree₁ Tree₂ DeletionIndices xs_small →
-  ∃t, TreeDeleteZero t DeletionIndices.head (by apply head_index_in_range (D+1); simp [xs_small]) := by
-  dsimp [TreeDeleteCircuit]
-  rintro ⟨newTree⟩
-  rename_i htree₁
-
-
-  let t := newTree
-  refine ⟨t, ?_⟩
-  apply deletion_round_set_zero Tree₁
-  simp [htree₁]
-
-
-  sorry
-
 def TreeDeleteCircuitZero [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) : Prop :=
+  (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) : Prop :=
   match b with
   | Nat.zero => True
   | Nat.succ _ =>
-    TreeDeleteZero Tree Index.head (by apply head_index_in_range (D+1); simp [xs_small]) ∧
-    TreeDeleteCircuitZero Tree Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
+    ∃t, TreeDeleteZero t Index.head (by apply head_index_in_range (D+1); simp [xs_small]) ∧
+    TreeDeleteCircuitZero Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
 
--- theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {B : Nat}
---   (Tree₁ t : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
---   TreeDeleteCircuit Tree₁ DeletionIndices xs_small = t →
---   TreeDeleteCircuitZero t DeletionIndices xs_small := by
---   -- let t := TreeDeleteCircuit Tree₁ DeletionIndices xs_small
---   -- refine ⟨t, ?_⟩
+theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)]
+  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  TreeDeleteCircuit Tree₁ Tree₂ DeletionIndices xs_small →
+  TreeDeleteCircuitZero DeletionIndices xs_small := by
+  dsimp [TreeDeleteCircuit]
+  rintro ⟨newTree⟩
+  rename_i htree₁
+  cases htree₁
+  rename_i htree₁ htree₂
+  cases htree₂
+  rename_i newTree₂ htree₃
+  cases htree₃
+  rename_i htree₃ htree₄
+  cases htree₄
+  rename_i newTree₄ htree₅
+  cases htree₅
+  rename_i htree₅ htree₆
+  cases htree₆
+  rename_i newTree₆ htree₇
+  cases htree₇
+  rename_i htree₇ htree
 
---   -- Version 1 using Vector.inductionOn
---   -- induction DeletionIndices using Vector.inductionOn generalizing Tree₁ with
---   -- | h_nil =>
---   --   intro htree
---   --   simp [TreeDeleteCircuitZero]
---   -- | h_cons ih =>
---   --   rename_i x xs
---   --   intro htree
---   --   apply And.intro
---   --   .
---   --     sorry
---   --   .
---   --     sorry
-
---   -- Version 1 induction on `b`
---   induction B generalizing Tree₁ t with
---   | zero =>
---     intro htree
---     simp [TreeDeleteCircuitZero]
---   | succ _ ih =>
---     intro htree
---     simp [TreeDeleteCircuitZero]
---     dsimp [TreeDeleteCircuit] at htree
---     simp [TreeDeleteZero]
---     simp [TreeDeletePrep] at htree
---     split
---     rename_i hskip
---     simp [hskip] at htree
---     simp [TreeDelete] at htree
-
---     sorry
-
---     sorry
---     -- apply And.intro
---     -- .
---     --   sorry
---     -- .
---     --   sorry
+  simp [TreeDeleteCircuitZero]
+  refine ⟨?_, ?_, ?_, ?_⟩
+  . let t := newTree
+    refine ⟨t, ?_⟩
+    apply deletion_round_set_zero Tree₁
+    simp [htree₁]
+  . let t := newTree₂
+    refine ⟨t, ?_⟩
+    apply deletion_round_set_zero newTree
+    simp [htree₃]
+  . let t := newTree₄
+    refine ⟨t, ?_⟩
+    apply deletion_round_set_zero newTree₂
+    simp [htree₅]
+  . let t := newTree₆
+    refine ⟨t, ?_⟩
+    apply deletion_round_set_zero newTree₄
+    simp [htree₇]
 
 
 
