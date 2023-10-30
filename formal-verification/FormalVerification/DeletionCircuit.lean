@@ -225,42 +225,26 @@ theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)]
   TreeDeleteCircuit Tree₁ Tree₂ DeletionIndices xs_small →
   TreeDeleteCircuitZero DeletionIndices xs_small := by
   dsimp [TreeDeleteCircuit]
-  rintro ⟨newTree⟩
-  rename_i htree₁
-  cases htree₁
-  rename_i htree₁ htree₂
-  cases htree₂
-  rename_i newTree₂ htree₃
-  cases htree₃
-  rename_i htree₃ htree₄
-  cases htree₄
-  rename_i newTree₄ htree₅
-  cases htree₅
-  rename_i htree₅ htree₆
-  cases htree₆
-  rename_i newTree₆ htree₇
-  cases htree₇
-  rename_i htree₇ htree
+  rintro ⟨tree₂, htree₂, tree₃, htree₃, tree₄, htree₄, tree₅, htree₅, _⟩
 
   simp [TreeDeleteCircuitZero]
   refine ⟨?_, ?_, ?_, ?_⟩
-  . let t := newTree
+  . let t := tree₂
     refine ⟨t, ?_⟩
     apply deletion_round_set_zero Tree₁
-    simp [htree₁]
-  . let t := newTree₂
+    simp [htree₂]
+  . let t := tree₃
     refine ⟨t, ?_⟩
-    apply deletion_round_set_zero newTree
+    apply deletion_round_set_zero tree₂
     simp [htree₃]
-  . let t := newTree₄
+  . let t := tree₄
     refine ⟨t, ?_⟩
-    apply deletion_round_set_zero newTree₂
+    apply deletion_round_set_zero tree₃
+    simp [htree₄]
+  . let t := tree₅
+    refine ⟨t, ?_⟩
+    apply deletion_round_set_zero tree₄
     simp [htree₅]
-  . let t := newTree₆
-    refine ⟨t, ?_⟩
-    apply deletion_round_set_zero newTree₄
-    simp [htree₇]
-
 
 
 
