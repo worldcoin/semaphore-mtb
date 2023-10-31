@@ -7,6 +7,9 @@ import FormalVerification
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
 import FormalVerification.Keccak.SemanticEquivalence
+import FormalVerification.BinaryReps.Basic
+import FormalVerification.BinaryReps.SemanticEquivalence
+
 
 import FormalVerification.SemanticEquivalence
 
