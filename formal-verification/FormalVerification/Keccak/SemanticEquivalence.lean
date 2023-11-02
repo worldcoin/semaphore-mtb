@@ -1,55 +1,22 @@
 import FormalVerification
 import ProvenZK
 import Mathlib
+import FormalVerification.Utils
 
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
+-- variable [Fact (Nat.Prime Order)]
 
-def allIxes (f : α → Prop) : Vector α n → Prop := fun v => ∀(i : Fin n), f v[i]
+axiom order_prime : Nat.Prime Order
+instance order_prime' : Fact (Nat.Prime Order) := ⟨order_prime⟩
 
-@[simp]
-theorem allIxes_cons : allIxes f (v ::ᵥ vs) ↔ f v ∧ allIxes f vs := by
-  simp [allIxes, GetElem.getElem]
-  apply Iff.intro
-  . intro h
-    exact ⟨h 0, fun i => h i.succ⟩
-  . intro h i
-    cases i using Fin.cases
-    . simp [h.1]
-    . simp [h.2]
+-- TODO MOVE UTILS
 
-@[simp]
-theorem allIxes_nil : allIxes f Vector.nil := by
-  simp [allIxes]
+theorem getElem_allIxes {v : { v: Vector α n // allIxes prop v  }} {i : Nat} { i_small : i < n}:
+  v.val[i]'i_small = ↑(Subtype.mk (v.val.get ⟨i, i_small⟩) (v.prop ⟨i, i_small⟩)) := by rfl
 
-@[simp]
-theorem is_bool_is_bit (a : F) : Gates.is_bool a = is_bit a := by rfl
-
-@[simp]
-theorem vector_get_zero {vs : Vector i n} : (v ::ᵥ vs)[0] = v := by rfl
-
-@[simp]
-theorem vector_get_succ_fin {vs : Vector i n} {i : Fin n} : (v ::ᵥ vs)[i.succ] = vs[i] := by rfl
-
-@[simp]
-theorem vector_get_succ_nat {vs : Vector i n} {i : Nat} {h : i.succ < n.succ } : (v ::ᵥ vs)[i.succ]'h = vs[i]'(by linarith) := by rfl
-
-def IsConstant (f : (β → Prop) → Prop) (range : β → Prop): Prop := ∃(c : Subtype range), ∀k, f k ↔ k c
-
-theorem IsConstant_compose { f: (β → Prop) → Prop } {g : β → (γ → Prop) → Prop} {range : γ → Prop}
-  (f_constant : IsConstant f dom) (g_constant : ∀(c : Subtype dom), IsConstant (g c) range):
-  IsConstant (fun k => f (λx ↦ g x k)) range := by
-  rcases f_constant with ⟨c, _⟩
-  rcases g_constant c with ⟨g, _⟩
-  exists g
-  simp [*]
-
-def gateAndFunc (a b : F) (k : F → Prop) : Prop :=
-  ∃r, Gates.and a b r ∧ k r
-
-theorem gateAndFunc_def : (∃r, Gates.and a b r ∧ k r) ↔ gateAndFunc a b k := by
-  rfl
+theorem getElem_allIxes₂ {v : { v: Vector (Vector α m) n // allIxes (allIxes prop) v  }} {i j: Nat} { i_small : i < n} { j_small : j < m}:
+  (v.val[i]'i_small)[j]'j_small = ↑(Subtype.mk ((v.val.get ⟨i, i_small⟩).get ⟨j, j_small⟩) (v.prop ⟨i, i_small⟩ ⟨j, j_small⟩)) := by rfl
 
 theorem allIxes_indexed {v : {v : Vector α n // allIxes prop v}} {i : Nat} {i_small : i < n}:
   prop (v.val[i]'i_small) := v.prop ⟨i, i_small⟩
@@ -61,274 +28,248 @@ theorem allIxes_indexed₃ {v : {v : Vector (Vector (Vector α a) b) c // allIxe
   prop (((v.val[i]'i_small)[j]'j_small)[k]'k_small) :=
   v.prop ⟨i, i_small⟩ ⟨j, j_small⟩ ⟨k, k_small⟩
 
-theorem Rot_64_1_deterministic : ∀{i: Subtype (allIxes dom)}, IsConstant (SemaphoreMTB.Rot_64_1 i.val) (allIxes dom) := by
-  intro i
-  refine ⟨⟨?_, ?dom⟩, ?prop⟩
-  case prop =>
-    intro _
+-- END MOVE
+
+structure UniqueSolution (f : α → Prop) (range : α → Prop) where
+  val : Subtype range
+  uniq : ∀k, f k ↔ k = val
+
+def xor_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.xor a.val b.val x) is_bit := by
+  cases a using bitCases' with
+  | zero => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bZero
+      simp [Gates.xor]
+    | one =>
+      apply UniqueSolution.mk bOne
+      simp [Gates.xor]
+  | one => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bOne
+      simp [Gates.xor]
+    | one =>
+      apply UniqueSolution.mk bZero
+      simp [Gates.xor]
+
+def and_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.and a.val b.val x) is_bit := by
+  cases a using bitCases' with
+  | zero => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bZero
+      simp [Gates.and]
+    | one =>
+      apply UniqueSolution.mk bZero
+      simp [Gates.and]
+  | one => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bZero
+      simp [Gates.and]
+    | one =>
+      apply UniqueSolution.mk bOne
+      simp [Gates.and]
+
+def or_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.or a.val b.val x) is_bit := by
+  cases a using bitCases' with
+  | zero => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bZero
+      simp
+    | one =>
+      apply UniqueSolution.mk bOne
+      simp
+  | one => cases b using bitCases' with
+    | zero =>
+      apply UniqueSolution.mk bOne
+      simp
+    | one =>
+      apply UniqueSolution.mk bOne
+      simp
+
+def not_unique (a : {f : F // is_bit f}): UniqueSolution (fun x => x = Gates.sub (1:F) a) is_bit := by
+  cases a using bitCases' with
+  | zero =>
+    apply UniqueSolution.mk bOne
     simp
-    rfl
-  case dom => simp [allIxes_indexed]
+  | one =>
+    apply UniqueSolution.mk bZero
+    simp
 
-theorem getElem_allIxes {v : { v: Vector α n // allIxes prop v  }} {i : Nat} { i_small : i < n}:
-  v.val[i]'i_small = ↑(Subtype.mk (v.val.get ⟨i, i_small⟩) (v.prop ⟨i, i_small⟩)) := by rfl
+structure ConstantOf (f : (β → Prop) → Prop) (range : β → Prop) where
+  val : Subtype range
+  equiv : ∀k, f k = k val
 
-theorem getElem_allIxes₂ {v : { v: Vector (Vector α m) n // allIxes (allIxes prop) v  }} {i j: Nat} { i_small : i < n} { j_small : j < m}:
-  (v.val[i]'i_small)[j]'j_small = ↑(Subtype.mk ((v.val.get ⟨i, i_small⟩).get ⟨j, j_small⟩) (v.prop ⟨i, i_small⟩ ⟨j, j_small⟩)) := by rfl
+def ConstantOf_constant {x : α} {range : α → Prop} (hp : range x): ConstantOf (fun k => k x) range :=
+  ⟨⟨x, hp⟩, fun _ => rfl⟩
 
-theorem const_deterministic {v : Subtype prop}:
-  IsConstant (fun k => k v.val) prop := by
-  exists v; simp
+def ConstantOf_compose { f: (β → Prop) → Prop } {g : β → (γ → Prop) → Prop} {range : γ → Prop}
+  (f_constant : ConstantOf f dom) (g_constant : ∀(c : Subtype dom), ConstantOf (g c) range):
+  ConstantOf (fun k => f (λx ↦ g x k)) range := by
+  rcases f_constant with ⟨c, _⟩
+  rcases g_constant c with ⟨g, _⟩
+  exists g
+  simp [*]
 
-def gateSubFunc (a b : F) (k : F → Prop) : Prop :=
-  ∃r, r = Gates.sub a b ∧ k r
+def ConstantOf_compose_existential { f : α → Prop } {g : α → (β → Prop) → Prop} {range : β → Prop}
+  (f_uniq : UniqueSolution f dom) (g_constant : ∀(c : Subtype dom), ConstantOf (g c) range):
+  ConstantOf (fun k => ∃x, f x ∧ g x k) range := by
+  rcases f_uniq with ⟨c, _⟩
+  rcases g_constant c with ⟨g, _⟩
+  exists g
+  simp [*]
 
-theorem gateSubFunc_def : (∃r, r = Gates.sub a b ∧ k r) ↔ gateSubFunc a b k := by
-  rfl
-
-theorem not_deterministic { v : {v : F // is_bit v}}:
-  IsConstant (gateSubFunc 1 v.val) is_bit := by
-  unfold gateSubFunc
-  cases v.prop <;> {
-    refine ⟨⟨?_, ?_⟩, ?_⟩
-    rotate_right
-    . intro k; simp; rfl
-    . simp [Gates.sub, is_bit, *]
-  }
-
-def gateXorFunc (a b : F) (k : F → Prop) : Prop :=
-  ∃r, Gates.xor a b r ∧ k r
-
-theorem gateXorFunc_def : (∃r, Gates.xor a b r ∧ k r) ↔ gateXorFunc a b k := by
-  rfl
-
-theorem xor_deterministic {v1 v2 : {v : F // is_bit v}}:
-  IsConstant (gateXorFunc v1 v2) is_bit := by
-  unfold gateXorFunc
-  unfold Gates.xor
-  cases v1.prop <;> {
-    cases v2.prop <;> {
-      simp only [*]
-      refine ⟨⟨?_, ?_⟩, ?_⟩
-      rotate_right
-      . intro k; simp; rfl
-      . simp [Gates.xor, is_bit, *]; try tauto
-    }
-  }
-
-theorem xor_deterministic' {v1 v2 : F} (v1_prop : is_bit v1) (v2_prop : is_bit v2):
-  IsConstant (gateXorFunc v1 v2) is_bit := xor_deterministic (v1 := ⟨v1, v1_prop⟩) (v2 := ⟨v2, v2_prop⟩)
-
-
-theorem and_deterministic {v1 v2 : {v : F // is_bit v}}:
-  IsConstant (gateAndFunc v1 v2) is_bit := by
-  unfold gateAndFunc
-  unfold Gates.and
-  cases v1.prop <;> {
-    cases v2.prop <;> {
-      simp only [*]
-      refine ⟨⟨?_, ?_⟩, ?_⟩
-      rotate_right
-      . intro k; simp; rfl
-      . simp [Gates.and, is_bit, *]
-    }
-  }
-
-theorem Xor5Round_deterministic {v1 v2 v3 v4 v5 : {v: F // is_bit v}}:
-  IsConstant (SemaphoreMTB.Xor5Round v1.val v2.val v3.val v4.val v5.val) is_bit := by
-  unfold SemaphoreMTB.Xor5Round
+def Xor_64_64_constant (v1 v2 : SubVector F 64 is_bit):
+  ConstantOf (SemaphoreMTB.Xor_64_64 v1.val v2.val) (allIxes is_bit) := by
   repeat (
-    conv => enter [1, k]; rw [gateXorFunc_def]
-    apply IsConstant_compose
-    apply xor_deterministic
+    apply ConstantOf_compose_existential
+    rw [getElem_allIxes, getElem_allIxes]
+    apply xor_unique
     intro _
   )
-  apply const_deterministic
+  apply ConstantOf_constant
+  simp [Subtype.property]
 
-theorem Xor5_64_64_64_64_64_deterministic {v1 v2 v3 v4 v5 : {v: Vector F 64 // allIxes is_bit v}}:
-  IsConstant (SemaphoreMTB.Xor5_64_64_64_64_64 v1.val v2.val v3.val v4.val v5.val) (allIxes is_bit) := by
+def And_64_64_constant (v1 v2 : SubVector F 64 is_bit):
+  ConstantOf (SemaphoreMTB.And_64_64 v1.val v2.val) (allIxes is_bit) := by
+  repeat (
+    apply ConstantOf_compose_existential
+    rw [getElem_allIxes, getElem_allIxes]
+    apply and_unique
+    intro _
+  )
+  apply ConstantOf_constant
+  simp [Subtype.property]
+
+def Not_64_64_constant (v1 : SubVector F 64 is_bit):
+  ConstantOf (SemaphoreMTB.Not_64 v1.val) (allIxes is_bit) := by
+  repeat (
+    apply ConstantOf_compose_existential
+    rw [getElem_allIxes]
+    apply not_unique
+    intro _
+  )
+  apply ConstantOf_constant
+  simp [Subtype.property]
+
+def Xor5Round_constant {v1 v2 v3 v4 v5 : {v: F // is_bit v}}:
+  ConstantOf (SemaphoreMTB.Xor5Round v1.val v2.val v3.val v4.val v5.val) is_bit := by
+  repeat (
+    apply ConstantOf_compose_existential
+    apply xor_unique
+    intro _
+  )
+  apply ConstantOf_constant
+  apply Subtype.property
+
+def Xor5_64_64_64_64_64_constant {v1 v2 v3 v4 v5 : SubVector F 64 is_bit}:
+  ConstantOf (SemaphoreMTB.Xor5_64_64_64_64_64 v1.val v2.val v3.val v4.val v5.val) (allIxes is_bit) := by
   unfold SemaphoreMTB.Xor5_64_64_64_64_64
-
   repeat (
-    apply IsConstant_compose
+    apply ConstantOf_compose
     repeat rw [getElem_allIxes]
-    apply Xor5Round_deterministic
+    apply Xor5Round_constant
     intro _
   )
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro k; simp; rfl
-  . simp [Subtype.property]
+  apply ConstantOf_constant
+  simp [Subtype.property]
 
-
-theorem Xor_64_64_deterministic {v1 v2 : {v: Vector F 64 // allIxes is_bit v}}:
-  IsConstant (SemaphoreMTB.Xor_64_64 v1.val v2.val) (allIxes is_bit) := by
-  unfold SemaphoreMTB.Xor_64_64
-  repeat (
-    conv => enter [1, k]; rw [gateXorFunc_def]
-    apply IsConstant_compose
-    rw [getElem_allIxes, getElem_allIxes]
-    apply xor_deterministic
-    intro _
-  )
-
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro k; simp; rfl
-  . simp [Subtype.property]
-
-theorem And_64_64_deterministic {v1 v2 : {v: Vector F 64 // allIxes is_bit v}}:
-  IsConstant (SemaphoreMTB.And_64_64 v1.val v2.val) (allIxes is_bit) := by
-  unfold SemaphoreMTB.And_64_64
-  conv => enter [1, k]; rw [gateAndFunc_def]
-  apply IsConstant_compose
-  rw [getElem_allIxes, getElem_allIxes]
-  apply and_deterministic
-  intro _
-  repeat (
-    conv => enter [1, k]; rw [gateAndFunc_def]
-    apply IsConstant_compose
-    rw [getElem_allIxes, getElem_allIxes]
-    apply and_deterministic
-    intro _
-  )
-
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro k; simp; rfl
-  . simp [Subtype.property]
-
-theorem Not_64_deterministic {v : {v: Vector F 64 // allIxes is_bit v}}:
-  IsConstant (SemaphoreMTB.Not_64 v.val) (allIxes is_bit) := by
-  unfold SemaphoreMTB.Not_64
-  simp only [gateSubFunc_def]
-  repeat rw [getElem_allIxes]
-  repeat (
-    apply IsConstant_compose
-    apply not_deterministic
-    intro _
-  )
-
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro k; simp; rfl
-  . simp [Subtype.property]
-
-
-theorem KeccakRound_64_5_5_64_deterministic
+def KeccakRound_64_5_5_64_constant
   { state : {v : Vector (Vector (Vector F 64) 5) 5 // allIxes (allIxes (allIxes is_bit)) v} }
-  { rc : { v : Vector F 64 // allIxes is_bit v } }:
-  IsConstant (SemaphoreMTB.KeccakRound_64_5_5_64 state.val rc.val) (allIxes (allIxes (allIxes is_bit))) := by
-
+  { rc : SubVector F 64 is_bit }:
+  ConstantOf (SemaphoreMTB.KeccakRound_64_5_5_64 state.val rc.val) (allIxes (allIxes (allIxes is_bit))) := by
   unfold SemaphoreMTB.KeccakRound_64_5_5_64
   repeat rw [getElem_allIxes₂]
+
   repeat (
-    apply IsConstant_compose
-    apply Xor5_64_64_64_64_64_deterministic
-    intro _
-  )
-  repeat (
-    apply IsConstant_compose
-    apply Rot_64_1_deterministic
-    intro _
-    apply IsConstant_compose
-    apply Xor_64_64_deterministic
+    apply ConstantOf_compose
+    apply Xor5_64_64_64_64_64_constant
     intro _
   )
 
   repeat (
-    apply IsConstant_compose
-    apply Xor_64_64_deterministic
+    apply ConstantOf_compose (dom := allIxes is_bit)
+    apply ConstantOf_constant
+    simp [allIxes_indexed]
+    intro _
+    apply ConstantOf_compose
+    apply Xor_64_64_constant
     intro _
   )
 
-  apply IsConstant_compose (dom := allIxes is_bit)
-  unfold SemaphoreMTB.Rot_64_0
-  apply Exists.intro
-  intro k; simp; rfl
+  repeat (
+    apply ConstantOf_compose
+    apply Xor_64_64_constant
+    intro _
+  )
+
+  repeat (
+    apply ConstantOf_compose (dom := allIxes is_bit)
+    apply ConstantOf_constant
+    simp [allIxes_indexed, Subtype.property]
+    intro _
+  )
+
+  repeat (
+    apply ConstantOf_compose
+    apply Not_64_64_constant
+    intro _
+    apply ConstantOf_compose
+    apply And_64_64_constant
+    intro _
+    apply ConstantOf_compose
+    apply Xor_64_64_constant
+    intro _
+  )
+
+  apply ConstantOf_compose
+  apply Xor_64_64_constant
   intro _
 
-  repeat (
-    apply IsConstant_compose (dom := allIxes is_bit)
-    . refine ⟨⟨?_, ?_⟩, ?_⟩
-      rotate_right
-      . intro _
-        simp
-        rfl
-      . simp [allIxes_indexed]
-    intro _
-  )
+  apply ConstantOf_constant
+  simp [allIxes_indexed₃, Subtype.property]
 
-  repeat (
-    apply IsConstant_compose (dom := allIxes is_bit)
-    apply Not_64_deterministic
-    intro _
-    apply IsConstant_compose (dom := allIxes is_bit)
-    apply And_64_64_deterministic
-    intro _
-    apply IsConstant_compose (dom := allIxes is_bit)
-    apply Xor_64_64_deterministic
-    intro _
-  )
-
-  apply IsConstant_compose (dom := allIxes is_bit)
-  apply Xor_64_64_deterministic
-  intro _
-
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro k; simp; rfl
-  . simp [Subtype.property]
-
-theorem KeccakF_64_5_5_64_24_24_deterministic
+def KeccakF_64_5_5_64_24_24_constant
   { state : {v : Vector (Vector (Vector F 64) 5) 5 // allIxes (allIxes (allIxes is_bit)) v} }
   { rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } }:
-  IsConstant (fun k => SemaphoreMTB.KeccakF_64_5_5_64_24_24 state.val rc.val k) (allIxes (allIxes (allIxes is_bit))) := by
+  ConstantOf (fun k => SemaphoreMTB.KeccakF_64_5_5_64_24_24 state.val rc.val k) (allIxes (allIxes (allIxes is_bit))) := by
   unfold SemaphoreMTB.KeccakF_64_5_5_64_24_24
-  repeat rw [getElem_allIxes]
   repeat (
-    apply IsConstant_compose
-    apply KeccakRound_64_5_5_64_deterministic
+    apply ConstantOf_compose
+    rw [getElem_allIxes]
+    apply KeccakRound_64_5_5_64_constant
     intro _
   )
-  apply const_deterministic
+  apply ConstantOf_constant
+  apply Subtype.property
 
-theorem KeccakF_64_5_5_64_24_24_deterministic'
-  { state : Vector (Vector (Vector F 64) 5) 5 }
-  { rc : Vector (Vector F 64) 24 }
-  (state_prop : allIxes (allIxes (allIxes is_bit)) state)
-  (rc_prop :  allIxes (allIxes is_bit) rc):
-  IsConstant (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (allIxes (allIxes (allIxes is_bit))) :=
-  KeccakF_64_5_5_64_24_24_deterministic (state := ⟨state, state_prop⟩) (rc := ⟨rc, rc_prop⟩)
-
-
-@[simp]
-theorem is_bit_zero : is_bit (0 : F) := by tauto
-@[simp]
-theorem is_bit_one : is_bit (1 : F) := by tauto
+def KeccakF_64_5_5_64_24_24_constant'
+  ( state : Vector (Vector (Vector F 64) 5) 5)
+  ( state_prop : allIxes (allIxes (allIxes is_bit)) state)
+  ( rc : Vector (Vector F 64) 24)
+  ( rc_prop :  allIxes (allIxes is_bit) rc):
+  ConstantOf (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (allIxes (allIxes (allIxes is_bit))) := by
+  apply KeccakF_64_5_5_64_24_24_constant (state := ⟨state, state_prop⟩) (rc := ⟨rc, rc_prop⟩)
 
 
-theorem KeccakGadget_640_64_24_640_256_24_1088_1_deterministic
+def KeccakGadget_640_64_24_640_256_24_1088_1_constant
   { input : { v : Vector F 640 // allIxes is_bit v}}
   { rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } }:
-  IsConstant (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
+  ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
   unfold SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
-  simp only [gateXorFunc_def]
-  apply IsConstant_compose
-  apply xor_deterministic' <;> tauto
+  apply ConstantOf_compose_existential
+  apply xor_unique (a := bZero) (b := bOne)
   intro _
-  apply IsConstant_compose
-  apply KeccakF_64_5_5_64_24_24_deterministic'
+  apply ConstantOf_compose
+  apply KeccakF_64_5_5_64_24_24_constant'
   simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   apply Subtype.property
   intro _
-  refine ⟨⟨?_, ?_⟩, ?_⟩
-  rotate_right
-  . intro _
-    simp
-    rfl
-  . simp [allIxes_indexed₃]
+  apply ConstantOf_constant
+  simp [allIxes_indexed₃]
 
--- abbrev expected_result: Vector F 256 := vec![0,0,1,1,1,0,1,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,1,1,0,0,0,0,0,0,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1,0,1,0,0,1,0,0,0,1,0,1,1,1,1,1,0,0,0,1,1,1,1,0,1,0,0,0,0,0,0,1,1,0,1,1,1,0,0,0,1,0,0,0,0,0,1,0,0,1,1,0,1,1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,1,0,1,0,0,1,1,1,1,1,0,0,1,1,1,0,0,1,0,1,0,0,0,0,1,0,0,1,1,1,1,0,0,1,1,0,0,1,1,1,1,1,1,0,1,1,0,0,1,0,0,1,0,0,1,0,1,1,1,0,0,1,0,0,0,1,0,0,1,1,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1,0,0,1,1,1,0,1,0,0,1,0,1,0,0,1,0,0,1,1,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,1,0,1,1,0,0,0,1,0,0,1,0,0,1,1]
---
--- abbrev rc: Vector (Vector F 64) 24 := vec![vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]]
+
+abbrev rc: Vector (Vector {f : F // is_bit f} 64) 24 := vec![vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bZero, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne]]
+
+def rc' := SubVector.lift $ rc.map SubVector.lift
+
+#eval (@KeccakGadget_640_64_24_640_256_24_1088_1_constant (SubVector.lift (Vector.replicate 640 bZero)) rc').val.val[0]
+#eval (@KeccakGadget_640_64_24_640_256_24_1088_1_constant (SubVector.lift (Vector.replicate 640 bZero)) rc').val.val[1]
