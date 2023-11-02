@@ -11,22 +11,67 @@ abbrev bZero : {v : F // is_bit v} := ⟨0, by simp⟩
 
 abbrev SubVector α n prop := Subtype (α := Vector α n) (allIxes prop)
 
+namespace Fin
+
+theorem castSucc_succ_eq_succ_castSucc : Fin.castSucc (Fin.succ i) = Fin.succ (Fin.castSucc i) := by
+  rfl
+
+theorem last_succ_eq_succ_last : Fin.last (Nat.succ n) = Fin.succ (Fin.last n) := by
+  rfl
+
+theorem last_def : Fin.mk (n := Nat.succ n) n (by simp) = Fin.last n := by
+  rfl
+
+theorem castSucc_def {i : Fin n} :
+  Fin.mk (n := Nat.succ n) (i.val) (by cases i; linarith) = i.castSucc := by
+  rfl
+
+theorem cast_last {n : Nat} : ↑n = Fin.last n := by
+  conv => lhs; whnf
+  conv => rhs; whnf
+  simp
+
+end Fin
+
 @[simp]
 theorem vector_get_snoc_last { vs : Vector α n }:
-  (vs.snoc v)[n]'(by linarith) = v := by
+  (vs.snoc v).get (Fin.last n) = v := by
   induction n with
   | zero =>
     cases vs using Vector.casesOn; rfl
   | succ n ih =>
     cases vs using Vector.casesOn
-    simp [ih]
+    rw [Fin.last_succ_eq_succ_last, Vector.snoc_cons, Vector.get_cons_succ, ih]
+
+@[simp]
+lemma snoc_get_castSucc {vs : Vector α n}: (vs.snoc v).get (Fin.castSucc i) = vs.get i := by
+  cases n
+  case zero => cases i using finZeroElim
+  case succ n =>
+  induction n with
+  | zero =>
+    cases i using Fin.cases with
+    | H0 => cases vs using Vector.casesOn with | cons hd tl => simp
+    | Hs i => cases i using finZeroElim
+  | succ n ih =>
+    cases vs using Vector.casesOn with | cons hd tl =>
+    cases i using Fin.cases with
+    | H0 => simp
+    | Hs i => simp [Fin.castSucc_succ_eq_succ_castSucc, ih]
+
+theorem vector_get_val_getElem {v : Vector α n} {i : Fin n}: v[i.val]'(i.prop) = v.get i := by
+  rfl
+
+theorem getElem_def {v : Vector α n} {i : Nat} {prop}: v[i]'prop = v.get ⟨i, prop⟩ := by
+  rfl
 
 @[simp]
 lemma vector_get_snoc_fin_prev {vs : Vector α n} {v : α} {i : Fin n}:
   (vs.snoc v)[i.val]'(by (have := i.prop); linarith) = vs[i.val]'(i.prop) := by
-  sorry
+  simp [vector_get_val_getElem, getElem_def, Fin.castSucc_def]
 
-theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn (Fin.castSucc x))) (fn n) := by
+theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }:
+  Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn (Fin.castSucc x))) (fn n) := by
   induction n with
   | zero => rfl
   | succ n ih =>
@@ -45,21 +90,27 @@ def snoc (vs: SubVector α n prop) (v : Subtype prop): SubVector α n.succ prop 
   ⟨vs.val.snoc v.val, by
     intro i
     cases i using Fin.lastCases with
-    | hlast => simp [Subtype.property]
+    | hlast => simp [GetElem.getElem, Fin.last_def, Subtype.property]
     | hcast i =>
       have := vs.prop i
       simp at this
       simp [*]
   ⟩
 
-@[elab_as_elim]
-def revInduction {C : ∀ {n:Nat}, SubVector α n prop → Sort _} {n : Nat} (v : SubVector α n prop)
-  (nil : C nil)
-  (snoc : ∀ {n : Nat} (vs : SubVector α n prop) (v : Subtype prop), (ih : C vs) → C (snoc vs v)): C v := by
-  rcases v with ⟨v, h⟩
-  induction v using Vector.revInductionOn with
-  | nil => exact nil
-  | snoc vs v ih => sorry
+-- def cons {prop : α → Prop} (v : Subtype prop) (vs : SubVector α n prop): SubVector α n.succ prop :=
+--   ⟨vs.val.cons v.val, by
+--     sorry
+--   ⟩
+
+
+-- @[elab_as_elim]
+-- def revInduction {C : ∀ {n:Nat}, SubVector α n prop → Sort _} {n : Nat} (v : SubVector α n prop)
+--   (nil : C nil)
+--   (snoc : ∀ {n : Nat} (vs : SubVector α n prop) (v : Subtype prop), (ih : C vs) → C (snoc vs v)): C v := by
+--   rcases v with ⟨v, h⟩
+--   induction v using Vector.revInductionOn with
+--   | nil => exact nil
+--   | snoc vs v ih => sorry
 
 @[elab_as_elim]
 def revCases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α n prop)
@@ -68,13 +119,33 @@ def revCases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α
   rcases v with ⟨v, h⟩
   cases v using Vector.revCasesOn with
   | nil => exact nil
-  | snoc vs v => exact snoc ⟨vs, by sorry⟩ ⟨v, by sorry⟩
+  | snoc vs v =>
+    refine snoc ⟨vs, ?vsp⟩ ⟨v, ?vp⟩
+    case vsp =>
+      intro i
+      have := h i.castSucc
+      simp at this
+      simp [this]
+    case vp =>
+      have := h (Fin.last _)
+      simp [GetElem.getElem, Fin.last_def] at this
+      exact this
+
+-- @[elab_as_elim]
+-- def cases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α n prop)
+--   (nil : C nil)
+--   (cons : ∀ {n : Nat} (v : Subtype prop) (vs : SubVector α n prop), C (cons v vs)): C v := by sorry
 
 instance : GetElem (SubVector α n prop) (Fin n) (Subtype prop) (fun _ _ => True) where
-  getElem v i _ := ⟨v.val[i], v.prop i⟩
+  getElem v i _ := ⟨v.val.get i, v.prop i⟩
 
 def lower (v: SubVector α n prop): Vector {v : α // prop v} n :=
   Vector.ofFn fun i => v[i]
+
+def lift {prop : α → Prop} (v : Vector (Subtype prop) n): SubVector α n prop :=
+  ⟨v.map Subtype.val, by
+    intro i
+    simp [GetElem.getElem, Subtype.property]⟩
 
 theorem snoc_lower {vs : SubVector α n prop} {v : Subtype prop}:
   (vs.snoc v).lower = vs.lower.snoc v := by
@@ -82,48 +153,37 @@ theorem snoc_lower {vs : SubVector α n prop} {v : Subtype prop}:
   rw [ofFn_snoc']
   congr
   . funext i
-    simp [GetElem.getElem]
-
-  induction n with
-  | zero =>
-    cases vs using Vector.casesOn; rfl
-  | succ n ih =>
-    cases vs using Vector.casesOn
-    simp [ih]
+    cases n with
+    | zero => cases i using finZeroElim
+    | _ => simp [GetElem.getElem, snoc]
+  . simp [GetElem.getElem, snoc, Fin.cast_last]
 
 end SubVector
-
-def liftAllIxes (v : Vector {v : α // prop v} n): SubVector α n prop :=
-  ⟨v.map Subtype.val, by
-    intro i
-    simp [GetElem.getElem, Subtype.property]⟩
-
-
 
 theorem isBitCases (b : Subtype (α := F) is_bit): b = bZero ∨ b = bOne := by
   cases b with | mk _ prop =>
   cases prop <;> {subst_vars ; tauto }
 
-theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn x)) (fn n) := by
-  induction n with
-  | zero => rfl
-  | succ n ih =>
-    conv => lhs; rw [Vector.ofFn, ih]
-    simp [Vector.ofFn]
-    congr
-    . funext i;
-      congr
-      conv => lhs; whnf
-      conv => rhs; whnf
-      congr
-      rcases i with ⟨i, _⟩
-      simp [Nat.mod_eq_of_lt]
-      rw [Nat.mod_eq_of_lt]
-      linarith
-    . conv => lhs; whnf
-      conv => rhs; whnf
-      congr
-      simp [Nat.mod_eq_of_lt]
+-- theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn x)) (fn n) := by
+--   induction n with
+--   | zero => rfl
+--   | succ n ih =>
+--     conv => lhs; rw [Vector.ofFn, ih]
+--     simp [Vector.ofFn]
+--     congr
+--     . funext i;
+--       congr
+--       conv => lhs; whnf
+--       conv => rhs; whnf
+--       congr
+--       rcases i with ⟨i, _⟩
+--       simp [Nat.mod_eq_of_lt]
+--       rw [Nat.mod_eq_of_lt]
+--       linarith
+--     . conv => lhs; whnf
+--       conv => rhs; whnf
+--       congr
+--       simp [Nat.mod_eq_of_lt]
 
 -- @[simp]
 -- lemma snoc_get_not_last {vs : Vector α (Nat.succ n) } {ix_small : ix ≤ n}: (vs.snoc v)[ix]'(by linarith) = vs[ix]'(by linarith) := by
@@ -142,24 +202,7 @@ theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.sno
 --       apply ih
 --       linarith
 
-
-def allIxesNil : SubVector α 0 prop := ⟨Vector.nil, by simp⟩
-
-def allIxesSnoc (vs: {v : Vector α n // allIxes prop v}) (v : Subtype prop): SubVector α n.succ prop :=
-  ⟨vs.val.snoc v.val, by
-    intro i
-    cases i using Fin.lastCases with
-    | hlast => simp [Subtype.property]
-    | hcast i =>
-      have := vs.prop i
-      simp at this
-      simp [*]
-  ⟩
-
-
-
-abbrev order_binary_le : { v : Vector F 256 // allIxes is_bit v } := liftAllIxes vec![bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero]
-
+abbrev order_binary_le : SubVector F 256 is_bit := SubVector.lift vec![bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero]
 
 def bitCases : { v : F // is_bit v} → Bit
   | ⟨0, _⟩ => Bit.zero
@@ -176,20 +219,21 @@ def bitCases : { v : F // is_bit v} → Bit
 
 @[simp]
 lemma bitCases_eq_0 : bitCases b = Bit.zero ↔ b = bZero := by
-  simp [bitCases, bZero]
-  split
-  . simp
-  . simp
-  . apply Iff.intro
-    . intro h
-      have : False := by
-        apply False.elim
-      contradiction
+  cases b with | mk val prop =>
+  cases prop <;> {
+    subst_vars
+    conv => lhs; lhs; whnf
+    simp
+  }
 
 @[simp]
 lemma bitCases_eq_1 : bitCases b = Bit.one ↔ b = bOne := by
-  simp [bitCases, bOne]
-  split <;> simp
+  cases b with | mk val prop =>
+  cases prop <;> {
+    subst_vars
+    conv => lhs; lhs; whnf
+    simp
+  }
 
 @[simp]
 lemma bitCases_bZero: bitCases bZero = Bit.zero := by rfl
@@ -241,36 +285,35 @@ theorem gates_1_or { a r : F}: Gates.or 1 a r = (is_bit a ∧ r = 1) := by
 theorem gates_or_1 { a r : F}: Gates.or a 1 r = (is_bit a ∧ r = 1) := by
   simp [Gates.or]
 
-
+-- @[simp]
+-- theorem is_bit_1_sub {a : F}: is_bit (1 - a) ↔ is_bit a := by
+--   simp [is_bit, sub_eq_zero]
+--   tauto
 
 @[simp]
-theorem is_bit_1_sub {a : F}: is_bit (1 - a) ↔ is_bit a := by
-  simp [is_bit, sub_eq_zero]
+theorem gates_is_bit_one_sub {a : F}: is_bit (Gates.sub 1 a) ↔ is_bit a := by
+  simp [Gates.sub, is_bit, sub_eq_zero]
   tauto
 
-@[simp]
-theorem is_bit_1_gsub {a : F}: is_bit (Gates.sub 1 a) ↔ is_bit a := by
-  simp [Gates.sub]
-
-@[simp]
-theorem self_eq_self_sub {a b : F}: a = a - b ↔ b = 0 := by
-  sorry
-
-@[simp]
-theorem subvector_get_snoc_last { vs : SubVector α n prop } {v : Subtype prop}:
-  (allIxesSnoc vs v)[Fin.mk (n := n.succ) n (by simp_arith)] = v := by
-  induction n with
-  | zero =>
-    cases vs using Vector.casesOn; rfl
-  | succ n ih =>
-    cases vs using Vector.casesOn
-    simp [ih]
-
+-- @[simp]
+-- theorem self_eq_self_sub {a b : F}: a = a - b ↔ b = 0 := by
+--   sorry
 
 lemma binary_comparison_with_constant_unused_snoc {base arg : SubVector F n is_bit} {b a : Subtype is_bit} {i : Fin n}:
-  binary_comparison_with_constant base arg i succeeded failed ↔
-  binary_comparison_with_constant (base.snoc b) (arg.snoc a) i.castSucc succeeded failed := by
-  sorry
+  binary_comparison_with_constant (base.snoc b) (arg.snoc a) i.castSucc succeeded failed ↔
+  binary_comparison_with_constant base arg i succeeded failed := by
+  cases n
+  case zero => cases i using finZeroElim
+  induction i using Fin.inductionOn generalizing succeeded failed with
+  | h0 =>
+    unfold binary_comparison_with_constant
+    simp [SubVector.snoc, GetElem.getElem, Vector.head_snoc]
+    rfl
+  | hs i ih =>
+    unfold binary_comparison_with_constant
+    simp [SubVector.snoc, GetElem.getElem, Vector.head_snoc]
+    conv at ih => intro succeeded failed; rhs; arg 3; whnf
+    conv => rhs; simp [Fin.succ, ←ih]
 
 lemma binary_comparison_failed_always_fails {base arg : SubVector F n is_bit}
   {i : Fin n}:
@@ -290,12 +333,31 @@ lemma binary_comparison_succeeded_always_succeeds {base arg : SubVector F n is_b
     split <;> simp [Gates.eq, Subtype.property, *]
   }
 
-theorem binary_comparison_with_constant_is_comparison {base arg : { v : Vector F (Nat.succ n) // allIxes is_bit v }}:
-  recover_binary_nat (Vector.map bitCases (lowerAllIxes base)) > recover_binary_nat (Vector.map bitCases (lowerAllIxes arg)) ↔
+lemma recover_binary_nat_snoc {n : Nat} {v : Vector Bit n} {b : Bit}:
+  recover_binary_nat (v.snoc b) = recover_binary_nat v + 2^n * b.toNat := by
+  induction n with
+  | zero =>
+    cases v using Vector.casesOn
+    simp [recover_binary_nat]
+  | succ n ih =>
+    cases v using Vector.casesOn with | cons hd tl =>
+    unfold recover_binary_nat
+    simp [ih]
+    rw [Nat.add_assoc,
+        Nat.add_left_cancel_iff,
+        Nat.mul_add,
+        Nat.add_left_cancel_iff,
+        Nat.mul_left_comm,
+        ← Nat.mul_assoc,
+        Nat.pow_succ
+    ]
+
+theorem binary_comparison_with_constant_is_comparison {base arg : SubVector F (Nat.succ n) is_bit }:
+  recover_binary_nat (Vector.map bitCases base.lower) > recover_binary_nat (Vector.map bitCases arg.lower) ↔
   binary_comparison_with_constant base arg ⟨n, by simp⟩ 0 0 := by
   induction n with
   | zero =>
-    unfold lowerAllIxes
+    unfold SubVector.lower
     unfold binary_comparison_with_constant
     simp [Gates.eq, Gates.sub, Vector.ofFn, recover_binary_nat]
     split
@@ -311,36 +373,38 @@ theorem binary_comparison_with_constant_is_comparison {base arg : { v : Vector F
     cases base using SubVector.revCases with | snoc binit blast =>
     cases arg using SubVector.revCases with | snoc ainit alast =>
     unfold binary_comparison_with_constant
-    simp [Subtype.property]
-    have : Fin.mk (n := n.succ.succ) n (by simp_arith) = Fin.castSucc (Fin.mk (n := n.succ) n (by simp_arith)) := by
-      simp [Fin.castSucc]
-    rw [this, ←binary_comparison_with_constant_unused_snoc, ←binary_comparison_with_constant_unused_snoc]
+    have {p} : Fin.mk (n := n.succ.succ) n p = Fin.castSucc (Fin.last n) := by
+      simp [Fin.castSucc, Fin.last]
+    simp only [Subtype.property, this, binary_comparison_with_constant_unused_snoc]
+    conv => lhs; simp only [SubVector.snoc_lower, Vector.map_snoc, recover_binary_nat_snoc]
+    conv => rhs; simp only [GetElem.getElem, Fin.last_def, SubVector.snoc, vector_get_snoc_last]
     cases isBitCases blast with
     | inl =>
       cases isBitCases alast with
       | inl =>
-        unfold lowerAllIxes
-        unfold allIxesSnoc
         subst_vars
-        simp [←ih]
-        sorry -- trivial
+        simp [ih, Fin.last_def]
       | inr =>
         subst_vars
-        simp [binary_comparison_failed_always_fails]
-        sorry -- trivial
+        simp [binary_comparison_failed_always_fails, Bit.toNat]
+        calc
+          recover_binary_nat (Vector.map bitCases (SubVector.lower binit)) ≤ 2 ^ Nat.succ n :=
+            by apply le_of_lt; apply binary_nat_lt
+          _ ≤ recover_binary_nat (Vector.map bitCases (SubVector.lower ainit)) + 2 ^ Nat.succ n :=
+            by linarith
     | inr =>
       cases isBitCases alast with
       | inl =>
         subst_vars
-        simp [Gates.sub, binary_comparison_succeeded_always_succeeds]
-        sorry -- trivial
+        simp [Gates.sub, binary_comparison_succeeded_always_succeeds, Bit.toNat]
+        calc
+          recover_binary_nat (Vector.map bitCases (SubVector.lower ainit)) < 2 ^ Nat.succ n :=
+            by apply binary_nat_lt
+          _ ≤ recover_binary_nat (Vector.map bitCases (SubVector.lower binit)) + 2 ^ Nat.succ n :=
+            by linarith
       | inr =>
         subst_vars
-        simp [←ih, Gates.sub]
-        sorry -- trivial
-
-
-
+        simp [Gates.sub, ih, Fin.last_def]
 
 -- theorem ReducedModRCheck_256_Fold :
 --   ∀ (v : {v : Vector F 256 // allIxes is_bit v}),
