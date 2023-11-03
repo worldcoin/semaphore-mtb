@@ -34,38 +34,19 @@ theorem are_indices_in_range_split {d n : Nat} (D : Nat) (a : Vector (ZMod n) (d
   rw [<-are_indices_in_range_cons]
   simp
 
-lemma head_index_in_range {b : Nat} (D : Nat) (Index : Vector F (b+1)) (xs_small : are_indices_in_range D Index) :
+lemma head_index_in_range {b : Nat} (D : Nat) (Index : Vector (ZMod n) (b+1)) (xs_small : are_indices_in_range D Index) :
   is_index_in_range D (Vector.head Index) := by
   rw [are_indices_in_range_split] at xs_small
   cases xs_small
   rename_i x xs
   simp [x]
 
-lemma tail_index_in_range {b : Nat} (D : Nat) (Index : Vector F (b+1)) (xs_small : are_indices_in_range D Index) :
+lemma tail_index_in_range {b : Nat} (D : Nat) (Index : Vector (ZMod n) (b+1)) (xs_small : are_indices_in_range D Index) :
   are_indices_in_range D (Vector.tail Index) := by
   rw [are_indices_in_range_split] at xs_small
   cases xs_small
   rename_i x xs
   simp [xs]
-
-theorem eq_root_eq_tree {H} [ph: Fact (perfect_hash H)] {t₁ t₂ : MerkleTree α H d}:
-  t₁.root = t₂.root ↔ t₁ = t₂ := by
-  induction d with
-  | zero => cases t₁; cases t₂; tauto
-  | succ _ ih =>
-    cases t₁
-    cases t₂
-    apply Iff.intro
-    . intro h
-      have h := Fact.elim ph h
-      injection h with h
-      injection h with _ h
-      injection h
-      congr <;> {rw [←ih]; assumption}
-    . intro h
-      injection h
-      subst_vars
-      rfl
 
 ------------------
 
@@ -276,7 +257,7 @@ theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
       refine ⟨tree, ?_⟩
       rw [deletion_round_prep_uncps] at htree
       . apply And.intro
-        . rw [<-eq_root_eq_tree]
+        . rw [<-MerkleTree.eq_root_eq_tree]
           apply Eq.symm
           rw [htree]
         . rw [ih]
@@ -349,7 +330,7 @@ theorem deletion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
       nth_rewrite 1 [list_of_items, list_of_proofs]
       simp only [Vector.head_cons]
       rw [deletion_round_prep_uncps]
-      . rw [deletion_round_prep_uncps, eq_root_eq_tree] at htree
+      . rw [deletion_round_prep_uncps, MerkleTree.eq_root_eq_tree] at htree
         cases htree
         rename_i htree hroot
         simp [list_of_items_tail, list_of_proofs_tail]
@@ -370,7 +351,7 @@ theorem deletion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
       nth_rewrite 1 [list_of_items, list_of_proofs] at htree
       simp only [Vector.head_cons] at htree
       rw [deletion_round_prep_uncps] at htree
-      . rw [deletion_round_prep_uncps, eq_root_eq_tree]
+      . rw [deletion_round_prep_uncps, MerkleTree.eq_root_eq_tree]
         refine ⟨?_, ?_⟩
         . tauto
         . apply ih
