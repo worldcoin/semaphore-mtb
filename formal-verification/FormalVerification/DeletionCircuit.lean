@@ -268,20 +268,15 @@ theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
     apply Iff.intro
     . rintro ⟨tree, htree, hroot⟩
       refine ⟨tree, ?_, ?_⟩
-      have hxs_small: is_index_in_range (D+1) DeletionIndices.head := by
-        apply head_index_in_range
-        simp [xs_small]
       rw [deletion_round_prep_uncps]
-      . simp [htree]
-      . simp [hxs_small]
+      . rw [htree]
       . rw [<-ih]
         simp [hroot]
     . rintro ⟨tree, htree, hroot⟩
       refine ⟨tree, ?_⟩
       rw [deletion_round_prep_uncps] at htree
       . apply And.intro
-        . simp [htree]
-          rw [<-eq_root_eq_tree]
+        . rw [<-eq_root_eq_tree]
           apply Eq.symm
           rw [htree]
         . rw [ih]
@@ -393,22 +388,13 @@ theorem deletion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
       simp only [DeletionLoopTree]
       rintro ⟨tree, htree⟩
       simp only [DeletionLoop]
-      nth_rewrite 1 [list_of_items]
-      nth_rewrite 1 [list_of_proofs]
+      nth_rewrite 1 [list_of_items, list_of_proofs]
       simp only [Vector.head_cons]
       rw [deletion_round_prep_uncps]
-      rotate_left
-      . rw [are_indices_in_range_split] at xs_small
-        cases xs_small
-        rename_i x xs
-        simp [x]
-      . rw [deletion_round_prep_uncps] at htree
-        rw [eq_root_eq_tree] at htree
+      . rw [deletion_round_prep_uncps, eq_root_eq_tree] at htree
         cases htree
         rename_i htree hroot
-        rw [list_of_items_tail]
-        rw [list_of_proofs_tail]
-        simp
+        simp [list_of_items_tail, list_of_proofs_tail]
         apply ih
         rw [<-htree]
         . tauto
@@ -418,27 +404,23 @@ theorem deletion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
     | succ _ ih =>
       intro htree
       simp only [DeletionLoopTree]
-      simp only [DeletionLoop] at htree
+      simp [DeletionLoop] at htree
       let t := TreeDeletePrep Tree DeletionIndices.head (by
         apply head_index_in_range
         simp [xs_small])
       refine ⟨t, ?_⟩
-      simp at htree
-      nth_rewrite 1 [list_of_items] at htree
-      nth_rewrite 1 [list_of_proofs] at htree
+      nth_rewrite 1 [list_of_items, list_of_proofs] at htree
       simp only [Vector.head_cons] at htree
       rw [deletion_round_prep_uncps] at htree
-      rotate_left
-      . rw [are_indices_in_range_split] at xs_small
-        cases xs_small
-        rename_i x xs
-        simp [x]
-      . rw [deletion_round_prep_uncps]
-        rw [eq_root_eq_tree]
+      . rw [deletion_round_prep_uncps, eq_root_eq_tree]
         refine ⟨?_, ?_⟩
         . tauto
         . apply ih
           simp [htree]
+      . rw [are_indices_in_range_split] at xs_small
+        cases xs_small
+        rename_i x xs
+        simp [x]
 
 theorem deletion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
