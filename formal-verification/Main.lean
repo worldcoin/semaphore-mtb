@@ -51,7 +51,7 @@ theorem before_insertion_all_items_zero
   simp [ixBound]
 
 theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
-  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
   let items := (list_of_items Tree₁ DeletionIndices xs_small)
   let proofs := (list_of_proofs Tree₁ DeletionIndices xs_small)
   gDeletionProof DeletionIndices Tree₁.root items proofs k →

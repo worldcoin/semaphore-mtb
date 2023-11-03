@@ -179,8 +179,8 @@ def TreeDeleteZero [Fact (perfect_hash poseidon₂)]
   | Bit.one => True
 
 theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
-  (Tree₁ : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) :
-  TreeDeletePrep Tree₁ Index ix_small = t →
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) :
+  TreeDeletePrep Tree Index ix_small = t →
   TreeDeleteZero t Index ix_small := by
   intro htree
   unfold TreeDeletePrep at htree
@@ -189,7 +189,7 @@ theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
   split
   . rename_i hskip
     simp [hskip] at htree
-    apply MerkleTree.set_implies_item_at (t₁ := Tree₁)
+    apply MerkleTree.set_implies_item_at (t₁ := Tree)
     simp [htree]
   . simp
 
@@ -210,10 +210,10 @@ def TreeDeleteCircuitZero [Fact (perfect_hash poseidon₂)] {b : Nat}
     TreeDeleteCircuitZero Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
 
 theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  TreeDeleteCircuit Tree₁ DeletionIndices xs_small k →
+  (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  TreeDeleteCircuit Tree DeletionIndices xs_small k →
   TreeDeleteCircuitZero DeletionIndices xs_small := by
-  induction b generalizing Tree₁ with
+  induction b generalizing Tree with
   | zero =>
     simp [TreeDeleteCircuit, TreeDeleteCircuitZero]
   | succ _ ih =>
@@ -222,19 +222,19 @@ theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
     simp [TreeDeleteCircuitZero]
     refine ⟨?_, ?_⟩
     . refine ⟨tree₂, ?_⟩
-      apply deletion_round_set_zero Tree₁
+      apply deletion_round_set_zero Tree
       simp [htree₂]
     . apply ih tree₂
       simp [htree]
 
 def DeletionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (InitialTree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
+  (Tree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
   match b with
-  | Nat.zero => k InitialTree
+  | Nat.zero => k Tree
   | Nat.succ _ =>
     let idx := Index.head
     ∃t : MerkleTree F poseidon₂ D,
-    deletion_round_prep InitialTree.root idx (MerkleTree.tree_item_at_fin InitialTree idx.val) (MerkleTree.tree_proof_at_fin InitialTree idx.val).reverse (fun nextRoot => t.root = nextRoot) ∧
+    deletion_round_prep Tree.root idx (MerkleTree.tree_item_at_fin Tree idx.val) (MerkleTree.tree_proof_at_fin Tree idx.val).reverse (fun nextRoot => t.root = nextRoot) ∧
       DeletionLoopTree t Index.tail (by apply tail_index_in_range (D+1); simp [xs_small]) k
 
 theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
