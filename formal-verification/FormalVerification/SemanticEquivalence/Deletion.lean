@@ -18,12 +18,6 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 
 -- Deletion round semantic equivalence
 
-/-!
-We need to prove that `DeletionRound_30` checks that `MerkleTree.recover_tail` = `root` and returns `MerkleTree.recover_tail` with empty Leaf:
-this is shown in `DeletionRound_uncps`.
-Then we need to show that `DeletionProof_4_4_30_4` is continuous application of `DeletionLoop`
--/
-
 lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     (fun gate_2 =>
     ∃gate_3, gate_3 = Gates.sub a b ∧      -- gate_3 = a - b
@@ -88,10 +82,6 @@ def deletion_round_prep (Root: F) (Index: F) (Item: F) (Proof: Vector F D) (k: F
   ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
   is_bit out.last ∧ deletion_round Root (zmod_to_bit out.last) (out.dropLast) Item Proof k
 
-/-!
-`DeletionRound_uncps` proves that a single round of the deletion loop corresponds to checking that
-the result of `MerkleTree.recover_tail` matches `Root` and returns the hash of the merkle tree with empty Leaf
--/
 lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
   gDeletionRound Root Index Item Proof k ↔
   deletion_round_prep Root Index Item Proof k := by
@@ -117,19 +107,12 @@ lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k:
   rw [←Vector.ofFn_get (v := gate_0)] at this
   assumption
 
-/-!
-`deletion_rounds` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size
--/
 def deletion_rounds {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k PreRoot
   | Nat.succ _ => gDeletionRound PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
     deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
 
-/-!
-`DeletionLoop` rewrites `DeletionProof_4_4_30_4` using pattern matching and recursion on the batch size through by chaining
-calls to `MerkleTree.recover_tail`. Ultimately we show that `DeletionLoop` is formally identical to `DeletionProof_4_4_30_4`
--/
 def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k PreRoot
@@ -162,9 +145,6 @@ lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: 
         rw [←Vector.ofFn_get (v := MerkleProofs)]
         rfl
 
-/-!
-`DeletionProof_uncps` is the key lemma which shows that `DeletionProof_4_4_30_4` and `DeletionLoop` are equivalent
--/
 lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
     gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
     DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
