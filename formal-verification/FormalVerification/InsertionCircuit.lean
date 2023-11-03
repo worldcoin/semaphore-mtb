@@ -124,17 +124,6 @@ theorem before_insertion_all_items_zero_loop
         apply Nat.ne_of_lt
         simp_arith; simp [Nat.le] at h; simp [h]
 
-theorem before_insertion_all_items_zero
-  [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop)
-  {ixBound: StartIndex + B < Order}:
-  gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs k →
-  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.item_at_nat Tree i = some 0) := by
-  rw [InsertionProof_looped]
-  apply before_insertion_all_items_zero_loop
-  simp [ixBound]
-
 def insertion_circuit [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (StartIndex : F) (IdComms: Vector F b) (MerkleProofs: Vector (Vector F D) b) (k : F → Prop): Prop :=
   match b with
   | Nat.zero => k Tree.root
@@ -238,14 +227,3 @@ theorem insertion_is_set
         simp [<-hproof_at]
         simp [<-hitem_at]
         simp [MerkleTree.recover_proof_is_root]
-
-theorem insertion_is_set_circuit
-  [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (PostRoot : F)
-  {ixBound: StartIndex + B < Order}:
-  (gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs fun newRoot => PostRoot = newRoot) ↔
-  (insertion_circuit Tree ↑StartIndex IdComms MerkleProofs fun newRoot => PostRoot = newRoot) := by
-  rw [InsertionProof_uncps]
-  apply insertion_is_set
-  simp [ixBound]

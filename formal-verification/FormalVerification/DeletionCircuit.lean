@@ -229,10 +229,10 @@ def TreeDeleteCircuitZero [Fact (perfect_hash poseidon₂)] {b : Nat}
     TreeDeleteCircuitZero Index.tail (by apply tail_index_in_range (D+1); simp [xs_small])
 
 theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  TreeDeleteCircuit Tree₁ DeletionIndices xs_small (fun newTree => Tree₂ = newTree) →
+  (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  TreeDeleteCircuit Tree₁ DeletionIndices xs_small k →
   TreeDeleteCircuitZero DeletionIndices xs_small := by
-  induction b generalizing Tree₁ Tree₂ with
+  induction b generalizing Tree₁ with
   | zero =>
     simp [TreeDeleteCircuit, TreeDeleteCircuitZero]
   | succ _ ih =>
@@ -243,7 +243,7 @@ theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
     . refine ⟨tree₂, ?_⟩
       apply deletion_round_set_zero Tree₁
       simp [htree₂]
-    . apply ih tree₂ Tree₂
+    . apply ih tree₂
       simp [htree]
 
 def DeletionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
@@ -281,48 +281,6 @@ theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
           rw [htree]
         . rw [ih]
           simp [hroot]
-
--- def DeletionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
---   (InitialTree : MerkleTree F poseidon₂ D) (Index : Vector F b) (xs_small : are_indices_in_range (D+1) Index) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
---   match b with
---   | Nat.zero => k InitialTree
---   | Nat.succ _ =>
---     let idx := Index.head
---     ∃t : MerkleTree F poseidon₂ D,
---     deletion_round_prep InitialTree.root idx (MerkleTree.tree_item_at_fin InitialTree idx.val) (MerkleTree.tree_proof_at_fin InitialTree idx.val).reverse (fun nextRoot => t.root = nextRoot ∧
---       DeletionLoopTree t Index.tail (by apply tail_index_in_range (D+1); simp [xs_small]) k)
-
--- theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
---   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
---   TreeDeleteCircuit Tree DeletionIndices xs_small k ↔
---   DeletionLoopTree Tree DeletionIndices xs_small k := by
---   induction b generalizing Tree with
---   | zero =>
---     simp [TreeDeleteCircuit, DeletionLoopTree]
---   | succ _ ih =>
---     simp only [TreeDeleteCircuit, DeletionLoopTree]
---     apply Iff.intro
---     . rintro ⟨tree, htree, hroot⟩
---       refine ⟨tree, ?_⟩
---       rw [deletion_round_prep_uncps]
---       apply And.intro
---       . rw [eq_root_eq_tree]
---         apply Eq.symm
---         rw [htree]
---       . rw [<-ih]
---         simp [hroot]
---     . rintro ⟨tree, htree⟩
---       refine ⟨tree, ?_⟩
---       rw [deletion_round_prep_uncps] at htree
---       cases htree
---       rename_i htree hroot
---       . apply And.intro
---         . simp [htree]
---           rw [<-eq_root_eq_tree]
---           apply Eq.symm
---           rw [htree]
---         . rw [ih]
---           simp [hroot]
 
 def list_of_items {b : Nat} [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F b) (xs_small : are_indices_in_range (D+1) DeletionIndices) : Vector F b :=
@@ -430,18 +388,3 @@ theorem deletion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
   DeletionLoop DeletionIndices Tree.root items proofs k := by
   rw [<-deletion_loop_equivalence]
   apply deletion_loop_uncps
-
-theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
-  (Tree₁ Tree₂ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  TreeDeleteCircuit Tree₁ DeletionIndices xs_small (fun newTree => Tree₂ = newTree) →
-  TreeDeleteCircuitZero DeletionIndices xs_small := by
-  apply after_deletion_all_zeroes
-
-theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
-  TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
-  let items := (list_of_items Tree DeletionIndices xs_small)
-  let proofs := (list_of_proofs Tree DeletionIndices xs_small)
-  gDeletionProof DeletionIndices Tree.root items proofs k := by
-  rw [DeletionProof_uncps]
-  simp [deletion_loop_equivalence']
