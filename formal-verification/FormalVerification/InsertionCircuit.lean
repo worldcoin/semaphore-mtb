@@ -23,8 +23,9 @@ def TreeInsert [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon�
   k postTree.root
 
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)] (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (Proof : Vector F D) (k : F → Prop):
-  insertion_round Index Item Tree.root Proof k ↔
+  insertion_round_prep Index Item Tree.root Proof k ↔
   TreeInsert Tree Index Item Proof k := by
+  unfold insertion_round_prep
   unfold insertion_round
   unfold TreeInsert
   apply Iff.intro
@@ -144,7 +145,7 @@ theorem insertion_is_set
     | zero =>
       simp [InsertionLoop, insertion_circuit]
     | succ _ ih =>
-      simp only [InsertionLoop, insertion_circuit]
+      simp only [InsertionLoop, insertion_circuit, insertion_round_prep, insertion_round]
       rintro ⟨ixbin, _⟩
       casesm* (_ ∧ _)
       have : nat_to_bits_le D (↑StartIndex:F).val = some (vector_zmod_to_bit ixbin) := by

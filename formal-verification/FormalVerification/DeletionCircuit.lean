@@ -51,7 +51,7 @@ lemma tail_index_in_range {b : Nat} (D : Nat) (Index : Vector (ZMod n) (b+1)) (x
 ------------------
 
 def TreeDelete [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D): MerkleTree F poseidon₂ D :=
+  (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) : MerkleTree F poseidon₂ D :=
   match Skip with
   | Bit.zero => (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse 0)
   | Bit.one => Tree
