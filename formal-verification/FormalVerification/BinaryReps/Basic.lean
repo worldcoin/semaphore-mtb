@@ -136,6 +136,10 @@ theorem binary_comparison_with_constant_is_comparison {base arg : SubVector F (N
         subst_vars
         simp [Gates.sub, ih, Fin.last_def]
 
+theorem recover_order_binary_le_is_order :
+  recover_binary_nat (Vector.map bitCases order_binary_le.lower) = Order := by
+  rfl
+
 -- theorem ReducedModRCheck_256_Fold :
 --   ∀ (v : {v : Vector F 256 // allIxes is_bit v}),
 --   binary_comparison_with_constant order_binary_le v ⟨255, by decide⟩ 0 0 = SemaphoreMTB.ReducedModRCheck_256 v := by

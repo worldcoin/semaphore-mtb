@@ -32,7 +32,7 @@ theorem allIxes_indexed₃ {v : {v : Vector (Vector (Vector α a) b) c // allIxe
 
 structure UniqueSolution (f : α → Prop) (range : α → Prop) where
   val : Subtype range
-  uniq : ∀k, f k ↔ k = val
+  uniq : ∀x, f x ↔ x = val
 
 def xor_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.xor a.val b.val x) is_bit := by
   cases a using bitCases' with
@@ -251,8 +251,8 @@ def KeccakF_64_5_5_64_24_24_constant'
 
 
 def KeccakGadget_640_64_24_640_256_24_1088_1_constant
-  { input : { v : Vector F 640 // allIxes is_bit v}}
-  { rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } }:
+  (input : { v : Vector F 640 // allIxes is_bit v})
+  ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
   ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
   unfold SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
   apply ConstantOf_compose_existential
