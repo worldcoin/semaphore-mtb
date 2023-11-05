@@ -16,6 +16,54 @@ open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 set_option pp.coercions false
 
+------------ MISC
+
+lemma proof_of_set
+  {F d}
+  (H : Hash F 2)
+  [Fact (perfect_hash H)]
+  (Tree : MerkleTree F H d)
+  (ix : Vector Dir d)
+  (item : F):
+  (MerkleTree.proof (MerkleTree.set Tree ix item) ix) = MerkleTree.proof Tree ix := by
+  induction d with
+  | zero =>
+    simp [MerkleTree.set, MerkleTree.proof]
+  | succ d ih =>
+    cases Tree
+    simp [MerkleTree.set, MerkleTree.proof, MerkleTree.tree_for]
+    split
+    . rename_i hdir
+      have : Dir.swap (Dir.swap (Vector.head ix)) = Dir.right := by
+        rw [hdir]
+        simp [Dir.swap]
+      have : Vector.head ix = Dir.right := by
+        rw [<-this]
+        simp [Dir.swap]
+        cases ix.head
+        . simp
+        . simp
+      rw [this]
+      simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]
+      simp [Vector.vector_eq_cons]
+      rw [ih]
+    . rename_i hdir
+      have : Dir.swap (Dir.swap (Vector.head ix)) = Dir.left := by
+        rw [hdir]
+        simp [Dir.swap]
+      have : Vector.head ix = Dir.left := by
+        rw [<-this]
+        simp [Dir.swap]
+        cases ix.head
+        . simp
+        . simp
+      rw [this]
+      simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]
+      simp [Vector.vector_eq_cons]
+      rw [ih]
+
+------------
+
 def TreeInsert [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) : MerkleTree F poseidon₂ D :=
   MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item
@@ -41,26 +89,16 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
   let newTree := (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item)
   let item := MerkleTree.item_at newTree (Dir.create_dir_vec Path).reverse
   let proof := (MerkleTree.proof newTree (Dir.create_dir_vec Path).reverse).reverse
-  insertion_round Path item Tree.root proof k ↔
-  MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = (0:F) ∧
-  k (TreeInsert Tree Path item).root := by
+  MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = (0:F) →
+  (insertion_round Path item Tree.root proof k ↔
+  k (TreeInsert Tree Path Item).root) := by
+  simp
+  intro hzero
   unfold insertion_round
   unfold TreeInsert
   simp [MerkleTree.recover_tail_equals_recover_reverse]
-
   simp [MerkleTree.recover_proof_is_root]
-  rw [MerkleTree.read_after_insert_sound]
-  apply Iff.intro
-  . intro h
-    casesm* (_ ∧ _)
-    refine ⟨?_, ?_⟩
-    . sorry
-    . assumption
-  . intro h
-    casesm* (_ ∧ _)
-    refine ⟨?_, ?_⟩
-    . sorry
-    . assumption
-  --let newTree := (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item)
-  --let proof := (MerkleTree.proof newTree (Dir.create_dir_vec Path).reverse)
-  --rw [MerkleTree.proof_ceritfies_item (Dir.create_dir_vec Path).reverse Tree proof (0:F)]
+  intro
+  rw [<-hzero]
+  rw [proof_of_set]
+  simp [MerkleTree.recover_proof_is_root]
