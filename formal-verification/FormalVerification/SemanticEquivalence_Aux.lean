@@ -17,10 +17,6 @@ def ofFnGet (v : Vector F d) : Vector F d := Vector.ofFn fun i => v[i.val]'i.pro
 instance : HAppend (Vector α d₁) (Vector α d₂) (Vector α (d₁ + d₂)) := ⟨Vector.append⟩
 
 
-
--- theorem allIxes_append : (SubVector α d n).val ++
-
-
 def DeletionMbuCircuit_4_4_30_4_4_30_Fold (InputHash: F) (DeletionIndices: Vector F 4) (PreRoot: F) (PostRoot: F) (IdComms: Vector F 4) (MerkleProofs: Vector (Vector F 30) 4): Prop :=
     SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[0] fun gate_0 =>
     SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[1] fun gate_1 =>
@@ -50,6 +46,14 @@ theorem SubVector_append {v₁ : Vector α d₁} {prop₁ : allIxes prop v₁ } 
   (Subtype.mk v₁ prop₁).val ++ (Subtype.mk v₂ prop₂).val =
   (Subtype.mk (v₁ ++ v₂) (allIxes_append.mpr ⟨prop₁, prop₂⟩)).val := by eq_refl
 
+theorem KeccakGadget_640_64_24_640_256_24_1088_1_constant'
+  (input : Vector F 640)
+  (prop_input : allIxes is_bit input)
+  ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
+  ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input rc.val) (allIxes is_bit) :=
+  KeccakGadget_640_64_24_640_256_24_1088_1_constant ⟨input, prop_input⟩ rc
+
+
 theorem InputHash_deterministic :
   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₁ DeletionIndices PreRoot PostRoot IdComms MerkleProofs₁ ∧
   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₂ DeletionIndices PreRoot PostRoot IdComms MerkleProofs₂ →
@@ -59,18 +63,85 @@ theorem InputHash_deterministic :
   intro ⟨h₁, h₂⟩
   repeat have h₁ := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h₁
   repeat have h₂ := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h₂
-  simp_rw [ofFnGet_id] at h₁ h₂
-  simp_rw [(ToReducedBigEndian_256_constant _).equiv] at h₁ h₂
-  simp_rw [SubVector_append] at h₁ h₂
-  simp_rw [(KeccakGadget_640_64_24_640_256_24_1088_1_constant _ _).equiv] at h₁ h₂
-  simp_rw [(FromBinaryBigEndian_256_constant _).equiv] at h₁ h₂
+  rw [ (ToReducedBigEndian_256_constant _).equiv
+     , (ToReducedBigEndian_256_constant _).equiv
+     , (KeccakGadget_640_64_24_640_256_24_1088_1_constant' _ (by simp [ofFnGet_id, allIxes_append, Subtype.property]) _).equiv
+     , (FromBinaryBigEndian_256_constant _).equiv
+     ] at h₁ h₂
   rcases h₁ with ⟨h₁, _⟩
   rcases h₂ with ⟨h₂, _⟩
-  subst h₁
-  subst h₂
-  eq_refl
+  rw [h₁, h₂]
+
+def ReducedKeccak_640_collision : Prop :=
+  ∀{v₁ v₂ : Vector F 640} {prop₁ : allIxes is_bit v₁} {prop₂ : allIxes is_bit v₂},
+   (FromBinaryBigEndian_256_constant ↑(KeccakGadget_640_64_24_640_256_24_1088_1_constant' v₁ prop₁ RCBits).val).val.val =
+   (FromBinaryBigEndian_256_constant ↑(KeccakGadget_640_64_24_640_256_24_1088_1_constant' v₂ prop₂ RCBits).val).val.val →
+   v₁ = v₂
+
+
+@[simp]
+theorem Vector.hAppend_toList {v₁ : Vector α d₁} {v₂ : Vector α d₂}:
+  (v₁ ++ v₂).toList = v₁.toList ++ v₂.toList := by rfl
+
+theorem Vector.append_inj {v₁ w₁ : Vector α d₁} {v₂ w₂ : Vector α d₂}:
+  v₁ ++ v₂ = w₁ ++ w₂ → v₁ = w₁ ∧ v₂ = w₂ := by
+  intro h
+  induction v₁, w₁ using Vector.inductionOn₂ with
+  | nil =>
+    apply And.intro rfl
+    apply Vector.eq
+    have := congrArg toList h
+    simp at this
+    assumption
+  | cons ih =>
+    have := congrArg toList h
+    simp at this
+    rcases this with ⟨h₁, h₂⟩
+    rw [←hAppend_toList, ←hAppend_toList] at h₂
+    have := Vector.eq _ _ h₂
+    have := ih this
+    cases this
+    subst_vars
+    apply And.intro <;> rfl
 
 theorem InputHash_injective :
+  ReducedKeccak_640_collision →
   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
-  DeletionIndices₁ = DeletionIndices₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂ := by sorry
+  DeletionIndices₁ = DeletionIndices₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂ := by
+  intro kr
+  repeat rw [DeletionCircuit_folded]
+  unfold DeletionMbuCircuit_4_4_30_4_4_30_Fold
+  intro ⟨h₁, h₂⟩
+  repeat have h₁ := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h₁
+  repeat have h₂ := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h₂
+  simp only [ofFnGet_id] at h₁ h₂
+  rw [ (ToReducedBigEndian_256_constant _).equiv
+     , (ToReducedBigEndian_256_constant _).equiv
+     , (KeccakGadget_640_64_24_640_256_24_1088_1_constant' _ (by simp [ofFnGet_id, allIxes_append, Subtype.property]) _).equiv
+     , (FromBinaryBigEndian_256_constant _).equiv
+     ] at h₁ h₂
+  rcases h₁ with ⟨h₁, _⟩
+  rcases h₂ with ⟨h₂, _⟩
+  have := Eq.trans (Eq.symm h₁) h₂
+  have := kr this
+  have := Vector.append_inj this
+  rcases this with ⟨this, hPostRoot⟩
+  have := Vector.append_inj this
+  rcases this with ⟨this, hPreRoot⟩
+  have := Vector.append_inj this
+  rcases this with ⟨this, d₃⟩
+  have := Vector.append_inj this
+  rcases this with ⟨this, d₂⟩
+  have := Vector.append_inj this
+  rcases this with ⟨d₀, d₁⟩
+  have hPostRoot := ToReducedBigEndian_256_injective (Subtype.eq hPostRoot)
+  have hPreRoot := ToReducedBigEndian_256_injective (Subtype.eq hPreRoot)
+  refine ⟨?_, hPreRoot, hPostRoot⟩
+  have d₀ := ToReducedBigEndian_32_inj (Subtype.eq d₀)
+  have d₁ := ToReducedBigEndian_32_inj (Subtype.eq d₁)
+  have d₂ := ToReducedBigEndian_32_inj (Subtype.eq d₂)
+  have d₃ := ToReducedBigEndian_32_inj (Subtype.eq d₃)
+  simp [GetElem.getElem] at d₀ d₁ d₂ d₃
+  ext i
+  fin_cases i <;> simpa
