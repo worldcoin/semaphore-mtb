@@ -297,8 +297,11 @@ def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
   match b with
   | Nat.zero => k Tree
   | Nat.succ i =>
+    let newTree := tree_set_at_fin Tree (StartIndex:F).val IdComms.head
+    let item := tree_item_at_fin newTree (StartIndex:F).val
+    let proof := tree_proof_at_fin newTree (StartIndex:F).val
     ∃t : MerkleTree F poseidon₂ D,
-    insertion_round_prep StartIndex IdComms.head Tree.root (tree_proof_at_fin Tree StartIndex).reverse (fun nextRoot => t.root = nextRoot) ∧
+    insertion_round_prep StartIndex item Tree.root proof.reverse (fun nextRoot => t.root = nextRoot) ∧
       InsertionLoopTree t (StartIndex+1) IdComms.tail (by
     simp
     have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
@@ -307,9 +310,71 @@ def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-this]
     simp [xs_small]) k
 
+def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Prop :=
+  match b with
+  | Nat.zero => True
+  | Nat.succ i =>
+    let nextTree := TreeInsertPrep Tree StartIndex IdComms.head (by
+    apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+    . simp [D]
+    . simp [xs_small])
+
+    tree_item_at_fin Tree (StartIndex:F).val = (0:F) ∧
+    InsertionLoopZero nextTree (StartIndex+1) IdComms.tail (by
+    simp
+    have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
+      simp [<-Nat.add_one, add_assoc]
+      simp [add_comm]
+    rw [<-this]
+    simp [xs_small])
+
+
 def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) :
-  TreeInsertCircuit Tree StartIndex IdComms xs_small k ↔
-  InsertionLoopTree Tree StartIndex IdComms xs_small k := by
-
-  sorry
+  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  (TreeInsertCircuit Tree StartIndex IdComms xs_small k ↔
+  InsertionLoopTree Tree StartIndex IdComms xs_small k) := by
+  intro hzero
+  induction b generalizing Tree StartIndex with
+  | zero =>
+    simp [TreeInsertCircuit, InsertionLoopTree]
+  | succ _ ih =>
+    simp only [TreeInsertCircuit, InsertionLoopTree]
+    simp [InsertionLoopZero] at hzero
+    rcases hzero with ⟨hzero, hnext⟩
+    apply Iff.intro
+    . rintro ⟨tree, htree, hroot⟩
+      refine ⟨tree, ?_, ?_⟩
+      rw [insertion_round_prep_uncps]
+      . rw [MerkleTree.eq_root_eq_tree]
+        apply Eq.symm
+        . simp [htree]
+        . rename_i i
+          apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+          . simp [D]
+          . simp [xs_small]
+      . simp [hzero]
+      . rw [<-ih]
+        . simp [hroot]
+        . rw [<-htree]
+          simp [hnext]
+    . rintro ⟨tree, htree, hroot⟩
+      refine ⟨tree, ?_⟩
+      rw [insertion_round_prep_uncps] at htree
+      refine ⟨?_, ?_⟩
+      . rw [<-MerkleTree.eq_root_eq_tree]
+        simp [htree]
+      . rw [ih]
+        . simp [hroot]
+        . rename_i i _
+          let t₁ := tree
+          let t₂ := TreeInsertPrep Tree (StartIndex) (IdComms.head) (by
+          apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+          . simp [D]
+          . simp [xs_small])
+          rw [MerkleTree.eq_root_eq_tree (t₁ := t₁) (t₂ := t₂)] at htree
+          simp at htree
+          rw [htree]
+          simp [hnext]
+      . simp [hzero]
