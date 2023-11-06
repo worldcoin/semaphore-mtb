@@ -21,6 +21,17 @@ set_option pp.coercions false
 def is_index_in_range {n : Nat} (D : Nat) (a : ZMod n) : Prop :=
   a.val < 2^D
 
+def is_index_in_range_nat (D : Nat) (a : Nat) : Prop :=
+  a < 2^D
+
+lemma is_index_in_range_nat_sum {n : Nat} (D : Nat) (a b : Nat) (h : 2^D < n): is_index_in_range_nat D (a + b) → is_index_in_range D (a:ZMod n) := by
+  intro xs_small
+  rw [is_index_in_range_nat] at xs_small
+  rw [is_index_in_range]
+  rw [ZMod.val_cast_of_lt]
+  . linarith
+  . linarith
+
 def are_indices_in_range {d n : Nat} (D : Nat) (a : Vector (ZMod n) d) : Prop :=
   List.foldr (fun x r => (is_index_in_range D x) ∧ r) True a.toList
 
@@ -242,3 +253,63 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       split
       . assumption
       . contradiction
+
+def TreeInsertZero [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range D Index) : Prop :=
+  let path := fin_to_bits_le ⟨Index.val, ix_small⟩
+  let idx := Vector.map (fun x => @Bit.toZMod Order x) path
+  MerkleTree.item_at Tree (Dir.create_dir_vec idx).reverse = (0:F)
+
+-- theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
+--   (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (ix_small : is_index_in_range D Index) :
+--   TreeInsertPrep Tree Index Item ix_small = t →
+--   TreeInsertZero Tree Index ix_small := by
+--   intro htree
+--   unfold TreeInsertPrep at htree
+--   unfold TreeInsert at htree
+--   simp [TreeInsertZero]
+--   apply MerkleTree.set_implies_item_at (t₁ := Tree)
+--   sorry
+
+def TreeInsertCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (InitialTree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
+  match b with
+  | Nat.zero => k InitialTree
+  | Nat.succ i =>
+    ∃newTree, TreeInsertPrep InitialTree StartIndex IdComms.head (by
+    apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+    . simp [D]
+    . simp [xs_small]) = newTree ∧
+    TreeInsertCircuit newTree (StartIndex+1) IdComms.tail (by
+    simp
+    have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
+      simp [<-Nat.add_one, add_assoc]
+      simp [add_comm]
+    rw [<-this]
+    simp [xs_small]) k
+
+-- TreeInsertCircuitZero
+
+-- before_insertion_all_zeroes
+
+def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
+  match b with
+  | Nat.zero => k Tree
+  | Nat.succ i =>
+    ∃t : MerkleTree F poseidon₂ D,
+    insertion_round_prep StartIndex IdComms.head Tree.root (tree_proof_at_fin Tree StartIndex).reverse (fun nextRoot => t.root = nextRoot) ∧
+      InsertionLoopTree t (StartIndex+1) IdComms.tail (by
+    simp
+    have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
+      simp [<-Nat.add_one, add_assoc]
+      simp [add_comm]
+    rw [<-this]
+    simp [xs_small]) k
+
+def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) :
+  TreeInsertCircuit Tree StartIndex IdComms xs_small k ↔
+  InsertionLoopTree Tree StartIndex IdComms xs_small k := by
+
+  sorry
