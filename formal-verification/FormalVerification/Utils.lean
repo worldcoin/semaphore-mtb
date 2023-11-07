@@ -118,20 +118,6 @@ def snoc (vs: SubVector α n prop) (v : Subtype prop): SubVector α n.succ prop 
       simp [*]
   ⟩
 
--- def cons {prop : α → Prop} (v : Subtype prop) (vs : SubVector α n prop): SubVector α n.succ prop :=
---   ⟨vs.val.cons v.val, by
---     sorry
---   ⟩
-
-
--- @[elab_as_elim]
--- def revInduction {C : ∀ {n:Nat}, SubVector α n prop → Sort _} {n : Nat} (v : SubVector α n prop)
---   (nil : C nil)
---   (snoc : ∀ {n : Nat} (vs : SubVector α n prop) (v : Subtype prop), (ih : C vs) → C (snoc vs v)): C v := by
---   rcases v with ⟨v, h⟩
---   induction v using Vector.revInductionOn with
---   | nil => exact nil
---   | snoc vs v ih => sorry
 
 @[elab_as_elim]
 def revCases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α n prop)
@@ -151,11 +137,6 @@ def revCases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α
       have := h (Fin.last _)
       simp [GetElem.getElem, Fin.last_def] at this
       exact this
-
--- @[elab_as_elim]
--- def cases {C : ∀ {n:Nat}, SubVector α n prop → Sort _} (v : SubVector α n prop)
---   (nil : C nil)
---   (cons : ∀ {n : Nat} (v : Subtype prop) (vs : SubVector α n prop), C (cons v vs)): C v := by sorry
 
 instance : GetElem (SubVector α n prop) (Fin n) (Subtype prop) (fun _ _ => True) where
   getElem v i _ := ⟨v.val.get i, v.prop i⟩
@@ -210,44 +191,6 @@ theorem isBitCases (b : Subtype (α := ZMod n) is_bit): b = bZero ∨ b = bOne :
   cases b with | mk _ prop =>
   cases prop <;> {subst_vars ; tauto }
 
--- theorem ofFn_snoc' { fn : Fin (Nat.succ n) → α }: Vector.ofFn fn = Vector.snoc (Vector.ofFn (fun (x : Fin n) => fn x)) (fn n) := by
---   induction n with
---   | zero => rfl
---   | succ n ih =>
---     conv => lhs; rw [Vector.ofFn, ih]
---     simp [Vector.ofFn]
---     congr
---     . funext i;
---       congr
---       conv => lhs; whnf
---       conv => rhs; whnf
---       congr
---       rcases i with ⟨i, _⟩
---       simp [Nat.mod_eq_of_lt]
---       rw [Nat.mod_eq_of_lt]
---       linarith
---     . conv => lhs; whnf
---       conv => rhs; whnf
---       congr
---       simp [Nat.mod_eq_of_lt]
-
--- @[simp]
--- lemma snoc_get_not_last {vs : Vector α (Nat.succ n) } {ix_small : ix ≤ n}: (vs.snoc v)[ix]'(by linarith) = vs[ix]'(by linarith) := by
---   induction ix generalizing vs n with
---   | zero =>
---     cases vs using Vector.casesOn; rename_i hd tl
---     simp
---   | succ ix ih =>
---     cases vs using Vector.casesOn; rename_i hd tl
---     simp
---     rw [vector_get_cons_succ] <;> try linarith
---     rw [vector_get_cons_succ] <;> try linarith
---     cases n with
---     | zero => cases ix_small
---     | succ _ =>
---       apply ih
---       linarith
-
 
 def bitCases : { v : ZMod (Nat.succ (Nat.succ n)) // is_bit v} → Bit
   | ⟨0, _⟩ => Bit.zero
@@ -301,39 +244,61 @@ lemma bitCases_bZero {n:Nat}: bitCases (@bZero (n + 2)) = Bit.zero := by rfl
 @[simp]
 lemma bitCases_bOne {n:Nat}: bitCases (@bOne (n+2)) = Bit.one := by rfl
 
-section Gates
+namespace Gates
 
 variable {Order : Nat}
 variable [Fact (Nat.Prime Order)]
--- abbrev F := ZMod Order
 
 @[simp]
-theorem gates_select_0 {a b r : ZMod Order}: Gates.select 0 a b r = (r = b) := by
+theorem select_zero {a b r : ZMod Order}: Gates.select 0 a b r = (r = b) := by
   simp [Gates.select]
 
 @[simp]
-theorem gates_select_1 {a b r : ZMod Order}: Gates.select 1 a b r = (r = a) := by
+theorem select_one {a b r : ZMod Order}: Gates.select 1 a b r = (r = a) := by
   simp [Gates.select]
 
 @[simp]
-theorem gates_or_0 { a r : ZMod Order}: Gates.or a 0 r = (is_bit a ∧ r = a) := by
+theorem or_zero { a r : ZMod Order}: Gates.or a 0 r = (is_bit a ∧ r = a) := by
   simp [Gates.or]
 
 @[simp]
-theorem gates_0_or { a r : ZMod Order}: Gates.or 0 a r = (is_bit a ∧ r = a) := by
+theorem zero_or { a r : ZMod Order}: Gates.or 0 a r = (is_bit a ∧ r = a) := by
   simp [Gates.or]
 
 @[simp]
-theorem gates_1_or { a r : ZMod Order}: Gates.or 1 a r = (is_bit a ∧ r = 1) := by
+theorem one_or { a r : ZMod Order}: Gates.or 1 a r = (is_bit a ∧ r = 1) := by
   simp [Gates.or]
 
 @[simp]
-theorem gates_or_1 { a r : ZMod Order}: Gates.or a 1 r = (is_bit a ∧ r = 1) := by
+theorem or_one { a r : ZMod Order}: Gates.or a 1 r = (is_bit a ∧ r = 1) := by
   simp [Gates.or]
 
 @[simp]
-theorem gates_is_bit_one_sub {a : ZMod Order}: is_bit (Gates.sub 1 a) ↔ is_bit a := by
+theorem is_bit_one_sub {a : ZMod Order}: is_bit (Gates.sub 1 a) ↔ is_bit a := by
   simp [Gates.sub, is_bit, sub_eq_zero]
   tauto
 
 end Gates
+
+
+theorem getElem_allIxes {v : { v: Vector α n // allIxes prop v  }} {i : Nat} { i_small : i < n}:
+  v.val[i]'i_small = ↑(Subtype.mk (v.val.get ⟨i, i_small⟩) (v.prop ⟨i, i_small⟩)) := by rfl
+
+theorem getElem_allIxes₂ {v : { v: Vector (Vector α m) n // allIxes (allIxes prop) v  }} {i j: Nat} { i_small : i < n} { j_small : j < m}:
+  (v.val[i]'i_small)[j]'j_small = ↑(Subtype.mk ((v.val.get ⟨i, i_small⟩).get ⟨j, j_small⟩) (v.prop ⟨i, i_small⟩ ⟨j, j_small⟩)) := by rfl
+
+theorem allIxes_indexed {v : {v : Vector α n // allIxes prop v}} {i : Nat} {i_small : i < n}:
+  prop (v.val[i]'i_small) := v.prop ⟨i, i_small⟩
+
+theorem allIxes_indexed₂ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes prop) v}}
+  {i : Nat} {i_small : i < c}
+  {j : Nat} {j_small : j < b}:
+  prop ((v.val[i]'i_small)[j]'j_small) :=
+  v.prop ⟨i, i_small⟩ ⟨j, j_small⟩
+
+theorem allIxes_indexed₃ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes (allIxes prop)) v}}
+  {i : Nat} {i_small : i < c}
+  {j : Nat} {j_small : j < b}
+  {k : Nat} {k_small : k < a}:
+  prop (((v.val[i]'i_small)[j]'j_small)[k]'k_small) :=
+  v.prop ⟨i, i_small⟩ ⟨j, j_small⟩ ⟨k, k_small⟩

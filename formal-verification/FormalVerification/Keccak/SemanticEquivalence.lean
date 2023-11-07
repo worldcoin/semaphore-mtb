@@ -5,36 +5,7 @@ import FormalVerification.Utils
 
 open SemaphoreMTB (F Order)
 
--- variable [Fact (Nat.Prime Order)]
-
-axiom order_prime : Nat.Prime Order
-instance order_prime' : Fact (Nat.Prime Order) := ⟨order_prime⟩
-
--- TODO MOVE UTILS
-
-theorem getElem_allIxes {v : { v: Vector α n // allIxes prop v  }} {i : Nat} { i_small : i < n}:
-  v.val[i]'i_small = ↑(Subtype.mk (v.val.get ⟨i, i_small⟩) (v.prop ⟨i, i_small⟩)) := by rfl
-
-theorem getElem_allIxes₂ {v : { v: Vector (Vector α m) n // allIxes (allIxes prop) v  }} {i j: Nat} { i_small : i < n} { j_small : j < m}:
-  (v.val[i]'i_small)[j]'j_small = ↑(Subtype.mk ((v.val.get ⟨i, i_small⟩).get ⟨j, j_small⟩) (v.prop ⟨i, i_small⟩ ⟨j, j_small⟩)) := by rfl
-
-theorem allIxes_indexed {v : {v : Vector α n // allIxes prop v}} {i : Nat} {i_small : i < n}:
-  prop (v.val[i]'i_small) := v.prop ⟨i, i_small⟩
-
-theorem allIxes_indexed₂ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes prop) v}}
-  {i : Nat} {i_small : i < c}
-  {j : Nat} {j_small : j < b}:
-  prop ((v.val[i]'i_small)[j]'j_small) :=
-  v.prop ⟨i, i_small⟩ ⟨j, j_small⟩
-
-theorem allIxes_indexed₃ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes (allIxes prop)) v}}
-  {i : Nat} {i_small : i < c}
-  {j : Nat} {j_small : j < b}
-  {k : Nat} {k_small : k < a}:
-  prop (((v.val[i]'i_small)[j]'j_small)[k]'k_small) :=
-  v.prop ⟨i, i_small⟩ ⟨j, j_small⟩ ⟨k, k_small⟩
-
--- END MOVE
+variable [Fact (Nat.Prime Order)]
 
 structure UniqueSolution (f : α → Prop) (range : α → Prop) where
   val : Subtype range
@@ -56,6 +27,7 @@ def xor_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.xor a
     | one =>
       apply UniqueSolution.mk bZero
       simp [Gates.xor]
+      rfl
 
 def and_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.and a.val b.val x) is_bit := by
   cases a using bitCases' with
@@ -96,9 +68,11 @@ def not_unique (a : {f : F // is_bit f}): UniqueSolution (fun x => x = Gates.sub
   | zero =>
     apply UniqueSolution.mk bOne
     simp
+    rfl
   | one =>
     apply UniqueSolution.mk bZero
     simp
+    rfl
 
 structure ConstantOf (f : (β → Prop) → Prop) (range : β → Prop) where
   val : Subtype range
@@ -302,12 +276,3 @@ def KeccakGadget_1568_64_24_1568_256_24_1088_1_constant
   intro _
   apply ConstantOf_constant
   simp [allIxes_indexed₃]
-
-
-
-
-
-  -- apply Subtype.property
-  -- intro _
-  -- apply ConstantOf_constant
-  -- simp [allIxes_indexed₃]
