@@ -315,20 +315,19 @@ def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
   match b with
   | Nat.zero => True
   | Nat.succ i =>
-    let nextTree := TreeInsertPrep Tree StartIndex IdComms.head (by
+    let t := TreeInsertPrep Tree StartIndex IdComms.head (by
     apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
     . simp [D]
     . simp [xs_small])
 
     tree_item_at_fin Tree (StartIndex:F).val = (0:F) ∧
-    InsertionLoopZero nextTree (StartIndex+1) IdComms.tail (by
+    InsertionLoopZero t (StartIndex+1) IdComms.tail (by
     simp
     have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
       simp [<-Nat.add_one, add_assoc]
       simp [add_comm]
     rw [<-this]
     simp [xs_small])
-
 
 def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) :
@@ -378,3 +377,204 @@ def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
           rw [htree]
           simp [hnext]
       . simp [hzero]
+
+def list_of_items [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector F b :=
+  match b with
+  | Nat.zero => Vector.nil
+  | Nat.succ i =>
+    let t := (tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
+
+    let item_at := tree_item_at_fin t (StartIndex:F).val
+    let tail := list_of_items t (StartIndex+1) IdComms.tail (by
+    simp
+    have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
+      simp [<-Nat.add_one, add_assoc]
+      simp [add_comm]
+    rw [<-this]
+    simp [xs_small])
+    item_at ::ᵥ tail
+
+def list_of_proofs {b : Nat} [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector (Vector F D) b :=
+  match b with
+  | Nat.zero => Vector.nil
+  | Nat.succ i =>
+    let t := (tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
+
+    let proof := (tree_proof_at_fin t (StartIndex:F).val).reverse
+    let tail := list_of_proofs t (StartIndex+1) IdComms.tail (by
+    simp
+    have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
+      simp [<-Nat.add_one, add_assoc]
+      simp [add_comm]
+    rw [<-this]
+    simp [xs_small])
+
+    proof ::ᵥ tail
+
+@[simp]
+lemma list_of_items_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F (b+1)) (xs_small : is_index_in_range_nat D (StartIndex + b + 1)) :
+  Vector.tail (list_of_items Tree StartIndex IdComms xs_small) =
+  let t := TreeInsertPrep Tree (StartIndex:F) IdComms.head (by
+  apply is_index_in_range_nat_sum (a := StartIndex) (b := b + 1)
+  . simp [D]
+  . rw [<-add_assoc]
+    simp [xs_small])
+  list_of_items t (StartIndex+1) IdComms.tail (by
+  simp
+  have : StartIndex + 1 + b = StartIndex + b + 1 := by
+    simp [<-Nat.add_one, add_assoc]
+    simp [add_comm]
+  rw [this]
+  simp [xs_small]) := by
+  simp
+  simp [list_of_items]
+  simp [tree_set_at_fin]
+  simp [TreeInsertPrep]
+  simp [TreeInsert]
+  rw [<-Dir.recover_binary_zmod'_to_dir]
+  . tauto
+  . rw [is_index_in_range_nat] at xs_small
+    rw [ZMod.val_cast_of_lt]
+    . linarith
+    . simp [D] at xs_small
+      simp [Order]
+      linarith
+  . simp [Order, D]
+  . simp [vector_binary_of_bit_to_zmod]
+  . rw [recover_binary_of_to_bits]
+    simp [fin_to_bits_le]
+    split
+    . tauto
+    . contradiction
+
+@[simp]
+lemma list_of_proofs_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F (b+1)) (xs_small : is_index_in_range_nat D (StartIndex + b + 1)) :
+  Vector.tail (list_of_proofs Tree StartIndex IdComms xs_small) =
+  let t := TreeInsertPrep Tree (StartIndex:F) IdComms.head (by
+  apply is_index_in_range_nat_sum (a := StartIndex) (b := b + 1)
+  . simp [D]
+  . rw [<-add_assoc]
+    simp [xs_small])
+  list_of_proofs t (StartIndex+1) IdComms.tail (by
+  simp
+  have : StartIndex + 1 + b = StartIndex + b + 1 := by
+    simp [<-Nat.add_one, add_assoc]
+    simp [add_comm]
+  rw [this]
+  simp [xs_small]) := by
+  simp
+  simp [list_of_items]
+  simp [tree_set_at_fin]
+  simp [TreeInsertPrep]
+  simp [TreeInsert]
+  rw [<-Dir.recover_binary_zmod'_to_dir]
+  . tauto
+  . rw [is_index_in_range_nat] at xs_small
+    rw [ZMod.val_cast_of_lt]
+    . linarith
+    . simp [D] at xs_small
+      simp [Order]
+      linarith
+  . simp [Order, D]
+  . simp [vector_binary_of_bit_to_zmod]
+  . rw [recover_binary_of_to_bits]
+    simp [fin_to_bits_le]
+    split
+    . tauto
+    . contradiction
+
+theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : F -> Prop) :
+  let items := list_of_items Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs Tree StartIndex IdComms xs_small
+  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  (InsertionLoopTree Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
+  InsertionLoop StartIndex Tree.root items proofs k) := by
+  simp
+  intro hzero
+  apply Iff.intro
+  . induction b generalizing Tree StartIndex with
+    | zero =>
+      simp [InsertionLoopTree, InsertionLoop]
+    | succ _ ih =>
+      simp [InsertionLoopZero] at hzero
+      rcases hzero with ⟨hzero', hzero⟩
+      simp only [InsertionLoopTree]
+      rintro ⟨tree, htree, hroot⟩
+      simp only [list_of_items] at htree
+      simp only [Vector.head_cons] at htree
+      rw [insertion_round_prep_uncps] at htree
+      rename_i i _
+      let t₁ := tree
+      let t₂ := TreeInsertPrep Tree (StartIndex) (IdComms.head) (by
+      apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+      . simp [D]
+      . simp [xs_small])
+      rw [MerkleTree.eq_root_eq_tree (t₁ := t₁) (t₂ := t₂)] at htree
+      simp at htree
+      rw [InsertionLoop]
+      nth_rewrite 1 [list_of_items, list_of_proofs]
+      simp only [Vector.head_cons]
+      rw [insertion_round_prep_uncps]
+      . simp only [list_of_items_tail]
+        simp only [list_of_proofs_tail]
+        rw [htree] at hroot
+        have : @Nat.cast F Semiring.toNatCast StartIndex + 1 = Nat.cast (StartIndex + 1) := by
+          simp [Nat.cast]
+        rw [this]
+        apply ih
+        simp [hzero]
+        simp [hroot]
+      . simp [hzero']
+      . simp [hzero']
+  . induction b generalizing Tree StartIndex with
+    | zero =>
+      simp [InsertionLoopTree, InsertionLoop]
+    | succ _ ih =>
+      intro htree
+      simp only [InsertionLoopTree]
+      simp [InsertionLoop] at htree
+      rename_i i
+      let t := TreeInsertPrep Tree (StartIndex) (IdComms.head) (by
+        apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+        . simp [D]
+        . simp [xs_small])
+      refine ⟨t, ?_⟩
+      nth_rewrite 1 [list_of_items, list_of_proofs] at htree
+      simp only [Vector.head_cons] at htree
+      rw [insertion_round_prep_uncps] at htree
+      . rw [insertion_round_prep_uncps, MerkleTree.eq_root_eq_tree]
+        refine ⟨?_, ?_⟩
+        . tauto
+        . apply ih
+          simp [InsertionLoopZero] at hzero
+          rcases hzero with ⟨_, hzero⟩
+          simp [hzero]
+          simp [htree]
+        . simp [InsertionLoopZero] at hzero
+          rcases hzero with ⟨hzero', _⟩
+          simp [hzero']
+      . apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
+        . simp [D]
+        . simp [xs_small]
+      . simp [InsertionLoopZero] at hzero
+        rcases hzero with ⟨hzero', _⟩
+        simp [hzero']
+
+
+
+
+
+
+
+-- lemma tree_set_equivalence {b : Nat} [Fact (perfect_hash poseidon₂)]
+--   (Tree : MerkleTree F poseidon₂ D) (Index : Nat) (IdComms: F) (xs_small : is_index_in_range_nat D (Index)) :
+--   tree_set_at_fin Tree (Index:F).val IdComms = TreeInsertPrep Tree Index IdComms (by
+--     apply is_index_in_range_nat_sum (a := Index) (b := 0)
+--     . simp [D]
+--     . simp [xs_small]) := by
+--   sorry
