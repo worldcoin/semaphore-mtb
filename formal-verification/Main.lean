@@ -15,10 +15,6 @@ open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
 
-open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
-
-open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
-
 theorem insertion_is_set_circuit
   [Fact (perfect_hash poseidon₂)]
   (Tree: MerkleTree F poseidon₂ D)
@@ -26,7 +22,7 @@ theorem insertion_is_set_circuit
   TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
-  gInsertionProof StartIndex Tree.root items proofs k) := by
+  SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k) := by
   simp
   rw [InsertionProof_uncps]
   rw [insertion_loop_equivalence']
@@ -35,9 +31,9 @@ theorem insertion_is_set_circuit
 theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
-  let items := (list_of_items Tree DeletionIndices xs_small)
-  let proofs := (list_of_proofs Tree DeletionIndices xs_small)
-  gDeletionProof DeletionIndices Tree.root items proofs k := by
+  let items := (list_of_items_delete Tree DeletionIndices xs_small)
+  let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
+  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs k := by
   rw [DeletionProof_uncps]
   simp [deletion_loop_equivalence']
 
@@ -47,16 +43,16 @@ theorem before_insertion_all_zeroes_batch
   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
   let items := list_of_items_insert Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
-  gInsertionProof StartIndex Tree.root items proofs k →
+  SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k →
   InsertionLoopZero Tree StartIndex IdComms xs_small := by
   simp [InsertionProof_uncps]
   apply before_insertion_all_zeroes
 
 theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
   (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  let items := (list_of_items Tree₁ DeletionIndices xs_small)
-  let proofs := (list_of_proofs Tree₁ DeletionIndices xs_small)
-  gDeletionProof DeletionIndices Tree₁.root items proofs k →
+  let items := (list_of_items_delete Tree₁ DeletionIndices xs_small)
+  let proofs := (list_of_proofs_delete Tree₁ DeletionIndices xs_small)
+  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree₁.root items proofs k →
   TreeDeleteCircuitZero DeletionIndices xs_small := by
   simp [DeletionProof_uncps]
   rw [<-deletion_loop_equivalence']
