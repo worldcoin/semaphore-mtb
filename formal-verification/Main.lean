@@ -21,14 +21,16 @@ open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 theorem insertion_is_set_circuit
   [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (PostRoot : F)
-  {ixBound: StartIndex + B < Order}:
-  (gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs fun newRoot => PostRoot = newRoot) ↔
-  (insertion_circuit Tree ↑StartIndex IdComms MerkleProofs fun newRoot => PostRoot = newRoot) := by
+  (Tree: MerkleTree F poseidon₂ D)
+  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
+  TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
+  (let items := list_of_items_insert Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
+  gInsertionProof StartIndex Tree.root items proofs k) := by
+  simp
   rw [InsertionProof_uncps]
-  apply insertion_is_set
-  simp [ixBound]
+  rw [insertion_loop_equivalence']
+  simp [hzero]
 
 theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
@@ -39,16 +41,16 @@ theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
   rw [DeletionProof_uncps]
   simp [deletion_loop_equivalence']
 
-theorem before_insertion_all_items_zero
+theorem before_insertion_all_zeroes_batch
   [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop)
-  {ixBound: StartIndex + B < Order}:
-  gInsertionProof ↑StartIndex Tree.root IdComms MerkleProofs k →
-  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.item_at_nat Tree i = some 0) := by
-  rw [InsertionProof_looped]
-  apply before_insertion_all_items_zero_loop
-  simp [ixBound]
+  (Tree: MerkleTree F poseidon₂ D)
+  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
+  let items := list_of_items_insert Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
+  gInsertionProof StartIndex Tree.root items proofs k →
+  InsertionLoopZero Tree StartIndex IdComms xs_small := by
+  simp [InsertionProof_uncps]
+  apply before_insertion_all_zeroes
 
 theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
   (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
