@@ -21,6 +21,12 @@ theorem getElem_allIxes₂ {v : { v: Vector (Vector α m) n // allIxes (allIxes 
 theorem allIxes_indexed {v : {v : Vector α n // allIxes prop v}} {i : Nat} {i_small : i < n}:
   prop (v.val[i]'i_small) := v.prop ⟨i, i_small⟩
 
+theorem allIxes_indexed₂ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes prop) v}}
+  {i : Nat} {i_small : i < c}
+  {j : Nat} {j_small : j < b}:
+  prop ((v.val[i]'i_small)[j]'j_small) :=
+  v.prop ⟨i, i_small⟩ ⟨j, j_small⟩
+
 theorem allIxes_indexed₃ {v : {v : Vector (Vector (Vector α a) b) c // allIxes (allIxes (allIxes prop)) v}}
   {i : Nat} {i_small : i < c}
   {j : Nat} {j_small : j < b}
@@ -127,6 +133,10 @@ def Xor_64_64_constant (v1 v2 : SubVector F 64 is_bit):
   )
   apply ConstantOf_constant
   simp [Subtype.property]
+
+def Xor_64_64_constant' (v₁ v₂ : Vector F 64) {prop₁ : allIxes is_bit v₁} {prop₂ : allIxes is_bit v₂}:
+  ConstantOf (SemaphoreMTB.Xor_64_64 v₁ v₂) (allIxes is_bit) :=
+  Xor_64_64_constant ⟨v₁, prop₁⟩ ⟨v₂, prop₂⟩
 
 def And_64_64_constant (v1 v2 : SubVector F 64 is_bit):
   ConstantOf (SemaphoreMTB.And_64_64 v1.val v2.val) (allIxes is_bit) := by
@@ -249,7 +259,6 @@ def KeccakF_64_5_5_64_24_24_constant'
   ConstantOf (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (allIxes (allIxes (allIxes is_bit))) := by
   apply KeccakF_64_5_5_64_24_24_constant (state := ⟨state, state_prop⟩) (rc := ⟨rc, rc_prop⟩)
 
-
 def KeccakGadget_640_64_24_640_256_24_1088_1_constant
   (input : { v : Vector F 640 // allIxes is_bit v})
   ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
@@ -266,10 +275,39 @@ def KeccakGadget_640_64_24_640_256_24_1088_1_constant
   apply ConstantOf_constant
   simp [allIxes_indexed₃]
 
+def KeccakGadget_1568_64_24_1568_256_24_1088_1_constant
+  (input : { v : Vector F 1568 // allIxes is_bit v})
+  ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
+  ConstantOf (SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
+  unfold SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1
+  apply ConstantOf_compose_existential
+  apply xor_unique (a := bZero) (b := bOne)
+  intro _
+  apply ConstantOf_compose
+  apply KeccakF_64_5_5_64_24_24_constant'
+  . simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  . apply Subtype.property
+  repeat (
+    intro _
+    apply ConstantOf_compose
+    apply Xor_64_64_constant'
+    . simp only [allIxes_cons, allIxes_nil, allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+    . simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  )
+  intro _
+  apply ConstantOf_compose
+  apply KeccakF_64_5_5_64_24_24_constant'
+  . simp only [allIxes_cons, allIxes_nil, allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  . apply Subtype.property
+  intro _
+  apply ConstantOf_constant
+  simp [allIxes_indexed₃]
 
-abbrev rc: Vector (Vector {f : F // is_bit f} 64) 24 := vec![vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bZero, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bOne, bOne, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bOne, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bOne, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne], vec![bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero], vec![bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bZero, bOne]]
 
-def rc' := SubVector.lift $ rc.map SubVector.lift
 
-#eval (@KeccakGadget_640_64_24_640_256_24_1088_1_constant (SubVector.lift (Vector.replicate 640 bZero)) rc').val.val[0]
-#eval (@KeccakGadget_640_64_24_640_256_24_1088_1_constant (SubVector.lift (Vector.replicate 640 bZero)) rc').val.val[1]
+
+
+  -- apply Subtype.property
+  -- intro _
+  -- apply ConstantOf_constant
+  -- simp [allIxes_indexed₃]
