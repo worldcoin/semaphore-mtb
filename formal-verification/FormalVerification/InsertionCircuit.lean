@@ -19,6 +19,14 @@ set_option pp.coercions false
 
 ------------ MISC
 
+lemma fin_to_bits_recover_binary (Index : F) (ix_small : is_index_in_range D Index) :
+  recover_binary_zmod' (Vector.map Bit.toZMod (fin_to_bits_le { val := ZMod.val Index, isLt := ix_small })) = Index := by
+  rw [recover_binary_of_to_bits]
+  simp [fin_to_bits_le]
+  split
+  . assumption
+  . contradiction
+
 lemma proof_of_set
   {F d}
   (H : Hash F 2)
@@ -72,6 +80,14 @@ def tree_proof_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin
 def tree_set_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^d)) (Item : F): MerkleTree F H d :=
   MerkleTree.set Tree (Dir.fin_to_dir_vec i).reverse Item
 
+-- theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Fin (2^depth)} {item₁ : F} {neq : ix₁ ≠ ix₂}:
+--   tree_item_at_fin (tree_set_at_fin tree ix₁ item₁) ix₂ = tree_item_at_fin tree ix₂ := by
+--   simp [tree_item_at_fin, tree_set_at_fin]
+--   apply MerkleTree.item_at_invariant
+--   simp [Dir.fin_to_dir_vec]
+--   simp [fin_to_bits_le]
+--   sorry
+
 ------------
 
 def TreeInsert [Fact (perfect_hash poseidon₂)]
@@ -101,12 +117,6 @@ def TreeInsertZeroVector [Fact (perfect_hash poseidon₂)]
 def TreeInsertZeroZMod [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) : Prop :=
   tree_item_at_fin Tree Index.val = (0:F)
-
--- def TreeInsertZero_equivalence [Fact (perfect_hash poseidon₂)]
---   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range D Index) :
---   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
---   TreeInsertZeroZMod Tree Index = TreeInsertZeroVector Tree (Vector.map Bit.toZMod path) := by
---   sorry
 
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) (hzero : TreeInsertZeroVector Tree Path) (k : F → Prop) :
@@ -172,6 +182,17 @@ def TreeInsertPrep [Fact (perfect_hash poseidon₂)]
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeInsert Tree (Vector.map Bit.toZMod path) Item
 
+lemma TreeInsertPrep_equivalence [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) :
+  TreeInsertPrep Tree Index Item ix_small = Tree.set (Vector.reverse (Dir.fin_to_dir_vec Index.val)) Item := by
+  rw [TreeInsertPrep, TreeInsert]
+  rw [Dir.recover_binary_zmod'_to_dir]
+  . simp [is_index_in_range] at ix_small
+    linarith
+  . simp [Order, D]
+  . simp [vector_binary_of_bit_to_zmod]
+  . simp [fin_to_bits_recover_binary]
+
 theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (hzero : TreeInsertZeroZMod Tree Index) (k : F → Prop) :
   (let newTree := tree_set_at_fin Tree Index.val Item
@@ -180,7 +201,6 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   insertion_round_prep Index item Tree.root proof.reverse k) ↔
   k (TreeInsertPrep Tree Index Item ix_small).root := by
   simp
-  -- intro hzero
   unfold insertion_round_prep
   apply Iff.intro
   . rintro ⟨ixbin, _⟩
@@ -224,11 +244,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     rw [insertion_round_uncps]
     simp
     refine ⟨?_, ?_, ?_⟩
-    . rw [recover_binary_of_to_bits]
-      rw [fin_to_bits_le]
-      split
-      . assumption
-      . contradiction
+    . simp [fin_to_bits_recover_binary]
     . simp [vector_binary_of_bit_to_zmod]
     . simp [h]
     . rw [TreeInsertZeroZMod, tree_item_at_fin] at hzero
@@ -239,20 +255,12 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
         simp [ix_small]
       . simp [Order]
       . simp [vector_binary_of_bit_to_zmod]
-      . rw [recover_binary_of_to_bits]
-        simp [fin_to_bits_le]
-        split
-        . assumption
-        . contradiction
+      . simp [fin_to_bits_recover_binary]
     . rw [is_index_in_range] at ix_small
       simp [ix_small]
     . simp [Order]
     . simp [vector_binary_of_bit_to_zmod]
-    . rw [recover_binary_of_to_bits]
-      simp [fin_to_bits_le]
-      split
-      . assumption
-      . contradiction
+    . simp [fin_to_bits_recover_binary]
 
 -- theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
 --   (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (ix_small : is_index_in_range D Index) :
@@ -438,11 +446,7 @@ lemma list_of_items_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
       linarith
   . simp [Order, D]
   . simp [vector_binary_of_bit_to_zmod]
-  . rw [recover_binary_of_to_bits]
-    simp [fin_to_bits_le]
-    split
-    . tauto
-    . contradiction
+  . simp [fin_to_bits_recover_binary]
 
 @[simp]
 lemma list_of_proofs_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
@@ -475,11 +479,7 @@ lemma list_of_proofs_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
       linarith
   . simp [Order, D]
   . simp [vector_binary_of_bit_to_zmod]
-  . rw [recover_binary_of_to_bits]
-    simp [fin_to_bits_le]
-    split
-    . tauto
-    . contradiction
+  . simp [fin_to_bits_recover_binary]
 
 theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
@@ -605,3 +605,69 @@ theorem before_insertion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
         . simp [D]
         . simp [xs_small]
       . assumption
+
+theorem before_insertion_all_zeroes_batch'
+  [Fact (perfect_hash poseidon₂)]
+  {Tree: MerkleTree F poseidon₂ D}
+  {StartIndex b: Nat} {IdComms: Vector F b} {xs_small : is_index_in_range_nat D (StartIndex + b)} {k : F -> Prop} :
+  (let items := list_of_items_insert Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
+  InsertionLoop StartIndex Tree.root items proofs k) →
+  (∀ i ∈ [StartIndex:StartIndex + b], tree_item_at_fin Tree (i:F).val = (0:F)) := by
+  induction b generalizing StartIndex Tree with
+  | zero =>
+    intro _ i range
+    rcases range with ⟨lo, hi⟩
+    have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
+    contradiction
+  | succ b ih =>
+    intro hp i range
+    rcases range with ⟨lo, hi⟩; simp at lo hi
+    have hStartIndexCast : ZMod.val (StartIndex : F) = StartIndex := by
+      apply ZMod.val_cast_of_lt
+      rw [is_index_in_range_nat, D] at xs_small
+      rw [Order]
+      linarith
+    cases lo with
+    | refl =>
+      rw [InsertionLoop] at hp
+      nth_rewrite 1 [list_of_items_insert, list_of_proofs_insert] at hp
+      simp only [Vector.head_cons] at hp
+      apply insertion_round_prep_zero
+      . apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ b)
+        . simp [D]
+        . simp [xs_small]
+      . assumption
+    | @step StartIndex' h =>
+      simp
+      rw [InsertionLoop] at hp
+      rw [tree_item_at_fin]
+      rw [<-MerkleTree.item_at_invariant (tree := Tree) (ix₁ := (Dir.fin_to_dir_vec (StartIndex':F)).reverse) (item₁ := IdComms.head)]
+      -- nth_rewrite 1 [list_of_items_insert, list_of_proofs_insert] at hp
+      -- simp only [Vector.head_cons] at hp
+      -- rw [insertion_round_prep_uncps (ix_small := by
+      --   apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ b)
+      --   . simp [D]
+      --   . simp [xs_small])] at hp
+      -- rw [list_of_items_insert_tail] at hp
+      -- rw [list_of_proofs_insert_tail] at hp
+      -- rw [<-TreeInsertPrep_equivalence]
+      -- simp at ih
+      -- simp at hp
+      -- simp
+      -- have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
+      --   simp [Fin.ext]
+      -- rw [this] at hp
+      -- have : (StartIndex' : F) + 1 = ((StartIndex' + 1 : Nat) : F) := by
+      --   simp [Fin.ext]
+      -- rw [this]
+      -- rw [<-tree_item_at_fin]
+      -- . rw [<-ih hp (StartIndex' + 1)]
+      --   rw [tree_item_at_fin]
+      --   rw [tree_item_at_fin]
+      --   rw [TreeInsertPrep_equivalence]
+      --   rw [TreeInsertPrep_equivalence]
+      --   rw [MerkleTree.item_at_invariant]
+      --   rw [MerkleTree.item_at_invariant]
+      --   .
+      sorry
