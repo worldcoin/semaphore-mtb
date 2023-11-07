@@ -378,6 +378,14 @@ def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
           simp [hnext]
       . simp [hzero]
 
+-- lemma tree_set_equivalence {b : Nat} [Fact (perfect_hash poseidon₂)]
+--   (Tree : MerkleTree F poseidon₂ D) (Index : Nat) (IdComms: F) (xs_small : is_index_in_range_nat D (Index)) :
+--   tree_set_at_fin Tree (Index:F).val IdComms = TreeInsertPrep Tree Index IdComms (by
+--     apply is_index_in_range_nat_sum (a := Index) (b := 0)
+--     . simp [D]
+--     . simp [xs_small]) := by
+--   sorry
+
 def list_of_items [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector F b :=
   match b with
@@ -565,16 +573,16 @@ theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
         rcases hzero with ⟨hzero', _⟩
         simp [hzero']
 
-
-
-
-
-
-
--- lemma tree_set_equivalence {b : Nat} [Fact (perfect_hash poseidon₂)]
---   (Tree : MerkleTree F poseidon₂ D) (Index : Nat) (IdComms: F) (xs_small : is_index_in_range_nat D (Index)) :
---   tree_set_at_fin Tree (Index:F).val IdComms = TreeInsertPrep Tree Index IdComms (by
---     apply is_index_in_range_nat_sum (a := Index) (b := 0)
---     . simp [D]
---     . simp [xs_small]) := by
---   sorry
+theorem insertion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : F -> Prop) :
+  let items := list_of_items Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs Tree StartIndex IdComms xs_small
+  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  (TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
+  InsertionLoop StartIndex Tree.root items proofs k) := by
+  simp
+  intro hzero
+  rw [<-insertion_loop_equivalence]
+  apply insertion_loop_uncps
+  . simp [hzero]
+  . simp [hzero]
