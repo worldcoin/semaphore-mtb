@@ -586,3 +586,16 @@ theorem insertion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
   apply insertion_loop_uncps
   . simp [hzero]
   . simp [hzero]
+
+theorem insertion_is_set_circuit_new
+  [Fact (perfect_hash poseidon₂)]
+  {Tree: MerkleTree F poseidon₂ D}
+  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
+  let items := list_of_items Tree StartIndex IdComms xs_small
+  let proofs := list_of_proofs Tree StartIndex IdComms xs_small
+  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  (TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
+  gInsertionProof StartIndex Tree.root items proofs k) := by
+  rw [InsertionProof_uncps]
+  apply insertion_is_set
+  simp [ixBound]
