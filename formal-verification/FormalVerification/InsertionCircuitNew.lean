@@ -134,16 +134,29 @@ theorem insertion_round_proof_validation [Fact (perfect_hash poseidon₂)]
   rw [Vector.vector_reverse_eq]
   exact MerkleTree.recover_proof_reversible H
 
+def TreeInsertZeroVector [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) : Prop :=
+  MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = (0:F)
+
+def TreeInsertZeroZMod [Fact (perfect_hash poseidon₂)]
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) : Prop :=
+  tree_item_at_fin Tree Index.val = (0:F)
+
+-- def TreeInsertZero_equivalence [Fact (perfect_hash poseidon₂)]
+--   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range D Index) :
+--   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
+--   TreeInsertZeroZMod Tree Index = TreeInsertZeroVector Tree (Vector.map Bit.toZMod path) := by
+--   sorry
+
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) (k : F → Prop) :
+  (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) (hzero : TreeInsertZeroVector Tree Path) (k : F → Prop) :
   let newTree := (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item)
   let item := MerkleTree.item_at newTree (Dir.create_dir_vec Path).reverse
   let proof := (MerkleTree.proof newTree (Dir.create_dir_vec Path).reverse).reverse
-  MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = (0:F) →
+  True → -- WHY???
   (insertion_round Path item Tree.root proof k ↔
   k (TreeInsert Tree Path Item).root) := by
   simp
-  intro hzero
   unfold insertion_round
   unfold TreeInsert
   simp [MerkleTree.recover_tail_equals_recover_reverse]
@@ -172,15 +185,15 @@ def TreeInsertPrep [Fact (perfect_hash poseidon₂)]
   TreeInsert Tree (Vector.map Bit.toZMod path) Item
 
 theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (k : F → Prop) :
+  (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (hzero : TreeInsertZeroZMod Tree Index) (k : F → Prop) :
   let newTree := tree_set_at_fin Tree Index.val Item
   let item := tree_item_at_fin newTree Index.val
   let proof := tree_proof_at_fin newTree Index.val
-  tree_item_at_fin Tree Index = (0:F) →
+  True → -- WHY???
   (insertion_round_prep Index item Tree.root proof.reverse k ↔
   k (TreeInsertPrep Tree Index Item ix_small).root) := by
   simp
-  intro hzero
+  -- intro hzero
   unfold insertion_round_prep
   apply Iff.intro
   . rintro ⟨ixbin, _⟩
@@ -200,8 +213,8 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       . assumption
       . assumption
       . assumption
-      . rw [tree_item_at_fin] at hzero
-        rw [ZMod.cast_eq_val] at hzero
+      . rw [TreeInsertZeroZMod, tree_item_at_fin] at hzero
+        rw [TreeInsertZeroVector]
         rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)] at hzero
         . simp [hzero]
         . rw [is_index_in_range] at ix_small
@@ -209,6 +222,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
         . simp [Order]
         . assumption
         . assumption
+      . simp
     . simp [is_index_in_range] at ix_small
       simp [ix_small]
     . simp [Order]
@@ -231,8 +245,8 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       . contradiction
     . simp [vector_binary_of_bit_to_zmod]
     . simp [h]
-    . rw [tree_item_at_fin] at hzero
-      rw [ZMod.cast_eq_val] at hzero
+    . rw [TreeInsertZeroZMod, tree_item_at_fin] at hzero
+      rw [TreeInsertZeroVector]
       rw [Dir.recover_binary_zmod'_to_dir (w := t)] at hzero
       . simp [hzero]
       . rw [is_index_in_range] at ix_small
@@ -244,6 +258,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
         split
         . assumption
         . contradiction
+    . simp
     . rw [is_index_in_range] at ix_small
       simp [ix_small]
     . simp [Order]
@@ -253,12 +268,6 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       split
       . assumption
       . contradiction
-
-def TreeInsertZero [Fact (perfect_hash poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range D Index) : Prop :=
-  let path := fin_to_bits_le ⟨Index.val, ix_small⟩
-  let idx := Vector.map (fun x => @Bit.toZMod Order x) path
-  MerkleTree.item_at Tree (Dir.create_dir_vec idx).reverse = (0:F)
 
 -- theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
 --   (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (ix_small : is_index_in_range D Index) :
@@ -329,12 +338,10 @@ def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-this]
     simp [xs_small])
 
-def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) :
-  InsertionLoopZero Tree StartIndex IdComms xs_small →
+theorem insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : MerkleTree F poseidon₂ D → Prop) :
   (TreeInsertCircuit Tree StartIndex IdComms xs_small k ↔
   InsertionLoopTree Tree StartIndex IdComms xs_small k) := by
-  intro hzero
   induction b generalizing Tree StartIndex with
   | zero =>
     simp [TreeInsertCircuit, InsertionLoopTree]
@@ -353,7 +360,9 @@ def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
           apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
           . simp [D]
           . simp [xs_small]
-      . simp [hzero]
+      . rw [TreeInsertZeroZMod]
+        simp [hzero]
+      . simp
       . rw [<-ih]
         . simp [hroot]
         . rw [<-htree]
@@ -376,15 +385,9 @@ def insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
           simp at htree
           rw [htree]
           simp [hnext]
-      . simp [hzero]
-
--- lemma tree_set_equivalence {b : Nat} [Fact (perfect_hash poseidon₂)]
---   (Tree : MerkleTree F poseidon₂ D) (Index : Nat) (IdComms: F) (xs_small : is_index_in_range_nat D (Index)) :
---   tree_set_at_fin Tree (Index:F).val IdComms = TreeInsertPrep Tree Index IdComms (by
---     apply is_index_in_range_nat_sum (a := Index) (b := 0)
---     . simp [D]
---     . simp [xs_small]) := by
---   sorry
+      . rw [TreeInsertZeroZMod]
+        simp [hzero]
+      . simp
 
 def list_of_items [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector F b :=
@@ -496,14 +499,13 @@ lemma list_of_proofs_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
     . contradiction
 
 theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : F -> Prop) :
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   let items := list_of_items Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs Tree StartIndex IdComms xs_small
-  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  True → -- WHY????
   (InsertionLoopTree Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   InsertionLoop StartIndex Tree.root items proofs k) := by
   simp
-  intro hzero
   apply Iff.intro
   . induction b generalizing Tree StartIndex with
     | zero =>
@@ -537,8 +539,12 @@ theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
         apply ih
         simp [hzero]
         simp [hroot]
+      . rw [TreeInsertZeroZMod]
+        simp [hzero']
       . simp [hzero']
-      . simp [hzero']
+      . rw [TreeInsertZeroZMod]
+        simp [hzero']
+      . simp
   . induction b generalizing Tree StartIndex with
     | zero =>
       simp [InsertionLoopTree, InsertionLoop]
@@ -563,39 +569,52 @@ theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
           rcases hzero with ⟨_, hzero⟩
           simp [hzero]
           simp [htree]
-        . simp [InsertionLoopZero] at hzero
+        . rw [TreeInsertZeroZMod]
+          simp [InsertionLoopZero] at hzero
           rcases hzero with ⟨hzero', _⟩
           simp [hzero']
+        . simp
       . apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ i)
         . simp [D]
         . simp [xs_small]
-      . simp [InsertionLoopZero] at hzero
+      . rw [TreeInsertZeroZMod]
+        simp [InsertionLoopZero] at hzero
         rcases hzero with ⟨hzero', _⟩
         simp [hzero']
+      . simp
 
 theorem insertion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
-  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : F -> Prop) :
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   let items := list_of_items Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs Tree StartIndex IdComms xs_small
-  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  True →  -- WHY????
   (TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   InsertionLoop StartIndex Tree.root items proofs k) := by
   simp
-  intro hzero
   rw [<-insertion_loop_equivalence]
   apply insertion_loop_uncps
   . simp [hzero]
   . simp [hzero]
+  . simp
 
 theorem insertion_is_set_circuit_new
   [Fact (perfect_hash poseidon₂)]
-  {Tree: MerkleTree F poseidon₂ D}
-  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
+  (Tree: MerkleTree F poseidon₂ D)
+  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   let items := list_of_items Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs Tree StartIndex IdComms xs_small
-  InsertionLoopZero Tree StartIndex IdComms xs_small →
+  True → -- WHY????
   (TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   gInsertionProof StartIndex Tree.root items proofs k) := by
+  simp
   rw [InsertionProof_uncps]
-  apply insertion_is_set
-  simp [ixBound]
+  rw [insertion_loop_equivalence']
+  simp [hzero]
+  simp
+
+theorem before_insertion_all_zeroes_new [Fact (perfect_hash poseidon₂)] {b : Nat}
+  (Tree : MerkleTree F poseidon₂ D) (StartIndex: Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) :
+  TreeInsertCircuit Tree StartIndex IdComms xs_small k →
+  InsertionLoopZero Tree StartIndex IdComms xs_small := by
+
+  sorry
