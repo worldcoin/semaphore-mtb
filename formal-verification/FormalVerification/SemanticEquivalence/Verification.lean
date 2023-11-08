@@ -9,11 +9,12 @@ import FormalVerification.Poseidon.Correctness
 
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
-
 abbrev D := 30 -- Tree depth
 abbrev B := 4 -- Batch sizes
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
+
+axiom bn256_Fr_prime ( p : Nat) : Nat.Prime p
+instance : Fact (Nat.Prime SemaphoreMTB.Order) := Fact.mk (by apply bn256_Fr_prime)
 
 -- Poseidon semantic equivalence
 def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
