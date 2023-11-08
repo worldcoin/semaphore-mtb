@@ -12,6 +12,7 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
@@ -35,7 +36,7 @@ require (
 )
 
 require (
-	github.com/consensys/gnark-crypto v0.9.1
+	github.com/consensys/gnark-crypto v0.12.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.4.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
