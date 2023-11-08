@@ -80,6 +80,17 @@ def tree_proof_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin
 def tree_set_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^d)) (Item : F): MerkleTree F H d :=
   MerkleTree.set Tree (Dir.fin_to_dir_vec i).reverse Item
 
+lemma proof_of_set_fin
+  {F d}
+  (H : Hash F 2)
+  [Fact (perfect_hash H)]
+  (Tree : MerkleTree F H d)
+  (ix : Fin (2^d))
+  (item : F):
+  (tree_proof_at_fin (tree_set_at_fin Tree ix item) ix) = tree_proof_at_fin Tree ix := by
+  simp [tree_proof_at_fin, tree_set_at_fin]
+  simp [proof_of_set]
+
 -- theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Fin (2^depth)} {item₁ : F} {neq : ix₁ ≠ ix₂}:
 --   tree_item_at_fin (tree_set_at_fin tree ix₁ item₁) ix₂ = tree_item_at_fin tree ix₂ := by
 --   simp [tree_item_at_fin, tree_set_at_fin]
@@ -184,8 +195,9 @@ def TreeInsertPrep [Fact (perfect_hash poseidon₂)]
 
 lemma TreeInsertPrep_equivalence [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) :
-  TreeInsertPrep Tree Index Item ix_small = Tree.set (Vector.reverse (Dir.fin_to_dir_vec Index.val)) Item := by
+  TreeInsertPrep Tree Index Item ix_small = Tree.set (Vector.reverse (Dir.fin_to_dir_vec Index)) Item := by
   rw [TreeInsertPrep, TreeInsert]
+  rw [ZMod.cast_eq_val]
   rw [Dir.recover_binary_zmod'_to_dir]
   . simp [is_index_in_range] at ix_small
     linarith
@@ -639,35 +651,39 @@ theorem before_insertion_all_zeroes_batch'
         . simp [xs_small]
       . assumption
     | @step StartIndex' h =>
-      simp
       rw [InsertionLoop] at hp
-      rw [tree_item_at_fin]
-      rw [<-MerkleTree.item_at_invariant (tree := Tree) (ix₁ := (Dir.fin_to_dir_vec (StartIndex':F)).reverse) (item₁ := IdComms.head)]
-      -- nth_rewrite 1 [list_of_items_insert, list_of_proofs_insert] at hp
-      -- simp only [Vector.head_cons] at hp
-      -- rw [insertion_round_prep_uncps (ix_small := by
-      --   apply is_index_in_range_nat_sum (a := StartIndex) (b := Nat.succ b)
-      --   . simp [D]
-      --   . simp [xs_small])] at hp
-      -- rw [list_of_items_insert_tail] at hp
-      -- rw [list_of_proofs_insert_tail] at hp
-      -- rw [<-TreeInsertPrep_equivalence]
-      -- simp at ih
-      -- simp at hp
-      -- simp
-      -- have : (StartIndex : F) + 1 = ((StartIndex + 1 : Nat) : F) := by
-      --   simp [Fin.ext]
-      -- rw [this] at hp
-      -- have : (StartIndex' : F) + 1 = ((StartIndex' + 1 : Nat) : F) := by
-      --   simp [Fin.ext]
-      -- rw [this]
-      -- rw [<-tree_item_at_fin]
-      -- . rw [<-ih hp (StartIndex' + 1)]
-      --   rw [tree_item_at_fin]
-      --   rw [tree_item_at_fin]
-      --   rw [TreeInsertPrep_equivalence]
-      --   rw [TreeInsertPrep_equivalence]
-      --   rw [MerkleTree.item_at_invariant]
-      --   rw [MerkleTree.item_at_invariant]
-      --   .
-      sorry
+      nth_rewrite 1 [list_of_items_insert, list_of_proofs_insert] at hp
+      simp only [Vector.head_cons] at hp
+      unfold insertion_round_prep at hp
+      rcases hp with ⟨_, ⟨_, ⟨_, ⟨hrecover, hnext⟩⟩⟩⟩
+      rw [proof_of_set_fin] at hrecover
+      simp [MerkleTree.recover_tail_equals_recover_reverse] at hrecover
+
+      simp [tree_item_at_fin]
+      let proof := tree_proof_at_fin Tree (StartIndex:F)
+      rw [MerkleTree.proof_ceritfies_item (proof := proof)]
+      rename_i hindex hbin ixbin
+      rw [ZMod.cast_eq_val]
+      rw [Dir.recover_binary_zmod'_to_dir (w := hindex)]
+      . simp [hrecover]
+      . simp [D]
+        simp [Nat.le] at h
+        have : @Nat.cast F Semiring.toNatCast StartIndex' + 1 = Nat.cast (StartIndex' + 1) := by
+          simp [Nat.cast]
+        rw [this]
+        rw [ZMod.val_cast_of_lt]
+        simp [<-Nat.add_one] at hi
+        simp [is_index_in_range_nat, <-Nat.add_one, D] at xs_small
+        . linarith
+        . simp [Order]
+          simp [<-Nat.add_one] at hi
+          simp [is_index_in_range_nat, <-Nat.add_one, D] at xs_small
+          linarith
+      . simp [Order]
+      . simp [ixbin]
+      . rw [hbin]
+        have : @Nat.cast F Semiring.toNatCast StartIndex' + 1 = Nat.cast (StartIndex' + 1) := by
+          simp [Nat.cast]
+        rw [this]
+        apply congr_arg
+        sorry
