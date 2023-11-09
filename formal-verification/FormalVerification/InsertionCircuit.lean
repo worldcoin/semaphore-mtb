@@ -9,8 +9,6 @@ import FormalVerification.SemanticEquivalence
 
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
-
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
 open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof

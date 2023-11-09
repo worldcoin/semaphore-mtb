@@ -4,6 +4,7 @@ import ProvenZk.Merkle
 import ProvenZk.Ext.Vector
 
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
 import FormalVerification.SemanticEquivalence
@@ -12,8 +13,6 @@ import FormalVerification.InsertionCircuit
 import FormalVerification.DeletionCircuit
 
 open SemaphoreMTB (F Order)
-
-variable [Fact (Nat.Prime Order)]
 
 theorem insertion_is_set_circuit
   [Fact (perfect_hash poseidon₂)]

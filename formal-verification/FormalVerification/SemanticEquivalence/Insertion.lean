@@ -4,6 +4,7 @@ import ProvenZk.Merkle
 import ProvenZk.Misc
 
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
 
@@ -12,7 +13,7 @@ import FormalVerification.SemanticEquivalence.Deletion
 
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
+instance : Fact (Nat.Prime SemaphoreMTB.Order) := Fact.mk (by apply bn256_Fr_prime)
 
 open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof

@@ -3,6 +3,9 @@ import ProvenZk.Hash
 import ProvenZk.Merkle
 import ProvenZk.Ext.Vector
 
+def Bn256_Fr : Nat := 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+axiom bn256_Fr_prime : Nat.Prime Bn256_Fr
+
 def is_index_in_range {n : Nat} (D : Nat) (a : ZMod n) : Prop :=
   a.val < 2^D
 

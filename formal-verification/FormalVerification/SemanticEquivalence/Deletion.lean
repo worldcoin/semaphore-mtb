@@ -4,6 +4,7 @@ import ProvenZk.Merkle
 import ProvenZk.Misc
 
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.Poseidon.Spec
 import FormalVerification.Poseidon.Correctness
 
@@ -11,7 +12,7 @@ import FormalVerification.SemanticEquivalence.Verification
 
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
+instance : Fact (Nat.Prime SemaphoreMTB.Order) := Fact.mk (by apply bn256_Fr_prime)
 
 open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
@@ -43,10 +44,8 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
     cases hp
     . simp at *; subst_vars; simp at *; subst_vars; simp at *
       apply And.intro
+      . apply eq_of_sub_eq_zero; assumption
       . tauto
-      . apply And.intro
-        . apply eq_of_sub_eq_zero; assumption
-        . assumption
     . subst_vars
       apply And.intro
       . tauto
@@ -64,13 +63,13 @@ lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
         exists 0
         apply And.intro
         . tauto
-        . exists 1; tauto
+        . exists 1
       | true =>
         simp at h;
         exists 1;
         apply And.intro
         . tauto
-        . exists 1; tauto
+        . exists 1
 
 def deletion_round (Root: F) (Skip : Bit) (Path : Vector F D) (Item: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
   match Skip with
