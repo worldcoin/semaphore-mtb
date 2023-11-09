@@ -43,9 +43,9 @@ theorem before_insertion_all_zeroes_batch
   let items := list_of_items_insert Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
   SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k →
-  InsertionLoopZero Tree StartIndex IdComms xs_small := by
+  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.tree_item_at_fin Tree (i:F).val = (0:F)) := by
   simp [InsertionProof_uncps]
-  apply before_insertion_all_zeroes
+  apply before_insertion_all_zeroes_batch'
 
 theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
   (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
