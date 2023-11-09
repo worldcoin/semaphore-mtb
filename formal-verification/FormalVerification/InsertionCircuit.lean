@@ -25,70 +25,6 @@ lemma fin_to_bits_recover_binary (Index : F) (ix_small : is_index_in_range D Ind
   . assumption
   . contradiction
 
-lemma proof_of_set
-  {F d}
-  (H : Hash F 2)
-  [Fact (perfect_hash H)]
-  (Tree : MerkleTree F H d)
-  (ix : Vector Dir d)
-  (item : F):
-  (MerkleTree.proof (MerkleTree.set Tree ix item) ix) = MerkleTree.proof Tree ix := by
-  induction d with
-  | zero =>
-    simp [MerkleTree.set, MerkleTree.proof]
-  | succ d ih =>
-    cases Tree
-    simp [MerkleTree.set, MerkleTree.proof, MerkleTree.tree_for]
-    split
-    . rename_i hdir
-      have : Dir.swap (Dir.swap (Vector.head ix)) = Dir.right := by
-        rw [hdir]
-        simp [Dir.swap]
-      have : Vector.head ix = Dir.right := by
-        rw [<-this]
-        simp [Dir.swap]
-        cases ix.head
-        . simp
-        . simp
-      rw [this]
-      simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]
-      simp [Vector.vector_eq_cons]
-      rw [ih]
-    . rename_i hdir
-      have : Dir.swap (Dir.swap (Vector.head ix)) = Dir.left := by
-        rw [hdir]
-        simp [Dir.swap]
-      have : Vector.head ix = Dir.left := by
-        rw [<-this]
-        simp [Dir.swap]
-        cases ix.head
-        . simp
-        . simp
-      rw [this]
-      simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]
-      simp [Vector.vector_eq_cons]
-      rw [ih]
-
-def tree_item_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^d)): F :=
-  MerkleTree.item_at Tree (Dir.fin_to_dir_vec i).reverse
-
-def tree_proof_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^d)): Vector F d :=
-  MerkleTree.proof Tree (Dir.fin_to_dir_vec i).reverse
-
-def tree_set_at_fin {F: Type} {H: Hash F 2} (Tree : MerkleTree F H d) (i : Fin (2^d)) (Item : F): MerkleTree F H d :=
-  MerkleTree.set Tree (Dir.fin_to_dir_vec i).reverse Item
-
-lemma proof_of_set_fin
-  {F d}
-  (H : Hash F 2)
-  [Fact (perfect_hash H)]
-  (Tree : MerkleTree F H d)
-  (ix : Fin (2^d))
-  (item : F):
-  (tree_proof_at_fin (tree_set_at_fin Tree ix item) ix) = tree_proof_at_fin Tree ix := by
-  simp [tree_proof_at_fin, tree_set_at_fin]
-  simp [proof_of_set]
-
 -- theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Fin (2^depth)} {item₁ : F} {neq : ix₁ ≠ ix₂}:
 --   tree_item_at_fin (tree_set_at_fin tree ix₁ item₁) ix₂ = tree_item_at_fin tree ix₂ := by
 --   simp [tree_item_at_fin, tree_set_at_fin]
@@ -125,7 +61,7 @@ def TreeInsertZeroVector [Fact (perfect_hash poseidon₂)]
 
 def TreeInsertZeroZMod [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) : Prop :=
-  tree_item_at_fin Tree Index.val = (0:F)
+  MerkleTree.tree_item_at_fin Tree Index.val = (0:F)
 
 theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) (hzero : TreeInsertZeroVector Tree Path) (k : F → Prop) :
@@ -141,7 +77,7 @@ theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
   simp [MerkleTree.recover_proof_is_root]
   intro
   rw [<-hzero]
-  rw [proof_of_set]
+  rw [MerkleTree.proof_of_set_is_proof]
   simp [MerkleTree.recover_proof_is_root]
 
 theorem insertion_round_prep_index_validation
@@ -159,9 +95,9 @@ theorem insertion_round_prep_index_validation
 
 theorem insertion_round_prep_zero [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (k : F → Prop) :
-  let newTree := tree_set_at_fin Tree Index.val Item
-  let item := tree_item_at_fin newTree Index.val
-  let proof := tree_proof_at_fin newTree Index.val
+  let newTree := MerkleTree.tree_set_at_fin Tree Index.val Item
+  let item := MerkleTree.tree_item_at_fin newTree Index.val
+  let proof := MerkleTree.tree_proof_at_fin newTree Index.val
   insertion_round_prep Index item Tree.root proof.reverse k → TreeInsertZeroZMod Tree Index := by
   simp
   unfold insertion_round_prep
@@ -172,10 +108,10 @@ theorem insertion_round_prep_zero [Fact (perfect_hash poseidon₂)]
   simp [insertion_round] at h
   casesm* (_ ∧ _)
   rename_i hrecov hixbin h _
-  simp [tree_item_at_fin]
+  simp [MerkleTree.tree_item_at_fin]
   simp [MerkleTree.recover_tail_equals_recover_reverse] at h
-  rw [tree_proof_at_fin, tree_set_at_fin] at h
-  rw [proof_of_set] at h
+  rw [MerkleTree.tree_proof_at_fin, MerkleTree.tree_set_at_fin] at h
+  rw [MerkleTree.proof_of_set_is_proof] at h
   apply MerkleTree.proof_ceritfies_item
   . rw [ZMod.cast_eq_val]
     rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)]
@@ -205,9 +141,9 @@ lemma TreeInsertPrep_equivalence [Fact (perfect_hash poseidon₂)]
 
 theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (hzero : TreeInsertZeroZMod Tree Index) (k : F → Prop) :
-  (let newTree := tree_set_at_fin Tree Index.val Item
-  let item := tree_item_at_fin newTree Index.val
-  let proof := tree_proof_at_fin newTree Index.val
+  (let newTree := MerkleTree.tree_set_at_fin Tree Index.val Item
+  let item := MerkleTree.tree_item_at_fin newTree Index.val
+  let proof := MerkleTree.tree_proof_at_fin newTree Index.val
   insertion_round_prep Index item Tree.root proof.reverse k) ↔
   k (TreeInsertPrep Tree Index Item ix_small).root := by
   simp
@@ -216,7 +152,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   . rintro ⟨ixbin, _⟩
     casesm* (_ ∧ _)
     rename_i h
-    rw [tree_item_at_fin, tree_proof_at_fin, tree_set_at_fin] at h
+    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin, MerkleTree.tree_set_at_fin] at h
     rw [ZMod.cast_eq_val] at h
     rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)] at h
     . unfold TreeInsertPrep
@@ -230,7 +166,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
       . assumption
       . assumption
       . assumption
-      . rw [TreeInsertZeroZMod, tree_item_at_fin] at hzero
+      . rw [TreeInsertZeroZMod, MerkleTree.tree_item_at_fin] at hzero
         rw [TreeInsertZeroVector]
         rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)] at hzero
         . simp [hzero]
@@ -248,7 +184,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     simp [TreeInsertPrep] at h
     let t : Vector F D := Vector.map Bit.toZMod (fin_to_bits_le ⟨Index.val, ix_small⟩)
     refine ⟨t, ?_⟩
-    rw [tree_item_at_fin, tree_proof_at_fin, tree_set_at_fin]
+    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin, MerkleTree.tree_set_at_fin]
     rw [ZMod.cast_eq_val]
     rw [Dir.recover_binary_zmod'_to_dir (w := t)]
     rw [insertion_round_uncps]
@@ -257,7 +193,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     . simp [fin_to_bits_recover_binary]
     . simp [vector_binary_of_bit_to_zmod]
     . simp [h]
-    . rw [TreeInsertZeroZMod, tree_item_at_fin] at hzero
+    . rw [TreeInsertZeroZMod, MerkleTree.tree_item_at_fin] at hzero
       rw [TreeInsertZeroVector]
       rw [Dir.recover_binary_zmod'_to_dir (w := t)] at hzero
       . simp [hzero]
@@ -309,9 +245,9 @@ def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
   match b with
   | Nat.zero => k Tree
   | Nat.succ i =>
-    let newTree := tree_set_at_fin Tree (StartIndex:F).val IdComms.head
-    let item := tree_item_at_fin newTree (StartIndex:F).val
-    let proof := tree_proof_at_fin newTree (StartIndex:F).val
+    let newTree := MerkleTree.tree_set_at_fin Tree (StartIndex:F).val IdComms.head
+    let item := MerkleTree.tree_item_at_fin newTree (StartIndex:F).val
+    let proof := MerkleTree.tree_proof_at_fin newTree (StartIndex:F).val
     ∃t : MerkleTree F poseidon₂ D,
     insertion_round_prep StartIndex item Tree.root proof.reverse (fun nextRoot => t.root = nextRoot) ∧
       InsertionLoopTree t (StartIndex+1) IdComms.tail (by
@@ -332,7 +268,7 @@ def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
     . simp [D]
     . simp [xs_small])
 
-    tree_item_at_fin Tree (StartIndex:F).val = (0:F) ∧
+    MerkleTree.tree_item_at_fin Tree (StartIndex:F).val = (0:F) ∧
     InsertionLoopZero t (StartIndex+1) IdComms.tail (by
     simp
     have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
@@ -395,9 +331,9 @@ def list_of_items_insert [Fact (perfect_hash poseidon₂)]
   match b with
   | Nat.zero => Vector.nil
   | Nat.succ i =>
-    let t := (tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
+    let t := (MerkleTree.tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
 
-    let item_at := tree_item_at_fin t (StartIndex:F).val
+    let item_at := MerkleTree.tree_item_at_fin t (StartIndex:F).val
     let tail := list_of_items_insert t (StartIndex+1) IdComms.tail (by
     simp
     have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
@@ -412,9 +348,9 @@ def list_of_proofs_insert {b : Nat} [Fact (perfect_hash poseidon₂)]
   match b with
   | Nat.zero => Vector.nil
   | Nat.succ i =>
-    let t := (tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
+    let t := (MerkleTree.tree_set_at_fin Tree (StartIndex:F).val IdComms.head)
 
-    let proof := (tree_proof_at_fin t (StartIndex:F).val).reverse
+    let proof := (MerkleTree.tree_proof_at_fin t (StartIndex:F).val).reverse
     let tail := list_of_proofs_insert t (StartIndex+1) IdComms.tail (by
     simp
     have : StartIndex + Nat.succ i = StartIndex + 1 + i := by
@@ -443,7 +379,7 @@ lemma list_of_items_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
   simp [xs_small]) := by
   simp
   simp [list_of_items_insert]
-  simp [tree_set_at_fin]
+  simp [MerkleTree.tree_set_at_fin]
   simp [TreeInsertPrep]
   simp [TreeInsert]
   rw [<-Dir.recover_binary_zmod'_to_dir]
@@ -476,7 +412,7 @@ lemma list_of_proofs_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
   simp [xs_small]) := by
   simp
   simp [list_of_items_insert]
-  simp [tree_set_at_fin]
+  simp [MerkleTree.tree_set_at_fin]
   simp [TreeInsertPrep]
   simp [TreeInsert]
   rw [<-Dir.recover_binary_zmod'_to_dir]
@@ -623,7 +559,7 @@ theorem before_insertion_all_zeroes_batch'
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
   InsertionLoop StartIndex Tree.root items proofs k) →
-  (∀ i ∈ [StartIndex:StartIndex + b], tree_item_at_fin Tree (i:F).val = (0:F)) := by
+  (∀ i ∈ [StartIndex:StartIndex + b], MerkleTree.tree_item_at_fin Tree (i:F).val = (0:F)) := by
   induction b generalizing StartIndex Tree with
   | zero =>
     intro _ i range
@@ -654,11 +590,11 @@ theorem before_insertion_all_zeroes_batch'
       simp only [Vector.head_cons] at hp
       unfold insertion_round_prep at hp
       rcases hp with ⟨_, ⟨_, ⟨_, ⟨hrecover, hnext⟩⟩⟩⟩
-      rw [proof_of_set_fin] at hrecover
+      rw [MerkleTree.proof_of_set_fin] at hrecover
       simp [MerkleTree.recover_tail_equals_recover_reverse] at hrecover
 
-      simp [tree_item_at_fin]
-      let proof := tree_proof_at_fin Tree (StartIndex:F)
+      simp [MerkleTree.tree_item_at_fin]
+      let proof := MerkleTree.tree_proof_at_fin Tree (StartIndex:F)
       rw [MerkleTree.proof_ceritfies_item (proof := proof)]
       rename_i hindex hbin ixbin
       rw [ZMod.cast_eq_val]

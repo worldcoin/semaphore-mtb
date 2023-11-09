@@ -38,7 +38,6 @@ lemma ProofRound_uncps {direction: F} {hash: F} {sibling: F} {k: F -> Prop} :
         rw [Poseidon2_uncps]
     }
 
-
 def proof_rounds (Siblings : Vector F (n+1)) (PathIndices : Vector F n) (k : F -> Prop) : Prop :=
   match n with
   | Nat.zero => k Siblings.head

@@ -72,14 +72,14 @@ def TreeDeletePrep [Fact (perfect_hash poseidon₂)]
 
 theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (ix_small : is_index_in_range (D+1) Index) (k : F → Prop) :
-  deletion_round_prep Tree.root Index (MerkleTree.tree_item_at_fin Tree Index.val) (MerkleTree.tree_proof_at_fin Tree Index.val).reverse k ↔
+  deletion_round_prep Tree.root Index (MerkleTree.tree_item_at_fin_dropLast Tree Index.val) (MerkleTree.tree_proof_at_fin_dropLast Tree Index.val).reverse k ↔
   k (TreeDeletePrep Tree Index ix_small).root := by
   unfold deletion_round_prep
   apply Iff.intro
   . rintro ⟨ixbin, _⟩
     casesm* (_ ∧ _)
     rename_i h
-    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin] at h
+    rw [MerkleTree.tree_item_at_fin_dropLast, MerkleTree.tree_proof_at_fin_dropLast] at h
     rw [Dir.recover_binary_zmod'_to_dir (w := ixbin)] at h
     . unfold TreeDeletePrep
       rw [<-Dir.dropLastOrder] at h
@@ -103,7 +103,7 @@ theorem deletion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     simp [TreeDeletePrep] at h
     let t : Vector F (D+1) := Vector.map Bit.toZMod (fin_to_bits_le ⟨Index.val, ix_small⟩)
     refine ⟨t, ?_⟩
-    rw [MerkleTree.tree_item_at_fin, MerkleTree.tree_proof_at_fin]
+    rw [MerkleTree.tree_item_at_fin_dropLast, MerkleTree.tree_proof_at_fin_dropLast]
     rw [Dir.recover_binary_zmod'_to_dir (w := t)]
     rw [<-Dir.dropLastOrder]
     let s := (zmod_to_bit (Vector.last t))
@@ -199,7 +199,7 @@ def DeletionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
   | Nat.succ _ =>
     let idx := Index.head
     ∃t : MerkleTree F poseidon₂ D,
-    deletion_round_prep Tree.root idx (MerkleTree.tree_item_at_fin Tree idx.val) (MerkleTree.tree_proof_at_fin Tree idx.val).reverse (fun nextRoot => t.root = nextRoot) ∧
+    deletion_round_prep Tree.root idx (MerkleTree.tree_item_at_fin_dropLast Tree idx.val) (MerkleTree.tree_proof_at_fin_dropLast Tree idx.val).reverse (fun nextRoot => t.root = nextRoot) ∧
       DeletionLoopTree t Index.tail (by apply tail_index_in_range (D+1); simp [xs_small]) k
 
 theorem deletion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
@@ -236,7 +236,7 @@ def list_of_items_delete {b : Nat} [Fact (perfect_hash poseidon₂)]
     let t := TreeDeletePrep Tree DeletionIndices.head (by
       apply head_index_in_range
       simp [xs_small])
-    let item_at := (MerkleTree.tree_item_at_fin Tree DeletionIndices.head.val)
+    let item_at := (MerkleTree.tree_item_at_fin_dropLast Tree DeletionIndices.head.val)
     let tail := (list_of_items_delete t DeletionIndices.tail (by
       apply tail_index_in_range
       simp [xs_small]))
@@ -261,7 +261,7 @@ def list_of_proofs_delete {b : Nat} [Fact (perfect_hash poseidon₂)]
     let t := TreeDeletePrep Tree DeletionIndices.head (by
       apply head_index_in_range
       simp [xs_small])
-    let proof := (MerkleTree.tree_proof_at_fin Tree DeletionIndices.head.val).reverse
+    let proof := (MerkleTree.tree_proof_at_fin_dropLast Tree DeletionIndices.head.val).reverse
     let tail := (list_of_proofs_delete t DeletionIndices.tail (by
       apply tail_index_in_range
       simp [xs_small]))
