@@ -471,6 +471,23 @@ def multi_set { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H 
   | Nat.zero => tree
   | Nat.succ _ => multi_set (tree.set path.head item) path.tail item
 
+lemma tree_set_comm  { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {p₁ p₂ : Vector Dir depth} {item : F}:
+  MerkleTree.set (MerkleTree.set tree p₁ item) p₂ item = MerkleTree.set (MerkleTree.set tree p₂ item) p₁ item := by
+  induction depth with
+  | zero => rfl
+  | succ d ih => cases tree with | bin l r =>
+    cases p₁ using Vector.casesOn with | cons p₁h p₁t =>
+    cases p₂ using Vector.casesOn with | cons p₂h p₂t =>
+    cases p₁h <;> {
+      cases p₂h <;> { simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]; try rw [ih] }
+    }
+
+lemma multi_set_set { depth b : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {p : Vector Dir depth} {path : Vector (Vector Dir depth) b} {item : F}:
+  multi_set (MerkleTree.set tree p item) path item = MerkleTree.set (multi_set tree path item) p item := by
+  induction path using Vector.inductionOn generalizing tree p with
+  | h_nil => rfl
+  | h_cons ih => simp [multi_set, ih, tree_set_comm]
+
 def multi_item_at { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H depth) (path : Vector (Vector Dir depth) b) (item : F) : Prop :=
   match b with
   | Nat.zero => true
@@ -483,12 +500,10 @@ def multi_set_is_item_at { depth b : Nat } {F: Type} {H : Hash F 2} {initialTree
   | h_nil =>
     simp [multi_set, multi_item_at]
   | @h_cons b' x xs ih =>
-    simp [multi_set, multi_item_at]
+    unfold multi_set
+    unfold multi_item_at
+    simp only [Vector.tail_cons, Vector.head_cons]
     intro h
     refine ⟨?_, ?_⟩
-    . rw [<-h]
-      -- How can I use `rw [chain_of_set]` over `multi_set`?
-      sorry
-    . let init := MerkleTree.set initialTree x item
-      apply ih (initialTree := init)
-      simp [h]
+    . rw [←h, multi_set_set, MerkleTree.read_after_insert_sound]
+    . apply ih h
