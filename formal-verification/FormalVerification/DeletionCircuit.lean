@@ -15,6 +15,15 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 
 set_option pp.coercions false
 
+---------- MISC
+
+lemma vector_head_is_zero {d} (xs : Vector α (d+1)) :
+  xs.head = xs[0] := by
+  rw [←Vector.ofFn_get (v := xs)]
+  rfl
+
+----------
+
 def TreeDelete [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) : MerkleTree F poseidon₂ D :=
   match Skip with
@@ -457,69 +466,29 @@ theorem chain_of_deletions_right [Fact (perfect_hash poseidon₂)] {initialTree 
       rw [MerkleTree.read_after_insert_sound]
     . simp
 
--- theorem chain_of_deletions_vector [Fact (perfect_hash poseidon₂)] {initialTree finalTree : MerkleTree F poseidon₂ D} {ix : Vector F 2}
---   {xs_small : are_indices_in_range (D+1) ix}:
---   TreeDeletePrep (TreeDeletePrep initialTree ix[0] (by sorry)) ix₂ ix_small₂ = finalTree →
---   TreeDeleteZero finalTree ix₁ ix_small₁ ∧ TreeDeleteZero finalTree ix₂ ix_small₂ := by
---   sorry
+def multi_set { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H depth) (path : Vector (Vector Dir depth) b) (item : F) : MerkleTree F H depth :=
+  match b with
+  | Nat.zero => tree
+  | Nat.succ _ => multi_set (tree.set path.head item) path.tail item
 
-lemma vector_head_is_zero {d} (xs : Vector α (d+1)) :
-  xs.head = xs[0] := by
-  rw [←Vector.ofFn_get (v := xs)]
-  rfl
+def multi_item_at { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H depth) (path : Vector (Vector Dir depth) b) (item : F) : Prop :=
+  match b with
+  | Nat.zero => true
+  | Nat.succ _ => tree.item_at path.head = item ∧ multi_item_at tree path.tail item
 
--- theorem after_deletion_all_zeroes_batch'' [Fact (perfect_hash poseidon₂)] {range : i ∈ [0:2]}
---   {Tree t: MerkleTree F poseidon₂ D} {DeletionIndices : Vector F 2} {xs_small : are_indices_in_range (D+1) DeletionIndices} {k : F -> Prop} :
---   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => t = newTree) →
---   TreeDeleteZero t (DeletionIndices[i]'(by rcases range; simp_arith; linarith)) (by
---     simp [are_indices_in_range_split] at xs_small
---     admit) := by
-
---   rcases range with ⟨lo, hi⟩; --simp at lo hi
---   cases lo with
---   | refl =>
---     simp [<-vector_head_is_zero, TreeDeleteCircuit]
---     intro hp
---     apply chain_of_deletions_left (initialTree := Tree) (finalTree := t) (ix₂ := DeletionIndices.tail.head) (ix_small₂ := by simp [are_indices_in_range_split] at xs_small; tauto)
---     simp [hp]
---   | @step i' h =>
-
---     simp [TreeDeleteCircuit]
---     intro hp
---     simp at hi
---     apply chain_of_deletions_left (initialTree := Tree) (finalTree := t)
---     sorry
-
-theorem after_deletion_all_zeroes_head [Fact (perfect_hash poseidon₂)] {b : Nat}
-  {Tree t: MerkleTree F poseidon₂ D} {DeletionIndices : Vector F (b+1)} {xs_small : are_indices_in_range (D+1) DeletionIndices} {k : F -> Prop} :
-  TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => t = newTree) →
-  TreeDeleteZero t (DeletionIndices.head) (by sorry) := by
-  sorry
-
-
--- theorem after_deletion_all_zeroes_batch' [Fact (perfect_hash poseidon₂)] {b : Nat} {range : i ∈ [0:b]}
---   {Tree t: MerkleTree F poseidon₂ D} {DeletionIndices : Vector F b} {xs_small : are_indices_in_range (D+1) DeletionIndices} {k : F -> Prop} :
---   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => t = newTree) →
---   TreeDeleteZero t (DeletionIndices[i]'(by rcases range; simp_arith; linarith)) (by
---     simp [are_indices_in_range_split] at xs_small
---     admit) := by
---   induction b generalizing Tree t with
---   | zero =>
---     rcases range with ⟨lo, hi⟩
---     have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
---     contradiction
---   | succ b ih =>
---     rcases range with ⟨lo, hi⟩; --simp at lo hi
---     cases lo with
---     | refl =>
---       simp [<-vector_head_is_zero, TreeDeleteCircuit]
-
---       --intro hp
---       --simp at ih
-
---       --apply chain_of_deletions_left (initialTree := Tree) (finalTree := t) --(ix₂ := DeletionIndices.tail.head) (ix_small₂ := by simp [are_indices_in_range_split] at xs_small; tauto)
-
-
---       sorry
---     | @step StartIndex' h =>
---       sorry
+def multi_set_is_item_at { depth b : Nat } {F: Type} {H : Hash F 2} {initialTree finalTree: MerkleTree F H depth} {path : Vector (Vector Dir depth) b} {item : F} :
+  (multi_set initialTree path item = finalTree →
+  multi_item_at finalTree path item) := by
+  induction path using Vector.inductionOn generalizing initialTree finalTree with
+  | h_nil =>
+    simp [multi_set, multi_item_at]
+  | @h_cons b' x xs ih =>
+    simp [multi_set, multi_item_at]
+    intro h
+    refine ⟨?_, ?_⟩
+    . rw [<-h]
+      -- How can I use `rw [chain_of_set]` over `multi_set`?
+      sorry
+    . let init := MerkleTree.set initialTree x item
+      apply ih (initialTree := init)
+      simp [h]
