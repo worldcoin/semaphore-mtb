@@ -15,137 +15,6 @@ open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 
 set_option pp.coercions false
 
----------- MISC
-
-lemma vector_head_is_zero {d} (xs : Vector α (d+1)) :
-  xs.head = xs[0] := by
-  rw [←Vector.ofFn_get (v := xs)]
-  rfl
-
-lemma vector_cons_get {d b : Nat} {x : α} {xs : Vector α d} {h : Nat.succ b < Nat.succ d}:
-  ((x ::ᵥ xs)[Nat.succ b]'(h)) = xs[b]'(by linarith) := by
-  rw [←Vector.ofFn_get (v := xs)]
-  rfl
-
-lemma cons_zero {d : Nat } {y : α} {v : Vector α d} :
-  (y ::ᵥ v)[0] = y := by
-    rfl
-
-theorem chain_of_item_at [Fact (perfect_hash poseidon₂)] { depth : Nat } {F: Type} {H : Hash F 2}
-  {initialTree finalTree : MerkleTree F H depth}
-  {ix₁ ix₂ : Vector Dir depth} {neq : ix₁ ≠ ix₂}
-  {item₁ item₂ : F}:
-  (initialTree.set ix₁ item₁).set ix₂ item₂ = finalTree →
-  finalTree.item_at ix₁ = item₁ ∧ finalTree.item_at ix₂ = item₂ := by
-  intro h
-  have : ∃t, MerkleTree.set initialTree ix₁ item₁ = t := by
-    simp [h]
-  rcases this with ⟨tdelete, hdelete⟩
-  rw [hdelete] at h
-  refine ⟨?_, ?_⟩
-  . rw [<-h]
-    rw [MerkleTree.item_at_invariant]
-    . rw [<-hdelete]
-      rw [MerkleTree.read_after_insert_sound]
-    . tauto
-  . rw [<-h]
-    rw [MerkleTree.read_after_insert_sound]
-
-theorem chain_of_set [Fact (perfect_hash poseidon₂)] { depth : Nat } {F: Type} {H : Hash F 2}
-  {initialTree : MerkleTree F H depth}
-  {ix₁ ix₂ : Vector Dir depth}
-  {item : F}:
-  ((initialTree.set ix₁ item).set ix₂ item).item_at ix₁ = item := by
-  if h : ix₁ = ix₂ then
-    rw [h]
-    apply MerkleTree.read_after_insert_sound
-  else
-    rw [MerkleTree.item_at_invariant]
-    . rw [MerkleTree.read_after_insert_sound]
-    . tauto
-
-theorem chain_of_item_at_same [Fact (perfect_hash poseidon₂)] { depth : Nat } {F: Type} {H : Hash F 2}
-  {initialTree finalTree : MerkleTree F H depth}
-  {ix₁ ix₂ : Vector Dir depth}
-  {item : F}:
-  (initialTree.set ix₁ item).set ix₂ item = finalTree →
-  finalTree.item_at ix₁ = item ∧ finalTree.item_at ix₂ = item := by
-  intro h
-  have : ∃t, MerkleTree.set initialTree ix₁ item = t := by
-    simp [h]
-  rcases this with ⟨tdelete, hdelete⟩
-  rw [hdelete] at h
-  refine ⟨?_, ?_⟩
-  . rw [<-h]
-    rw [<-hdelete]
-    rw [chain_of_set]
-  . rw [<-h]
-    rw [MerkleTree.read_after_insert_sound]
-
-def multi_set { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H depth) (path : Vector (Vector Dir depth) b) (item : F) : MerkleTree F H depth :=
-  match b with
-  | Nat.zero => tree
-  | Nat.succ _ => multi_set (tree.set path.head item) path.tail item
-
-lemma tree_set_comm  { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {p₁ p₂ : Vector Dir depth} {item : F}:
-  MerkleTree.set (MerkleTree.set tree p₁ item) p₂ item = MerkleTree.set (MerkleTree.set tree p₂ item) p₁ item := by
-  induction depth with
-  | zero => rfl
-  | succ d ih => cases tree with | bin l r =>
-    cases p₁ using Vector.casesOn with | cons p₁h p₁t =>
-    cases p₂ using Vector.casesOn with | cons p₂h p₂t =>
-    cases p₁h <;> {
-      cases p₂h <;> { simp [MerkleTree.set, MerkleTree.left, MerkleTree.right]; try rw [ih] }
-    }
-
-lemma multi_set_set { depth b : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {p : Vector Dir depth} {path : Vector (Vector Dir depth) b} {item : F}:
-  multi_set (MerkleTree.set tree p item) path item = MerkleTree.set (multi_set tree path item) p item := by
-  induction path using Vector.inductionOn generalizing tree p with
-  | h_nil => rfl
-  | h_cons ih => simp [multi_set, ih, tree_set_comm]
-
-def multi_item_at { depth b : Nat } {F: Type} {H : Hash F 2} (tree : MerkleTree F H depth) (path : Vector (Vector Dir depth) b) (item : F) : Prop :=
-  match b with
-  | Nat.zero => true
-  | Nat.succ _ => tree.item_at path.head = item ∧ multi_item_at tree path.tail item
-
-theorem multi_set_is_item_at { depth b : Nat } {F: Type} {H : Hash F 2} {initialTree finalTree: MerkleTree F H depth} {path : Vector (Vector Dir depth) b} {item : F} :
-  (multi_set initialTree path item = finalTree →
-  multi_item_at finalTree path item) := by
-  induction path using Vector.inductionOn generalizing initialTree finalTree with
-  | h_nil =>
-    simp [multi_set, multi_item_at]
-  | @h_cons b' x xs ih =>
-    unfold multi_set
-    unfold multi_item_at
-    simp only [Vector.tail_cons, Vector.head_cons]
-    intro h
-    refine ⟨?_, ?_⟩
-    . rw [←h, multi_set_set, MerkleTree.read_after_insert_sound]
-    . apply ih h
-
-theorem multi_set_is_item_at_all_item { depth b i : Nat } {range : i ∈ [0:b]} {F: Type} {H : Hash F 2}
-  {initialTree finalTree: MerkleTree F H depth} {path : Vector (Vector Dir depth) b} {item : F} :
-  multi_set initialTree path item = finalTree →
-  MerkleTree.item_at finalTree (path[i]'(by rcases range; tauto)) = item := by
-  intro hp
-  induction path using Vector.inductionOn generalizing i initialTree finalTree with
-  | h_nil =>
-    rcases range with ⟨lo, hi⟩
-    have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
-    contradiction
-  | @h_cons b' x xs ih =>
-    rcases range with ⟨lo, hi⟩
-    cases lo with
-    | refl =>
-      have hitem_at : multi_item_at finalTree (x ::ᵥ xs) item := multi_set_is_item_at hp
-      unfold multi_item_at at hitem_at
-      tauto
-    | @step i h =>
-      exact ih (by assumption) (range := ⟨zero_le _, Nat.lt_of_succ_lt_succ hi⟩)
-
-----------
-
 def TreeDelete [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Skip : Bit) (Path : Vector F D) : MerkleTree F poseidon₂ D :=
   match Skip with
@@ -446,7 +315,7 @@ lemma TreeDeletePrepComm [Fact (perfect_hash poseidon₂)] {Tree : MerkleTree F 
   simp [TreeDeletePrep, TreeDelete]
   split
   . split
-    . apply tree_set_comm
+    . apply MerkleTree.tree_set_comm
     . rfl
   . rfl
 
@@ -458,7 +327,7 @@ theorem TreeDeleteCircuitComm [Fact (perfect_hash poseidon₂)] {x : F} {initTre
   | h_nil =>
     simp [TreeDeleteCircuit]
   | @h_cons b y xs ih =>
-    simp [TreeDeleteCircuit]
+    unfold TreeDeleteCircuit
     rw [TreeDeletePrepComm]
     simp [ih]
 
@@ -476,10 +345,9 @@ theorem after_deletion_all_zeroes [Fact (perfect_hash poseidon₂)] {b i : Nat} 
       rcases range with ⟨lo, hi⟩
       cases lo with
       | refl =>
-        simp [TreeDeleteCircuit] at hp
-        simp [TreeDeleteCircuitComm] at hp
+        simp [TreeDeleteCircuit, TreeDeleteCircuitComm] at hp
         rcases hp with ⟨nextTree, hset, _⟩
-        simp [cons_zero]
+        simp [Vector.cons_zero]
         apply deletion_round_set_zero (Tree := nextTree)
         simp [hset]
       | @step i h =>

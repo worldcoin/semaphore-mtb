@@ -15,18 +15,6 @@ open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 set_option pp.coercions false
 
------------- MISC
-
--- theorem item_at_invariant { depth : Nat } {F: Type} {H : Hash F 2} {tree : MerkleTree F H depth} {ix₁ ix₂ : Fin (2^depth)} {item₁ : F} {neq : ix₁ ≠ ix₂}:
---   tree_item_at_fin (tree_set_at_fin tree ix₁ item₁) ix₂ = tree_item_at_fin tree ix₂ := by
---   simp [tree_item_at_fin, tree_set_at_fin]
---   apply MerkleTree.item_at_invariant
---   simp [Dir.fin_to_dir_vec]
---   simp [fin_to_bits_le]
---   sorry
-
-------------
-
 def TreeInsert [Fact (perfect_hash poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) : MerkleTree F poseidon₂ D :=
   MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item
@@ -188,17 +176,6 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     . simp [vector_binary_of_bit_to_zmod]
     . simp [fin_to_bits_recover_binary]
 
--- theorem deletion_round_set_zero [Fact (perfect_hash poseidon₂)]
---   (Tree : MerkleTree F poseidon₂ D) (Index Item : F) (ix_small : is_index_in_range D Index) :
---   TreeInsertPrep Tree Index Item ix_small = t →
---   TreeInsertZero Tree Index ix_small := by
---   intro htree
---   unfold TreeInsertPrep at htree
---   unfold TreeInsert at htree
---   simp [TreeInsertZero]
---   apply MerkleTree.set_implies_item_at (t₁ := Tree)
---   sorry
-
 def TreeInsertCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
   (InitialTree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
   match b with
@@ -215,10 +192,6 @@ def TreeInsertCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
       simp [add_comm]
     rw [<-this]
     simp [xs_small]) k
-
--- TreeInsertCircuitZero
-
--- before_insertion_all_zeroes
 
 def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=

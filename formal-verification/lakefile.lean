@@ -9,7 +9,7 @@ require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git"@"26d0eab43f05db777d1cf31abd31d3a57954b2a9"
 
 require ProvenZK from git
-  "https://github.com/reilabs/proven-zk.git"@"b2be7e092d3a195090cfe896dd0a8d66c40af39d"
+  "https://github.com/reilabs/proven-zk.git"@"cb1288dfa2b80340cbf19ba1ab6a3eee26dc1533"
 
 -- require ProvenZk from ".."/".."/"proven-zk"
 
