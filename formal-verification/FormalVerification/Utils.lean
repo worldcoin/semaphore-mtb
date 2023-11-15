@@ -46,3 +46,20 @@ lemma tail_index_in_range {b : Nat} (D : Nat) (Index : Vector (ZMod n) (b+1)) (x
   cases xs_small
   rename_i x xs
   simp [xs]
+
+lemma for_all_is_index_in_range {range : i ∈ [0:b]} {D : Nat} {Indices : Vector (ZMod n) b} {xs_small : are_indices_in_range D Indices} :
+  is_index_in_range D (Indices[i]'(by rcases range; linarith)) := by
+    induction Indices using Vector.inductionOn generalizing i with
+    | h_nil =>
+      rcases range with ⟨lo, hi⟩
+      have := Nat.ne_of_lt (Nat.lt_of_le_of_lt lo hi)
+      contradiction
+    | @h_cons i x xs ih =>
+      rcases range with ⟨lo, hi⟩
+      cases lo with
+      | refl =>
+        simp [are_indices_in_range_split] at xs_small
+        tauto
+      | @step i h =>
+        simp [are_indices_in_range_cons] at xs_small
+        exact ih (xs_small := by tauto) (range := ⟨zero_le _, Nat.lt_of_succ_lt_succ hi⟩)

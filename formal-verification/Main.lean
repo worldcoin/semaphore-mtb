@@ -47,14 +47,17 @@ theorem before_insertion_all_zeroes_batch
   simp [InsertionProof_uncps]
   apply before_insertion_all_zeroes_batch'
 
-theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)]
-  (Tree₁ : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  let items := (list_of_items_delete Tree₁ DeletionIndices xs_small)
-  let proofs := (list_of_proofs_delete Tree₁ DeletionIndices xs_small)
-  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree₁.root items proofs k →
-  TreeDeleteCircuitZero DeletionIndices xs_small := by
+-- TreeDeleteZero checks that item_at is equal to 0 if the skip flag is false
+theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)] {range : i ∈ [0:B]}
+  (Tree: MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+  let items := (list_of_items_delete Tree DeletionIndices xs_small)
+  let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
+  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs (fun finalRoot => t.root = finalRoot) →
+  TreeDeleteZero t (DeletionIndices[i]'(by rcases range; linarith)) (by apply for_all_is_index_in_range (Indices := DeletionIndices) (xs_small := xs_small) (range := by tauto)) := by
   simp [DeletionProof_uncps]
   rw [<-deletion_loop_equivalence']
-  apply after_deletion_all_zeroes
+  simp [MerkleTree.eq_root_eq_tree]
+  rcases range with ⟨_, hi⟩
+  apply after_deletion_all_zeroes (range := ⟨zero_le _, hi⟩)
 
 def main : IO Unit := pure ()
