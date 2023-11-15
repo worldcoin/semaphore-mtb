@@ -3,35 +3,10 @@ import FormalVerification.BinaryReps.Basic
 import FormalVerification.BinaryReps.SemanticEquivalence_Aux
 import FormalVerification.Keccak.SemanticEquivalence
 import ProvenZk.Gates
+import ProvenZk.Binary
 
 open SemaphoreMTB (F Order)
-
 variable [Fact (Nat.Prime Order)]
-
-namespace Vector
-
-@[simp]
-theorem map_ofFn {f : α → β} (g : Fin n → α) :
-  Vector.map f (Vector.ofFn g) = Vector.ofFn (fun x => f (g x)) := by
-  apply Vector.eq
-  simp
-  rfl
-
-@[simp]
-theorem map_id': Vector.map (fun x => x) v = v := by
-  have : ∀α, (fun (x:α) => x) = id := by intro _; funext _; rfl
-  rw [this, Vector.map_id]
-
-end Vector
-
-def embedBit : Bit → {x : F // is_bit x}
-| Bit.zero => bZero
-| Bit.one => bOne
-
-theorem is_vector_binary_iff_allIxes_is_bit {n : Nat} {v : Vector F n}: allIxes is_bit v ↔ is_vector_binary v := by
-  induction v using Vector.inductionOn with
-  | h_nil => simp [is_vector_binary]
-  | h_cons ih => conv => lhs; simp [ih]
 
 theorem vector_zmod_to_bit_bitCases {z : SubVector F n is_bit}:
   vector_zmod_to_bit z.val = z.lower.map bitCases := by
@@ -46,55 +21,17 @@ theorem vector_zmod_to_bit_bitCases {z : SubVector F n is_bit}:
     rfl
   }
 
-theorem fin_to_bits_le_recover_binary_nat {v : Vector Bit d}:
-  fin_to_bits_le ⟨recover_binary_nat v, binary_nat_lt _⟩ = v := by
-  unfold fin_to_bits_le
-  split
-  . rename_i h
-    rw [←recover_binary_nat_to_bits_le] at h
-    exact binary_nat_unique _ _ h
-  . contradiction
-
 theorem embedBit_zmod_to_bit { b : {v : F // is_bit v}}:
   embedBit (zmod_to_bit b.val) = b := by
   cases b using bitCases' <;> rfl
 
 @[simp]
-theorem bitCases_embedBit : bitCases (embedBit x) = x := by
+theorem bitCases_embedBit : bitCases (@embedBit Order x) = x := by
   cases x <;> rfl
 
-theorem SubVector_map_cast_lower {v : SubVector α n prop} {f : α → β }:
-  (v.val.map f) = v.lower.map fun (x : Subtype prop) => f x.val := by
-  rw [←Vector.ofFn_get v.val]
-  simp only [SubVector.lower, GetElem.getElem, Vector.map_ofFn]
-
-@[simp]
-theorem recover_binary_nat_fin_to_bits_le {v : Fin (2^d)}:
-  recover_binary_nat (fin_to_bits_le v) = v.val := by
-  unfold fin_to_bits_le
-  split
-  . rename_i h
-    rw [←recover_binary_nat_to_bits_le] at h
-    assumption
-  . contradiction
-
-@[simp]
-theorem SubVector_lower_lift : SubVector.lift (SubVector.lower v) = v := by
-  unfold SubVector.lift
-  unfold SubVector.lower
-  apply Subtype.eq
-  simp [GetElem.getElem]
-
-@[simp]
-theorem SubVector_lift_lower : SubVector.lower (SubVector.lift v) = v := by
-  unfold SubVector.lift
-  unfold SubVector.lower
-  apply Subtype.eq
-  simp [GetElem.getElem]
-
 def ReducedToBinary_256_unique (f : F) :
-  UniqueSolution (fun x => Gates.to_binary f 256 x ∧ SemaphoreMTB.ReducedModRCheck_256 x) (allIxes is_bit) := by
-  let r := SubVector.lift (Vector.map embedBit (fin_to_bits_le (d := 256) (f.castLE (by decide))))
+  UniqueSolution (fun x => Gates.to_binary f 256 x ∧ SemaphoreMTB.ReducedModRCheck_256 x) (Vector.allIxes is_bit) := by
+  let r := SubVector.lift (Vector.map (fun x => @embedBit Order x) (fin_to_bits_le (d := 256) (f.castLE (by decide))))
   exists r
   intro x
 
@@ -180,7 +117,7 @@ theorem SubVector_lift_inj {prop : α → Prop}:
   apply Vector.map_inj
   apply Subtype.eq
 
-lemma embedBit_inj : Function.Injective embedBit := by
+lemma embedBit_inj : Function.Injective (@embedBit Order):= by
   intro x y h
   cases x <;> {cases y <;> cases h; rfl}
 
@@ -244,7 +181,7 @@ theorem ConstantOf_compose_inj
 def permute (fn : Fin m → Fin n) (v : Vector α n): Vector α m :=
   Vector.ofFn (fun i => v[fn i])
 
-theorem allIxes_permute {fn : Fin m → Fin n} {v : Vector α n} (hp : allIxes prop v): allIxes prop (permute fn v) := by
+theorem allIxes_permute {fn : Fin m → Fin n} {v : Vector α n} (hp : Vector.allIxes prop v): Vector.allIxes prop (permute fn v) := by
   intro i
   simp [permute, GetElem.getElem]
   have := hp (fn i)
@@ -260,7 +197,7 @@ theorem rev_ix_256_surj : Function.Surjective rev_ix_256 := by
   decide
 
 def ToReducedBigEndian_256_constant (f : F):
-  ConstantOf (fun k => SemaphoreMTB.ToReducedBigEndian_256 f k) (allIxes is_bit) :=
+  ConstantOf (fun k => SemaphoreMTB.ToReducedBigEndian_256 f k) (Vector.allIxes is_bit) :=
   ConstantOf_compose_existential₂
     (ReducedToBinary_256_unique _)
     (fun x => ConstantOf_constant (x := permute rev_ix_256 x.val) (by apply allIxes_permute; apply x.prop))
@@ -294,8 +231,8 @@ theorem ToReducedBigEndian_256_injective: Function.Injective (fun k => (ToReduce
     . intros i j _; cases i; cases j; simpa [*]
 
 def Gates_to_binary_unique {d : Nat} (d_small : 2 ^ d < Order) (f : {f : F // f.val < 2 ^ d}):
-  UniqueSolution (fun x => Gates.to_binary f.val d x) (allIxes is_bit) := by
-  let r := SubVector.lift (Vector.map embedBit (fin_to_bits_le (d := d) ⟨Fin.val f.val, f.prop⟩))
+  UniqueSolution (fun x => Gates.to_binary f.val d x) (Vector.allIxes is_bit) := by
+  let r := SubVector.lift (Vector.map (fun x => @embedBit Order x) (fin_to_bits_le (d := d) ⟨Fin.val f.val, f.prop⟩))
   exists r
   intro x
   unfold Gates.to_binary
@@ -375,7 +312,7 @@ def Gates_to_binary_inj (d_small : 2 ^ d < Order):
 
 def rev_ix_32 (i : Fin 32): Fin 32 := 24 - (i / 8) * 8 + i % 8
 
-def ToReducedBigEndian_32_constant (f : {f : F // Fin.val f < 2 ^ 32}): ConstantOf (fun k => SemaphoreMTB.ToReducedBigEndian_32 f.val k) (allIxes is_bit) :=
+def ToReducedBigEndian_32_constant (f : {f : F // Fin.val f < 2 ^ 32}): ConstantOf (fun k => SemaphoreMTB.ToReducedBigEndian_32 f.val k) (Vector.allIxes is_bit) :=
   ConstantOf_compose_existential₂
     ⟨(Gates_to_binary_unique (by decide) f).val, by simp [SemaphoreMTB.ReducedModRCheck_32, (Gates_to_binary_unique (by decide) f).uniq]⟩
     (fun x => ConstantOf_constant (x := permute rev_ix_32 x.val) (by apply allIxes_permute; apply x.prop))

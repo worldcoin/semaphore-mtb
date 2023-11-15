@@ -1,23 +1,11 @@
 import FormalVerification
 import FormalVerification.BinaryReps.Basic
 import ProvenZk.Gates
+import ProvenZk.Misc
 
 open SemaphoreMTB (F Order)
 
 variable [Fact (Nat.Prime Order)]
-
-lemma and_iff (P Q R : Prop): (Q ↔ R) → (P ∧ Q ↔ P ∧ R) := by
-  tauto
-
-lemma ex_iff {P Q : α → Prop}: (∀x, P x ↔ Q x) → ((∃x, P x) ↔ ∃x, Q x) := by
-  intro h;
-  apply Iff.intro <;> {
-    intro h1
-    cases h1; rename_i witness prop
-    exists witness
-    try { rw [h witness]; assumption }
-    try { rw [←h witness]; assumption }
-  }
 
 theorem allIxes_indexed' {v : SubVector α n prop} {i : Nat} {i_small : i < n}:
   prop (v.val[i]'i_small) ↔ True := by simp; exact v.prop ⟨i, i_small⟩

@@ -1,7 +1,9 @@
 import ProvenZk.Gates
 import ProvenZk.Binary
+import ProvenZk.Subvector
+import ProvenZk.Ext.Vector
+import ProvenZk.Misc
 import FormalVerification
-import FormalVerification.Utils
 
 open SemaphoreMTB (F Order)
 variable [Fact (Nat.Prime Order)]
@@ -106,7 +108,7 @@ theorem binary_comparison_with_constant_is_comparison {base arg : SubVector F (N
       simp [Fin.castSucc, Fin.last]
     simp only [Subtype.property, this, binary_comparison_with_constant_unused_snoc]
     conv => lhs; simp only [SubVector.snoc_lower, Vector.map_snoc, recover_binary_nat_snoc]
-    conv => rhs; simp only [GetElem.getElem, Fin.last_def, SubVector.snoc, vector_get_snoc_last]
+    conv => rhs; simp only [GetElem.getElem, Fin.last_def, SubVector.snoc, Vector.vector_get_snoc_last]
     cases isBitCases blast with
     | inl =>
       cases isBitCases alast with

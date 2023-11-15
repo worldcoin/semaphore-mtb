@@ -1,10 +1,8 @@
 import FormalVerification
-import ProvenZK
+import ProvenZk
 import Mathlib
-import FormalVerification.Utils
 
 open SemaphoreMTB (F Order)
-
 variable [Fact (Nat.Prime Order)]
 
 structure UniqueSolution (f : α → Prop) (range : α → Prop) where
@@ -98,25 +96,25 @@ def ConstantOf_compose_existential { f : α → Prop } {g : α → (β → Prop)
   simp [*]
 
 def Xor_64_64_constant (v1 v2 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.Xor_64_64 v1.val v2.val) (allIxes is_bit) := by
+  ConstantOf (SemaphoreMTB.Xor_64_64 v1.val v2.val) (Vector.allIxes is_bit) := by
   repeat (
     apply ConstantOf_compose_existential
-    rw [getElem_allIxes, getElem_allIxes]
+    rw [Vector.getElem_allIxes, Vector.getElem_allIxes]
     apply xor_unique
     intro _
   )
   apply ConstantOf_constant
   simp [Subtype.property]
 
-def Xor_64_64_constant' (v₁ v₂ : Vector F 64) {prop₁ : allIxes is_bit v₁} {prop₂ : allIxes is_bit v₂}:
-  ConstantOf (SemaphoreMTB.Xor_64_64 v₁ v₂) (allIxes is_bit) :=
+def Xor_64_64_constant' (v₁ v₂ : Vector F 64) {prop₁ : Vector.allIxes is_bit v₁} {prop₂ : Vector.allIxes is_bit v₂}:
+  ConstantOf (SemaphoreMTB.Xor_64_64 v₁ v₂) (Vector.allIxes is_bit) :=
   Xor_64_64_constant ⟨v₁, prop₁⟩ ⟨v₂, prop₂⟩
 
 def And_64_64_constant (v1 v2 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.And_64_64 v1.val v2.val) (allIxes is_bit) := by
+  ConstantOf (SemaphoreMTB.And_64_64 v1.val v2.val) (Vector.allIxes is_bit) := by
   repeat (
     apply ConstantOf_compose_existential
-    rw [getElem_allIxes, getElem_allIxes]
+    rw [Vector.getElem_allIxes, Vector.getElem_allIxes]
     apply and_unique
     intro _
   )
@@ -124,10 +122,10 @@ def And_64_64_constant (v1 v2 : SubVector F 64 is_bit):
   simp [Subtype.property]
 
 def Not_64_64_constant (v1 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.Not_64 v1.val) (allIxes is_bit) := by
+  ConstantOf (SemaphoreMTB.Not_64 v1.val) (Vector.allIxes is_bit) := by
   repeat (
     apply ConstantOf_compose_existential
-    rw [getElem_allIxes]
+    rw [Vector.getElem_allIxes]
     apply not_unique
     intro _
   )
@@ -145,11 +143,11 @@ def Xor5Round_constant {v1 v2 v3 v4 v5 : {v: F // is_bit v}}:
   apply Subtype.property
 
 def Xor5_64_64_64_64_64_constant {v1 v2 v3 v4 v5 : SubVector F 64 is_bit}:
-  ConstantOf (SemaphoreMTB.Xor5_64_64_64_64_64 v1.val v2.val v3.val v4.val v5.val) (allIxes is_bit) := by
+  ConstantOf (SemaphoreMTB.Xor5_64_64_64_64_64 v1.val v2.val v3.val v4.val v5.val) (Vector.allIxes is_bit) := by
   unfold SemaphoreMTB.Xor5_64_64_64_64_64
   repeat (
     apply ConstantOf_compose
-    repeat rw [getElem_allIxes]
+    repeat rw [Vector.getElem_allIxes]
     apply Xor5Round_constant
     intro _
   )
@@ -157,11 +155,11 @@ def Xor5_64_64_64_64_64_constant {v1 v2 v3 v4 v5 : SubVector F 64 is_bit}:
   simp [Subtype.property]
 
 def KeccakRound_64_5_5_64_constant
-  { state : {v : Vector (Vector (Vector F 64) 5) 5 // allIxes (allIxes (allIxes is_bit)) v} }
+  { state : {v : Vector (Vector (Vector F 64) 5) 5 // Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) v} }
   { rc : SubVector F 64 is_bit }:
-  ConstantOf (SemaphoreMTB.KeccakRound_64_5_5_64 state.val rc.val) (allIxes (allIxes (allIxes is_bit))) := by
+  ConstantOf (SemaphoreMTB.KeccakRound_64_5_5_64 state.val rc.val) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
   unfold SemaphoreMTB.KeccakRound_64_5_5_64
-  repeat rw [getElem_allIxes₂]
+  repeat rw [Vector.getElem_allIxes₂]
 
   repeat (
     apply ConstantOf_compose
@@ -170,9 +168,9 @@ def KeccakRound_64_5_5_64_constant
   )
 
   repeat (
-    apply ConstantOf_compose (dom := allIxes is_bit)
+    apply ConstantOf_compose (dom := Vector.allIxes is_bit)
     apply ConstantOf_constant
-    simp [allIxes_indexed]
+    simp [Vector.allIxes_indexed]
     intro _
     apply ConstantOf_compose
     apply Xor_64_64_constant
@@ -186,9 +184,9 @@ def KeccakRound_64_5_5_64_constant
   )
 
   repeat (
-    apply ConstantOf_compose (dom := allIxes is_bit)
+    apply ConstantOf_compose (dom := Vector.allIxes is_bit)
     apply ConstantOf_constant
-    simp [allIxes_indexed, Subtype.property]
+    simp [Vector.allIxes_indexed, Subtype.property]
     intro _
   )
 
@@ -209,16 +207,16 @@ def KeccakRound_64_5_5_64_constant
   intro _
 
   apply ConstantOf_constant
-  simp [allIxes_indexed₃, Subtype.property]
+  simp [Vector.allIxes_indexed₃, Subtype.property]
 
 def KeccakF_64_5_5_64_24_24_constant
-  { state : {v : Vector (Vector (Vector F 64) 5) 5 // allIxes (allIxes (allIxes is_bit)) v} }
-  { rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } }:
-  ConstantOf (fun k => SemaphoreMTB.KeccakF_64_5_5_64_24_24 state.val rc.val k) (allIxes (allIxes (allIxes is_bit))) := by
+  { state : {v : Vector (Vector (Vector F 64) 5) 5 // Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) v} }
+  { rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } }:
+  ConstantOf (fun k => SemaphoreMTB.KeccakF_64_5_5_64_24_24 state.val rc.val k) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
   unfold SemaphoreMTB.KeccakF_64_5_5_64_24_24
   repeat (
     apply ConstantOf_compose
-    rw [getElem_allIxes]
+    rw [Vector.getElem_allIxes]
     apply KeccakRound_64_5_5_64_constant
     intro _
   )
@@ -227,52 +225,52 @@ def KeccakF_64_5_5_64_24_24_constant
 
 def KeccakF_64_5_5_64_24_24_constant'
   ( state : Vector (Vector (Vector F 64) 5) 5)
-  ( state_prop : allIxes (allIxes (allIxes is_bit)) state)
+  ( state_prop : Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) state)
   ( rc : Vector (Vector F 64) 24)
-  ( rc_prop :  allIxes (allIxes is_bit) rc):
-  ConstantOf (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (allIxes (allIxes (allIxes is_bit))) := by
+  ( rc_prop :  Vector.allIxes (Vector.allIxes is_bit) rc):
+  ConstantOf (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
   apply KeccakF_64_5_5_64_24_24_constant (state := ⟨state, state_prop⟩) (rc := ⟨rc, rc_prop⟩)
 
 def KeccakGadget_640_64_24_640_256_24_1088_1_constant
-  (input : { v : Vector F 640 // allIxes is_bit v})
-  ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
-  ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
+  (input : { v : Vector F 640 // Vector.allIxes is_bit v})
+  ( rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } ):
+  ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (Vector.allIxes is_bit) := by
   unfold SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
   apply ConstantOf_compose_existential
   apply xor_unique (a := bZero) (b := bOne)
   intro _
   apply ConstantOf_compose
   apply KeccakF_64_5_5_64_24_24_constant'
-  simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   apply Subtype.property
   intro _
   apply ConstantOf_constant
-  simp [allIxes_indexed₃]
+  simp [Vector.allIxes_indexed₃]
 
 def KeccakGadget_1568_64_24_1568_256_24_1088_1_constant
-  (input : { v : Vector F 1568 // allIxes is_bit v})
-  ( rc : { v : Vector (Vector F 64) 24 // allIxes (allIxes is_bit) v } ):
-  ConstantOf (SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1 input.val rc.val) (allIxes is_bit) := by
+  (input : { v : Vector F 1568 // Vector.allIxes is_bit v})
+  ( rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } ):
+  ConstantOf (SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1 input.val rc.val) (Vector.allIxes is_bit) := by
   unfold SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1
   apply ConstantOf_compose_existential
   apply xor_unique (a := bZero) (b := bOne)
   intro _
   apply ConstantOf_compose
   apply KeccakF_64_5_5_64_24_24_constant'
-  . simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   . apply Subtype.property
   repeat (
     intro _
     apply ConstantOf_compose
     apply Xor_64_64_constant'
-    . simp only [allIxes_cons, allIxes_nil, allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
-    . simp only [allIxes_cons, allIxes_nil, allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+    . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+    . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   )
   intro _
   apply ConstantOf_compose
   apply KeccakF_64_5_5_64_24_24_constant'
-  . simp only [allIxes_cons, allIxes_nil, allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
+  . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   . apply Subtype.property
   intro _
   apply ConstantOf_constant
-  simp [allIxes_indexed₃]
+  simp [Vector.allIxes_indexed₃]
