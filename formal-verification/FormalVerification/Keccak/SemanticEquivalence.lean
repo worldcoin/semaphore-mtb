@@ -1,9 +1,9 @@
 import FormalVerification
+import FormalVerification.Utils
 import ProvenZk
 import Mathlib
 
 open SemaphoreMTB (F Order)
-variable [Fact (Nat.Prime Order)]
 
 structure UniqueSolution (f : α → Prop) (range : α → Prop) where
   val : Subtype range
@@ -25,7 +25,6 @@ def xor_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.xor a
     | one =>
       apply UniqueSolution.mk bZero
       simp [Gates.xor]
-      rfl
 
 def and_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.and a.val b.val x) is_bit := by
   cases a using bitCases' with
@@ -66,11 +65,9 @@ def not_unique (a : {f : F // is_bit f}): UniqueSolution (fun x => x = Gates.sub
   | zero =>
     apply UniqueSolution.mk bOne
     simp
-    rfl
   | one =>
     apply UniqueSolution.mk bZero
     simp
-    rfl
 
 structure ConstantOf (f : (β → Prop) → Prop) (range : β → Prop) where
   val : Subtype range

@@ -4,9 +4,9 @@ import ProvenZk.Subvector
 import ProvenZk.Ext.Vector
 import ProvenZk.Misc
 import FormalVerification
+import FormalVerification.Utils
 
 open SemaphoreMTB (F Order)
-variable [Fact (Nat.Prime Order)]
 
 abbrev order_binary_le : SubVector F 256 is_bit := SubVector.lift vec![bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bOne,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bOne,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bOne,bZero,bZero,bZero,bZero,bZero,bZero,bZero,bOne,bZero,bOne,bOne,bZero,bZero,bZero,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bZero,bOne,bOne,bOne,bZero,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bOne,bOne,bZero,bZero,bOne,bZero,bZero,bZero,bOne,bZero,bZero,bOne,bOne,bZero,bZero,bZero,bZero,bZero,bOne,bOne,bZero,bZero]
 

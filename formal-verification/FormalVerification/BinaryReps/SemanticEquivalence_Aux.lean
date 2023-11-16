@@ -1,11 +1,10 @@
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.BinaryReps.Basic
 import ProvenZk.Gates
 import ProvenZk.Misc
 
 open SemaphoreMTB (F Order)
-
-variable [Fact (Nat.Prime Order)]
 
 theorem allIxes_indexed' {v : SubVector α n prop} {i : Nat} {i_small : i < n}:
   prop (v.val[i]'i_small) ↔ True := by simp; exact v.prop ⟨i, i_small⟩

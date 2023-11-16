@@ -1,4 +1,5 @@
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.BinaryReps.Basic
 import FormalVerification.BinaryReps.SemanticEquivalence_Aux
 import FormalVerification.Keccak.SemanticEquivalence
@@ -6,7 +7,6 @@ import ProvenZk.Gates
 import ProvenZk.Binary
 
 open SemaphoreMTB (F Order)
-variable [Fact (Nat.Prime Order)]
 
 theorem vector_zmod_to_bit_bitCases {z : SubVector F n is_bit}:
   vector_zmod_to_bit z.val = z.lower.map bitCases := by

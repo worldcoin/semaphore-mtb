@@ -1,4 +1,5 @@
 import FormalVerification
+import FormalVerification.Utils
 import FormalVerification.Poseidon.Constants
 import FormalVerification.Poseidon.Spec
 import Mathlib
@@ -7,7 +8,7 @@ import ProvenZk
 open Matrix
 open SemaphoreMTB (F Order)
 
-variable [Fact (Nat.Prime Order)]
+instance : Fact (Nat.Prime SemaphoreMTB.Order) := Fact.mk (by apply bn256_Fr_prime)
 
 private lemma iff_to_eq {α} {a b: α} {k : α -> Prop }: a = b -> (k a ↔ k b) := by intro eq; rw [eq]
 
