@@ -107,6 +107,68 @@ func main() {
 				},
 			},
 			{
+				Name: "import-setup",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+					&cli.StringFlag{Name: "pk", Usage: "Proving key", Required: true},
+					&cli.StringFlag{Name: "vk", Usage: "Verifying key", Required: true},
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", Required: true},
+					&cli.UintFlag{Name: "tree-depth", Usage: "Merkle tree depth", Required: true},
+					&cli.UintFlag{Name: "batch-size", Usage: "Batch size", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					path := context.String("output")
+					pk := context.String("pk")
+					vk := context.String("vk")
+					mode := context.String("mode")
+					treeDepth := uint32(context.Uint("tree-depth"))
+					batchSize := uint32(context.Uint("batch-size"))
+
+					logging.Logger().Info().Msg("Importing setup")
+
+					if mode == server.InsertionMode {
+						system, err := prover.ImportInsertionSetup(treeDepth, batchSize, pk, vk)
+
+						if err != nil {
+							return err
+						}
+
+						file, err := os.Create(path)
+						defer file.Close()
+						if err != nil {
+							return err
+						}
+						written, err := system.WriteTo(file)
+						if err != nil {
+							return err
+						}
+						logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
+						return nil
+
+					} else if mode == server.DeletionMode {
+						system, err := prover.ImportDeletionSetup(treeDepth, batchSize, pk, vk)
+
+						if err != nil {
+							return err
+						}
+
+						file, err := os.Create(path)
+						defer file.Close()
+						if err != nil {
+							return err
+						}
+						written, err := system.WriteTo(file)
+						if err != nil {
+							return err
+						}
+						logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
+						return nil
+					} else {
+						return fmt.Errorf("Invalid mode: %s", mode)
+					}
+				},
+			},
+			{
 				Name: "export-solidity",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
