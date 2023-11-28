@@ -1,10 +1,14 @@
 package prover
 
 import (
+	"fmt"
 	"io"
+	"os"
 	"strconv"
+	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover/poseidon"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
@@ -180,6 +184,35 @@ func (gadget DeletionProof) DefineGadget(api frontend.API) interface{} {
 	}
 
 	return root
+}
+
+// Trusted setup utility functions
+// Taken from: https://github.com/bnb-chain/zkbnb/blob/master/common/prove/proof_keys.go#L19
+func LoadProvingKey(filepath string) (pk groth16.ProvingKey, err error) {
+	logging.Logger().Info().Msg("start reading proving key")
+	pk = groth16.NewProvingKey(ecc.BN254)
+	f, _ := os.Open(filepath)
+	_, err = pk.ReadFrom(f)
+	if err != nil {
+		return pk, fmt.Errorf("read file error")
+	}
+	f.Close()
+
+	return pk, nil
+}
+
+// Taken from: https://github.com/bnb-chain/zkbnb/blob/master/common/prove/proof_keys.go#L32
+func LoadVerifyingKey(filepath string) (verifyingKey groth16.VerifyingKey, err error) {
+	logging.Logger().Info().Msg("start reading verifying key")
+	verifyingKey = groth16.NewVerifyingKey(ecc.BN254)
+	f, _ := os.Open(filepath)
+	_, err = verifyingKey.ReadFrom(f)
+	if err != nil {
+		return verifyingKey, fmt.Errorf("read file error")
+	}
+	f.Close()
+
+	return verifyingKey, nil
 }
 
 // ReducedModRCheck Checks a little-endian array of bits asserting that it represents a number that
