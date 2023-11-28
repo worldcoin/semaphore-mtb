@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/reilabs/proven-zk.git",
     "subDir?": null,
-    "rev": "9fc2a8d51ff79d2efa64a72d997686e3726aa91c",
+    "rev": "474d69f70f0e9cdbe5681846568c3e5869f3d3a8",
     "name": "ProvenZK",
-    "inputRev?": "9fc2a8d51ff79d2efa64a72d997686e3726aa91c"}},
+    "inputRev?": "v1.2.0"}},
   {"git":
    {"url": "https://github.com/leanprover-community/mathlib4.git",
     "subDir?": null,
