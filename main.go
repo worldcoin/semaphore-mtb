@@ -123,49 +123,38 @@ func main() {
 					mode := context.String("mode")
 					treeDepth := uint32(context.Uint("tree-depth"))
 					batchSize := uint32(context.Uint("batch-size"))
+					var system *prover.ProvingSystem
+					var err error
 
 					logging.Logger().Info().Msg("Importing setup")
 
 					if mode == server.InsertionMode {
-						system, err := prover.ImportInsertionSetup(treeDepth, batchSize, pk, vk)
+						system, err = prover.ImportInsertionSetup(treeDepth, batchSize, pk, vk)
 
 						if err != nil {
 							return err
 						}
-
-						file, err := os.Create(path)
-						defer file.Close()
-						if err != nil {
-							return err
-						}
-						written, err := system.WriteTo(file)
-						if err != nil {
-							return err
-						}
-						logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
-						return nil
 
 					} else if mode == server.DeletionMode {
-						system, err := prover.ImportDeletionSetup(treeDepth, batchSize, pk, vk)
+						system, err = prover.ImportDeletionSetup(treeDepth, batchSize, pk, vk)
 
 						if err != nil {
 							return err
 						}
-
-						file, err := os.Create(path)
-						defer file.Close()
-						if err != nil {
-							return err
-						}
-						written, err := system.WriteTo(file)
-						if err != nil {
-							return err
-						}
-						logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
-						return nil
 					} else {
 						return fmt.Errorf("Invalid mode: %s", mode)
 					}
+					file, err := os.Create(path)
+					defer file.Close()
+					if err != nil {
+						return err
+					}
+					written, err := system.WriteTo(file)
+					if err != nil {
+						return err
+					}
+					logging.Logger().Info().Int64("bytesWritten", written).Msg("proving system written to file")
+					return nil
 				},
 			},
 			{
