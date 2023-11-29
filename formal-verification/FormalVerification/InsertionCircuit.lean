@@ -15,18 +15,18 @@ open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 set_option pp.coercions false
 
-def TreeInsert [Fact (perfect_hash poseidon₂)]
+def TreeInsert [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) : MerkleTree F poseidon₂ D :=
   MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item
 
-theorem insertion_round_item_validation [Fact (perfect_hash poseidon₂)]
+theorem insertion_round_item_validation [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Proof : Vector F D) (k : F → Prop) :
   insertion_round Path Item Tree.root Proof k → (0:F) = MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse := by
   intro ⟨H, _⟩
   rw [MerkleTree.recover_tail_equals_recover_reverse] at H
   exact Eq.symm (MerkleTree.proof_ceritfies_item _ _ _ _ H)
 
-theorem insertion_round_proof_validation [Fact (perfect_hash poseidon₂)]
+theorem insertion_round_proof_validation [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item: F) (Proof : Vector F D) (k : F → Prop) :
   insertion_round Path Item Tree.root Proof k → Proof = (MerkleTree.proof Tree (Dir.create_dir_vec Path).reverse).reverse := by
   intro ⟨H, _⟩
@@ -35,15 +35,15 @@ theorem insertion_round_proof_validation [Fact (perfect_hash poseidon₂)]
   rw [Vector.vector_reverse_eq]
   exact MerkleTree.recover_proof_reversible H
 
-def TreeInsertZeroVector [Fact (perfect_hash poseidon₂)]
+def TreeInsertZeroVector [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) : Prop :=
   MerkleTree.item_at Tree (Dir.create_dir_vec Path).reverse = (0:F)
 
-def TreeInsertZeroZMod [Fact (perfect_hash poseidon₂)]
+def TreeInsertZeroZMod [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) : Prop :=
   MerkleTree.tree_item_at_fin Tree Index.val = (0:F)
 
-theorem insertion_round_uncps [Fact (perfect_hash poseidon₂)]
+theorem insertion_round_uncps [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) (hzero : TreeInsertZeroVector Tree Path) (k : F → Prop) :
   (let newTree := (MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item)
   let item := MerkleTree.item_at newTree (Dir.create_dir_vec Path).reverse
@@ -73,7 +73,7 @@ theorem insertion_round_prep_index_validation
   apply Nat.mod_le
   apply binary_nat_lt
 
-theorem insertion_round_prep_zero [Fact (perfect_hash poseidon₂)]
+theorem insertion_round_prep_zero [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (k : F → Prop) :
   let newTree := MerkleTree.tree_set_at_fin Tree Index.val Item
   let item := MerkleTree.tree_item_at_fin newTree Index.val
@@ -102,12 +102,12 @@ theorem insertion_round_prep_zero [Fact (perfect_hash poseidon₂)]
     . simp [hixbin]
     . simp [hrecov]
 
-def TreeInsertPrep [Fact (perfect_hash poseidon₂)]
+def TreeInsertPrep [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) : MerkleTree F poseidon₂ D :=
   let path := fin_to_bits_le ⟨Index.val, ix_small⟩
   TreeInsert Tree (Vector.map Bit.toZMod path) Item
 
-theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
+theorem insertion_round_prep_uncps [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) (hzero : TreeInsertZeroZMod Tree Index) (k : F → Prop) :
   (let newTree := MerkleTree.tree_set_at_fin Tree Index.val Item
   let item := MerkleTree.tree_item_at_fin newTree Index.val
@@ -176,7 +176,7 @@ theorem insertion_round_prep_uncps [Fact (perfect_hash poseidon₂)]
     . simp [vector_binary_of_bit_to_zmod]
     . simp [fin_to_bits_recover_binary]
 
-def TreeInsertCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
+def TreeInsertCircuit [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (InitialTree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
   match b with
   | Nat.zero => k InitialTree
@@ -193,7 +193,7 @@ def TreeInsertCircuit [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-this]
     simp [xs_small]) k
 
-def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
+def InsertionLoopTree [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (k : MerkleTree F poseidon₂ D → Prop) : Prop :=
   match b with
   | Nat.zero => k Tree
@@ -211,7 +211,7 @@ def InsertionLoopTree [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-this]
     simp [xs_small]) k
 
-def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
+def InsertionLoopZero [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Prop :=
   match b with
   | Nat.zero => True
@@ -230,7 +230,7 @@ def InsertionLoopZero [Fact (perfect_hash poseidon₂)] {b : Nat}
     rw [<-this]
     simp [xs_small])
 
-theorem insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
+theorem insertion_loop_uncps [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : MerkleTree F poseidon₂ D → Prop) :
   (TreeInsertCircuit Tree StartIndex IdComms xs_small k ↔
   InsertionLoopTree Tree StartIndex IdComms xs_small k) := by
@@ -279,7 +279,7 @@ theorem insertion_loop_uncps [Fact (perfect_hash poseidon₂)] {b : Nat}
       . rw [TreeInsertZeroZMod]
         simp [hzero]
 
-def list_of_items_insert [Fact (perfect_hash poseidon₂)]
+def list_of_items_insert [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector F b :=
   match b with
   | Nat.zero => Vector.nil
@@ -296,7 +296,7 @@ def list_of_items_insert [Fact (perfect_hash poseidon₂)]
     simp [xs_small])
     item_at ::ᵥ tail
 
-def list_of_proofs_insert {b : Nat} [Fact (perfect_hash poseidon₂)]
+def list_of_proofs_insert {b : Nat} [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) : Vector (Vector F D) b :=
   match b with
   | Nat.zero => Vector.nil
@@ -315,7 +315,7 @@ def list_of_proofs_insert {b : Nat} [Fact (perfect_hash poseidon₂)]
     proof ::ᵥ tail
 
 @[simp]
-lemma list_of_items_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
+lemma list_of_items_insert_tail {b : Nat} [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F (b+1)) (xs_small : is_index_in_range_nat D (StartIndex + b + 1)) :
   Vector.tail (list_of_items_insert Tree StartIndex IdComms xs_small) =
   let t := TreeInsertPrep Tree (StartIndex:F) IdComms.head (by
@@ -348,7 +348,7 @@ lemma list_of_items_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
   . simp [fin_to_bits_recover_binary]
 
 @[simp]
-lemma list_of_proofs_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
+lemma list_of_proofs_insert_tail {b : Nat} [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F (b+1)) (xs_small : is_index_in_range_nat D (StartIndex + b + 1)) :
   Vector.tail (list_of_proofs_insert Tree StartIndex IdComms xs_small) =
   let t := TreeInsertPrep Tree (StartIndex:F) IdComms.head (by
@@ -380,7 +380,7 @@ lemma list_of_proofs_insert_tail {b : Nat} [Fact (perfect_hash poseidon₂)]
   . simp [vector_binary_of_bit_to_zmod]
   . simp [fin_to_bits_recover_binary]
 
-theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
+theorem insertion_loop_equivalence [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   InsertionLoopTree Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
@@ -460,7 +460,7 @@ theorem insertion_loop_equivalence [Fact (perfect_hash poseidon₂)] {b : Nat}
         rcases hzero with ⟨hzero', _⟩
         simp [hzero']
 
-theorem insertion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
+theorem insertion_loop_equivalence' [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex : Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
@@ -472,7 +472,7 @@ theorem insertion_loop_equivalence' [Fact (perfect_hash poseidon₂)] {b : Nat}
   . simp [hzero]
   . simp [hzero]
 
-theorem before_insertion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
+theorem before_insertion_all_zeroes [Fact (CollisionResistant poseidon₂)] {b : Nat}
   (Tree : MerkleTree F poseidon₂ D) (StartIndex: Nat) (IdComms: Vector F b) (xs_small : is_index_in_range_nat D (StartIndex + b)) :
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
@@ -505,7 +505,7 @@ theorem before_insertion_all_zeroes [Fact (perfect_hash poseidon₂)] {b : Nat}
         . simp [xs_small]
       . assumption
 
-lemma TreeInsertPrep_equivalence [Fact (perfect_hash poseidon₂)]
+lemma TreeInsertPrep_equivalence [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) :
   TreeInsertPrep Tree Index Item ix_small = Tree.set (Vector.reverse (Dir.fin_to_dir_vec Index)) Item := by
   rw [TreeInsertPrep, TreeInsert]
@@ -517,14 +517,14 @@ lemma TreeInsertPrep_equivalence [Fact (perfect_hash poseidon₂)]
   . simp [vector_binary_of_bit_to_zmod]
   . simp [fin_to_bits_recover_binary]
 
-lemma TreeInsertPrep_equivalence' [Fact (perfect_hash poseidon₂)]
+lemma TreeInsertPrep_equivalence' [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Index : F) (Item : F) (ix_small : is_index_in_range D Index) :
   TreeInsertPrep Tree Index Item ix_small = Tree.tree_set_at_fin Index Item := by
   rw [TreeInsertPrep_equivalence]
   rw [MerkleTree.tree_set_at_fin]
 
 theorem before_insertion_all_zeroes_batch'
-  [Fact (perfect_hash poseidon₂)]
+  [Fact (CollisionResistant poseidon₂)]
   {Tree: MerkleTree F poseidon₂ D}
   {StartIndex b: Nat} {IdComms: Vector F b} {xs_small : is_index_in_range_nat D (StartIndex + b)} {k : F -> Prop} :
   (let items := list_of_items_insert Tree StartIndex IdComms xs_small

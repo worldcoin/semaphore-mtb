@@ -20,7 +20,7 @@ import FormalVerification.DeletionCircuit
 open SemaphoreMTB (F Order)
 
 theorem insertion_is_set_circuit
-  [Fact (perfect_hash poseidon₂)]
+  [Fact (CollisionResistant poseidon₂)]
   (Tree: MerkleTree F poseidon₂ D)
   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
   TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
@@ -32,7 +32,7 @@ theorem insertion_is_set_circuit
   rw [insertion_loop_equivalence']
   simp [hzero]
 
-theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
+theorem deletion_is_set_circuit [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
   let items := (list_of_items_delete Tree DeletionIndices xs_small)
@@ -42,7 +42,7 @@ theorem deletion_is_set_circuit [Fact (perfect_hash poseidon₂)]
   simp [deletion_loop_equivalence']
 
 theorem before_insertion_all_zeroes_batch
-  [Fact (perfect_hash poseidon₂)]
+  [Fact (CollisionResistant poseidon₂)]
   (Tree: MerkleTree F poseidon₂ D)
   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
   let items := list_of_items_insert Tree StartIndex IdComms xs_small
@@ -53,7 +53,7 @@ theorem before_insertion_all_zeroes_batch
   apply before_insertion_all_zeroes_batch'
 
 -- TreeDeleteZero checks that item_at is equal to 0 if the skip flag is false
-theorem after_deletion_all_zeroes_batch [Fact (perfect_hash poseidon₂)] {range : i ∈ [0:B]}
+theorem after_deletion_all_zeroes_batch [Fact (CollisionResistant poseidon₂)] {range : i ∈ [0:B]}
   (Tree: MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
   let items := (list_of_items_delete Tree DeletionIndices xs_small)
   let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
