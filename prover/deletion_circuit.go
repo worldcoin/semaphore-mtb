@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"worldcoin/gnark-mbu/prover/keccak"
 
+	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
 )
 
@@ -67,4 +69,36 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	api.AssertIsEqual(root, circuit.PostRoot)
 
 	return nil
+}
+
+func ImportDeletionSetup(treeDepth uint32, batchSize uint32, pkPath string, vkPath string) (*ProvingSystem, error) {
+	proofs := make([][]frontend.Variable, batchSize)
+	for i := 0; i < int(batchSize); i++ {
+		proofs[i] = make([]frontend.Variable, treeDepth)
+	}
+	circuit := DeletionMbuCircuit{
+		Depth:           int(treeDepth),
+		BatchSize:       int(batchSize),
+		DeletionIndices: make([]frontend.Variable, batchSize),
+		IdComms:         make([]frontend.Variable, batchSize),
+		MerkleProofs:    proofs,
+	}
+	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+	if err != nil {
+		return nil, err
+	}
+
+	pk, err := LoadProvingKey(pkPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	vk, err := LoadVerifyingKey(vkPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
