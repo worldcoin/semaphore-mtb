@@ -2,7 +2,7 @@ name: Build and Publish Docker Image
 
 on:
   push:
-    branches: [ master, build-and-push-test ]
+    branches: [ master ]
     tags: ["*"]
 
 permissions:
