@@ -3,6 +3,7 @@ on:
   push:
     tags:
       - '*'
+
 jobs:
   create_release:
     runs-on: ubuntu-latest
