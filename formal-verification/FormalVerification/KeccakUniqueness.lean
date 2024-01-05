@@ -57,6 +57,22 @@ theorem Deletion_InputHash_deterministic :
   rcases h₂ with ⟨h₂, _⟩
   rw [h₁, h₂]
 
+theorem Deletion_skipHashing :
+  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices PreRoot PostRoot IdComms MerkleProofs →
+  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices PreRoot IdComms MerkleProofs fun res => res = PostRoot := by
+  rw [DeletionCircuit_folded]
+  unfold DeletionMbuCircuit_4_4_30_4_4_30_Fold
+  intro h
+  repeat have h := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h
+  rw [ (ToReducedBigEndian_256_constant _).equiv
+     , (ToReducedBigEndian_256_constant _).equiv
+     , (KeccakGadget_640_64_24_640_256_24_1088_1_constant' _ (by simp [Vector.ofFnGet_id, Vector.allIxes_append, Subtype.property]) _).equiv
+     , (FromBinaryBigEndian_256_constant _).equiv
+     ] at h
+  have h := h.2
+  simp_rw [and_true, Gates.eq] at h
+  exact h
+
 def reducedKeccak640 (v : SubVector F 640 is_bit) : F :=
   (FromBinaryBigEndian_256_constant ↑(KeccakGadget_640_64_24_640_256_24_1088_1_constant' v.val v.prop RCBits).val).val.val
 
@@ -231,7 +247,7 @@ theorem Insertion_InputHash_injective :
   rcases this with ⟨this, hPostRoot⟩
   have := Vector.append_inj this
   rcases this with ⟨hStartIndex, hPreRoot⟩
-  repeat rw [ofFnGet_id] at hPostRoot hPreRoot hStartIndex d₀ d₁ d₂ d₃
+  repeat rw [Vector.ofFnGet_id] at hPostRoot hPreRoot hStartIndex d₀ d₁ d₂ d₃
   have hPostRoot := ToReducedBigEndian_256_injective (Subtype.eq hPostRoot)
   have hPreRoot := ToReducedBigEndian_256_injective (Subtype.eq hPreRoot)
   have hStartIndex := ToReducedBigEndian_32_inj (Subtype.eq hStartIndex)
@@ -244,3 +260,17 @@ theorem Insertion_InputHash_injective :
   simp [GetElem.getElem] at d₀ d₁ d₂ d₃
   ext i
   fin_cases i <;> simpa
+
+theorem Insertion_skipHashing :
+  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex PreRoot PostRoot IdComms MerkleProofs →
+  SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex PreRoot IdComms MerkleProofs fun res => res = PostRoot := by
+  intro h
+  rw [InsertionMbuCircuit_4_30_4_4_30_folded, InsertionMbuCircuit_4_30_4_4_30_Fold] at h
+  have h := constant_domain_rw ToReducedBigEndian_32_constant ToReducedBigEndian_32_domain h
+  repeat rw [(ToReducedBigEndian_256_constant _).equiv] at h
+  rw [ (KeccakGadget_1568_64_24_1568_256_24_1088_1_constant' _ (by simp [Vector.ofFnGet_id, Vector.allIxes_append, Subtype.property]) _).equiv
+     , (FromBinaryBigEndian_256_constant _).equiv
+     ] at h
+  have h := h.2
+  simp_rw [and_true, Gates.eq] at h
+  exact h

@@ -68,7 +68,32 @@ lemma VerifyProof_looped (PathIndices: Vector F D) (Siblings: Vector F (D+1)) (k
     rw [←Vector.ofFn_get (v := Siblings)]
     rfl
 
-lemma VerifyProof_uncps {PathIndices: Vector F D} {Siblings: Vector F (D+1)} {k : F -> Prop}:
-    gVerifyProof (Siblings.head ::ᵥ Siblings.tail) PathIndices k ↔
-    is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings.tail Siblings.head) := by
+lemma VerifyProof_uncps {PathIndices: Vector F D} {Siblings: Vector F D} {Item : F} {k : F -> Prop}:
+    gVerifyProof (Item ::ᵥ Siblings) PathIndices k ↔
+    is_vector_binary PathIndices ∧ k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec PathIndices) Siblings Item) := by
     simp only [VerifyProof_looped, proof_rounds_uncps]
+
+structure Validate (P : Prop): Type where
+  witness : ¬P
+
+namespace Validate
+  def elims (v : Validate P ⊕ α) (k : α → Prop): Prop :=
+    match v with
+    | Sum.inl _ => P
+    | Sum.inr x => k x
+end Validate
+
+instance {v : Vector F n} : Decidable (is_vector_binary v) := by sorry
+
+
+def verifyProofFn (path proof : Vector F D) (item : F) : Validate (is_vector_binary path) ⊕ F :=
+  if h : is_vector_binary path then
+    Sum.inr (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec path) proof item)
+  else
+    Sum.inl ⟨h⟩
+
+lemma VerifyProof_validation:
+  gVerifyProof (item ::ᵥ proof) path k ↔ Validate.elims (verifyProofFn path proof item) k := by
+  rw [VerifyProof_uncps]
+  unfold verifyProofFn
+  split <;> tauto

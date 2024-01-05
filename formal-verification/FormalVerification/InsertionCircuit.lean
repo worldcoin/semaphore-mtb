@@ -14,7 +14,7 @@ open SemaphoreMTB renaming InsertionRound_30_30 → gInsertionRound
 open SemaphoreMTB renaming InsertionProof_4_30_4_4_30 → gInsertionProof
 
 set_option pp.coercions false
-
+/-
 def TreeInsert [Fact (CollisionResistant poseidon₂)]
   (Tree : MerkleTree F poseidon₂ D) (Path : Vector F D) (Item : F) : MerkleTree F poseidon₂ D :=
   MerkleTree.set Tree (Dir.create_dir_vec Path).reverse Item
@@ -60,9 +60,22 @@ theorem insertion_round_uncps [Fact (CollisionResistant poseidon₂)]
   rw [MerkleTree.proof_of_set_is_proof]
   simp [MerkleTree.recover_proof_is_root]
 
-theorem insertion_round_prep_index_validation
+theorem insertion_round_prep_index_validation'
   (Root Index Item : F) (Proof : Vector F D) (k : F → Prop) :
   insertion_round_prep Index Item Root Proof k → is_index_in_range D Index := by
+  unfold insertion_round_prep
+  intro ⟨out, prop, is_bin, _⟩
+  rw [recover_binary_zmod_bit is_bin] at prop
+  rw [←prop]
+  simp [is_index_in_range]
+  rw [binary_nat_zmod_equiv_mod_p]
+  apply Nat.lt_of_le_of_lt
+  apply Nat.mod_le
+  apply binary_nat_lt
+
+theorem insertion_round_prep_index_validation
+  (Root Index Item : F) (Proof : Vector F D) (k : F → Prop) :
+  insertion_round_prep Index Item Root Proof k → Index.val < 2 ^ D := by
   unfold insertion_round_prep
   intro ⟨out, prop, is_bin, _⟩
   rw [recover_binary_zmod_bit is_bin] at prop
@@ -617,3 +630,5 @@ theorem before_insertion_all_zeroes_batch'
         . simp [Order]
           simp [is_index_in_range_nat, D] at xs_small
           linarith
+-/
+def foo := 10
