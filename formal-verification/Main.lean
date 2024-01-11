@@ -15,39 +15,11 @@ import FormalVerification.BinaryReps.SemanticEquivalence
 
 import FormalVerification.SemanticEquivalence
 
-import FormalVerification.InsertionCircuit
 import FormalVerification.DeletionCircuit
 
 open SemaphoreMTB (F Order)
 
 instance : Membership α (Vector α n) := ⟨fun x xs => x ∈ xs.toList⟩
-
-namespace MerkleTree
-
-instance : GetElem (MerkleTree α H d) Nat α (fun _ i => i < 2^d) where
-  getElem tree ix inb := tree.tree_item_at_fin ⟨ix, inb⟩
-
-lemma getElem?_eq_item_at_nat {d} (tree : MerkleTree α H d) (ix : Nat) :
-  tree[ix]? = tree.item_at_nat ix := by
-  simp only [getElem?, getElem]
-  split
-  . rename_i h
-    rw [eq_comm, MerkleTree.item_at_nat_to_fin_some']
-  . rename_i h
-    exact eq_comm.mp (MerkleTree.item_at_nat_none_when_ge (Nat.ge_of_not_lt h))
-
-lemma getElem!_eq_item_at_nat [Inhabited α] {d} {tree : MerkleTree α H d} {ix : ℕ}:
-  tree[ix]! = (tree.item_at_nat ix).get! := by
-  simp only [getElem!, getElem]
-  split
-  . rename_i h
-    rw [eq_comm, MerkleTree.item_at_nat_to_fin' (h:=h)]
-    rfl
-  . rename_i h
-    rw [MerkleTree.item_at_nat_none_when_ge (Nat.ge_of_not_lt h)]
-    conv => lhs; whnf
-
-end MerkleTree
 
 namespace Deletion
 
@@ -102,9 +74,9 @@ theorem before_insertion_all_items_zero
   ∀ i ∈ [startIndex.val:startIndex.val + B], tree[i]! = 0 := by
   intro hp i hir
   have hp := Insertion_skipHashing hp
-  rw [insertionRounds_rw] at hp
+  rw [insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
   have hp'' := ix_bound hp
-  rw [MerkleTree.getElem!_eq_item_at_nat]
+  rw [getElem!_eq_getElem?_get!]
   rw [before_insertion_all_zero hp]; rfl
   apply And.intro
   . exact hir.1
@@ -126,11 +98,11 @@ theorem root_transformation_correct
   (∀ i, i ∉ [StartIndex.val:StartIndex.val + B] → postTree[i]! = Tree[i]!) := by
   intro hp
   have hp := Insertion_skipHashing hp
-  rw [insertionRounds_rw] at hp
-  have hp := insertionRoundsRootTransformation' hp
+  rw [insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
+  have hp := insertionRoundsRootTransformation hp
   rcases hp with ⟨postTree, treeTrans, rootTrans⟩
   exists postTree
-  simp_rw [MerkleTree.getElem!_eq_item_at_nat]
+  simp_rw [getElem!_eq_getElem?_get!]
   refine ⟨rootTrans, ?inrange, ?outrange⟩
   case inrange =>
     intro i hi
@@ -141,11 +113,9 @@ theorem root_transformation_correct
       cases hi
       linarith
     rw [this, treeTransform_get_inrange treeTrans i_off_inrange, ←this]
-    unfold getElem!
-    split
-    . rfl
-    . cases i_off_inrange
-      contradiction
+    apply congrArg
+    apply eq_comm.mp
+    apply getElem?_eq_some_getElem_of_valid_index
   case outrange =>
     intro i hi
     cases Nat.lt_or_ge i StartIndex.val with
@@ -196,53 +166,54 @@ end Insertion
 
 -- def treeInsertionSpec {d b} (tree : MerkleTree F poseidon₂ d)
 
-/--
+-- /-
 
-theorem insertion_is_set_circuit
-  [Fact (CollisionResistant poseidon₂)]
-  (Tree: MerkleTree F poseidon₂ D)
-  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
-  TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
-  (let items := list_of_items_insert Tree StartIndex IdComms xs_small
-  let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
-  SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k) := by
-  simp
-  rw [InsertionProof_uncps]
-  rw [insertion_loop_equivalence']
-  simp [hzero]
+-- theorem insertion_is_set_circuit
+--   [Fact (CollisionResistant poseidon₂)]
+--   (Tree: MerkleTree F poseidon₂ D)
+--   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
+--   TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
+--   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
+--   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
+--   SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k) := by
+--   simp
+--   rw [InsertionProof_uncps]
+--   rw [insertion_loop_equivalence']
+--   simp [hzero]
 
-theorem deletion_is_set_circuit [Fact (CollisionResistant poseidon₂)]
-  (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
-  TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
-  let items := (list_of_items_delete Tree DeletionIndices xs_small)
-  let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
-  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs k := by
-  rw [DeletionProof_uncps]
-  simp [deletion_loop_equivalence']
+-- theorem deletion_is_set_circuit [Fact (CollisionResistant poseidon₂)]
+--   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
+--   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
+--   let items := (list_of_items_delete Tree DeletionIndices xs_small)
+--   let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
+--   SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs k := by
+--   rw [DeletionProof_uncps]
+--   simp [deletion_loop_equivalence']
 
-theorem before_insertion_all_zeroes_batch
-  [Fact (CollisionResistant poseidon₂)]
-  (Tree: MerkleTree F poseidon₂ D)
-  (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
-  let items := list_of_items_insert Tree StartIndex IdComms xs_small
-  let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
-  SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k →
-  (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.tree_item_at_fin Tree (i:F).val = (0:F)) := by
-  simp [InsertionProof_uncps]
-  apply before_insertion_all_zeroes_batch'
+-- theorem before_insertion_all_zeroes_batch
+--   [Fact (CollisionResistant poseidon₂)]
+--   (Tree: MerkleTree F poseidon₂ D)
+--   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
+--   let items := list_of_items_insert Tree StartIndex IdComms xs_small
+--   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
+--   SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k →
+--   (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.tree_item_at_fin Tree (i:F).val = (0:F)) := by
+--   simp [InsertionProof_uncps]
+--   apply before_insertion_all_zeroes_batch'
 
--- TreeDeleteZero checks that item_at is equal to 0 if the skip flag is false
-theorem after_deletion_all_zeroes_batch [Fact (CollisionResistant poseidon₂)] {range : i ∈ [0:B]}
-  (Tree: MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
-  let items := (list_of_items_delete Tree DeletionIndices xs_small)
-  let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
-  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs (fun finalRoot => t.root = finalRoot) →
-  TreeDeleteZero t (DeletionIndices[i]'(by rcases range; linarith)) (by apply for_all_is_index_in_range (Indices := DeletionIndices) (xs_small := xs_small) (range := by tauto)) := by
-  simp [DeletionProof_uncps]
-  rw [<-deletion_loop_equivalence']
-  simp [MerkleTree.eq_root_eq_tree]
-  rcases range with ⟨_, hi⟩
-  apply after_deletion_all_zeroes (range := ⟨zero_le _, hi⟩)
+-- -- TreeDeleteZero checks that item_at is equal to 0 if the skip flag is false
+-- theorem after_deletion_all_zeroes_batch [Fact (CollisionResistant poseidon₂)] {range : i ∈ [0:B]}
+--   (Tree: MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
+--   let items := (list_of_items_delete Tree DeletionIndices xs_small)
+--   let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
+--   SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs (fun finalRoot => t.root = finalRoot) →
+--   TreeDeleteZero t (DeletionIndices[i]'(by rcases range; linarith)) (by apply for_all_is_index_in_range (Indices := DeletionIndices) (xs_small := xs_small) (range := by tauto)) := by
+--   simp [DeletionProof_uncps]
+--   rw [<-deletion_loop_equivalence']
+--   simp [MerkleTree.eq_root_eq_tree]
+--   rcases range with ⟨_, hi⟩
+--   apply after_deletion_all_zeroes (range := ⟨zero_le _, hi⟩)
 
-def main : IO Unit := pure ()
---/
+-- def main : IO Unit := pure ()
+
+-- -/
