@@ -75,18 +75,6 @@ theorem DeletionCircuit_InputHash_deterministic:
   → InputHash₁ = InputHash₂
   := Deletion_InputHash_deterministic
 
-/--
-Establishes that the insertion circuit's InputHash parameter is uniquely
-determined by StartIndex, PreRoot, PostRoot and the identity commitments. That
-is done by showing that any two valid assigments that agree on those
-parameters, must also agree on InputHash.
--/
-theorem InsertionCircuit_InputHash_deterministic:
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₁ StartIndex PreRoot PostRoot IdComms MerkleProofs₁ ∧
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₂ StartIndex PreRoot PostRoot IdComms MerkleProofs₂ →
-  InputHash₁ = InputHash₂
-  := Insertion_InputHash_deterministic
-
 
 end InputHash
 
@@ -105,8 +93,6 @@ end InputValidations
 end Deletion
 
 namespace Insertion
-
-section InputValidations
 
 theorem before_insertion_all_items_zero
   [Fact (CollisionResistant poseidon₂)]
@@ -130,61 +116,87 @@ theorem before_insertion_all_items_zero
       _ < 2^D + 1 := Nat.add_lt_add_right hp'' (k := 1)
       _ < Order := by decide
 
-end InputValidations
-
-
-section Semantics
-
 theorem root_transformation_correct
   [Fact (CollisionResistant poseidon₂)]
-  {StartIndex : ℕ}
   {Tree : MerkleTree F poseidon₂ D}:
   SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex Tree.root PostRoot IdComms MerkleProofs →
   ∃(postTree : MerkleTree F poseidon₂ D),
   postTree.root = PostRoot ∧
-  (∀ i, i ∈ [StartIndex:StartIndex + B] → postTree[i]! = IdComms[i-StartIndex]!) ∧
-  (∀ i, i ∉ [StartIndex:StartIndex + B] → postTree[i]! = Tree[i]!) := by
+  (∀ i, i ∈ [StartIndex.val:StartIndex.val + B] → postTree[i]! = IdComms[i-StartIndex.val]!) ∧
+  (∀ i, i ∉ [StartIndex.val:StartIndex.val + B] → postTree[i]! = Tree[i]!) := by
   intro hp
   have hp := Insertion_skipHashing hp
   rw [insertionRounds_rw] at hp
-  have hp := insertionRoundsRootTransformation (by sorry) hp
+  have hp := insertionRoundsRootTransformation' hp
+  rcases hp with ⟨postTree, treeTrans, rootTrans⟩
+  exists postTree
+  simp_rw [MerkleTree.getElem!_eq_item_at_nat]
+  refine ⟨rootTrans, ?inrange, ?outrange⟩
+  case inrange =>
+    intro i hi
+    have : i = StartIndex.val + (i - StartIndex.val) := by
+      rw [add_comm, Nat.sub_add_cancel hi.1]
+    have i_off_inrange : i - StartIndex.val ∈ [0:B] := by
+      refine ⟨Nat.zero_le _, ?_⟩
+      cases hi
+      linarith
+    rw [this, treeTransform_get_inrange treeTrans i_off_inrange, ←this]
+    unfold getElem!
+    split
+    . rfl
+    . cases i_off_inrange
+      contradiction
+  case outrange =>
+    intro i hi
+    cases Nat.lt_or_ge i StartIndex.val with
+    | inl h =>
+      apply congrArg
+      apply eq_comm.mp
+      apply treeTransform_get_lt treeTrans h
+    | inr h =>
+      cases Nat.lt_or_ge i (StartIndex.val + B) with
+      | inl h' =>
+        exfalso
+        exact hi ⟨h, h'⟩
+      | inr h =>
+        apply congrArg
+        apply eq_comm.mp
+        apply treeTransform_get_gt treeTrans h
 
+/--
+Establishes that the insertion circuit's InputHash parameter is uniquely
+determined by StartIndex, PreRoot, PostRoot and the identity commitments. That
+is done by showing that any two valid assigments that agree on those
+parameters, must also agree on InputHash.
+-/
+theorem InsertionCircuit_InputHash_deterministic:
+  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₁ StartIndex PreRoot PostRoot IdComms MerkleProofs₁ ∧
+  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₂ StartIndex PreRoot PostRoot IdComms MerkleProofs₂ →
+  InputHash₁ = InputHash₂
+  := Insertion_InputHash_deterministic
 
+theorem reducedKeccak1568_zeros :
+  reducedKeccak1568 (SubVector.lift (Vector.replicate 1568 bZero)) = 0x2872693cd1edb903471cf4a03c1e436f32dccf7ffa2218a4e0354c2514004511 := by
+  native_decide
 
-def rootTransformationSpec
-  (tree : MerkleTree F poseidon₂ D)
-  (identities : Vector F B)
-  (startIndex : Nat)
-  (indexIsValid : startIndex + B < 2 ^ D): MerkleTree F poseidon₂ D := Id.run do
-  let mut tree := tree
-  for h : i in [0 : B] do
-    have i_valid : startIndex + i < 2 ^ D :=
-      Nat.lt_of_lt_of_le (Nat.add_lt_add_left h.2 _) (le_of_lt indexIsValid)
-    tree := tree.tree_set_at_fin ⟨startIndex + i, i_valid⟩ (identities[i]'h.2)
-  tree
+theorem reducedKeccak1568_ones :
+  reducedKeccak1568 (SubVector.lift (Vector.replicate 1568 bOne)) = 0x1d7add23b253ac47705200179f6ea5df39ba965ccda0a213c2afc112bc842a5 := by
+  native_decide
 
-theorem rootTransformationSpec_correct
-  [Fact (CollisionResistant poseidon₂)]
-  {Tree : MerkleTree F poseidon₂ D}
-  (index_valid : StartIndex + B < 2 ^ D):
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex Tree.root PostRoot IdComms MerkleProofs →
-  PostRoot = (rootTransformationSpec Tree IdComms StartIndex index_valid).root := by
-  intro hp
-  have hp := Insertion_skipHashing hp
-  rw [insertionRounds_rw, InsertionLoop, insertion_round_prep] at hp
-  rcases hp with ⟨_, _, _, hp⟩
+axiom reducedKeccak1568_collision_resistant :
+  ∀x y, reducedKeccak1568 x = reducedKeccak1568 y → x = y
 
-
-
-
-
-
-end Semantics
-
+theorem InsertionCircuit_InputHash_injective:
+  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
+  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
+  StartIndex₁ = StartIndex₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂ ∧ IdComms₁ = IdComms₂ :=
+  Insertion_InputHash_injective (fun hp => reducedKeccak1568_collision_resistant _ _ hp)
 
 end Insertion
 
 -- def treeInsertionSpec {d b} (tree : MerkleTree F poseidon₂ d)
+
+/--
 
 theorem insertion_is_set_circuit
   [Fact (CollisionResistant poseidon₂)]
@@ -233,3 +245,4 @@ theorem after_deletion_all_zeroes_batch [Fact (CollisionResistant poseidon₂)] 
   apply after_deletion_all_zeroes (range := ⟨zero_le _, hi⟩)
 
 def main : IO Unit := pure ()
+--/

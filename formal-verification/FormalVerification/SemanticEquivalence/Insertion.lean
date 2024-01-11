@@ -333,19 +333,6 @@ theorem insertionRoundsRootTransformation'
     . rename_i bound
       rcases hp with ⟨-, -, hp⟩
       have := ih hp
-        -- refine ih hp
-        -- rw [add_assoc]
-        -- apply Nat.lt_of_le_of_lt
-        -- . apply Nat.add_le_add_right
-        --   apply Nat.mod_le
-        -- . simp; linarith
-      -- have ixLeOrd : startIndex < Order := by
-      --   apply LT.lt.trans
-      --   apply Nat.lt_sub_of_add_lt
-      --   exact indexIsValid
-      --   apply Nat.lt_of_le_of_lt
-      --   apply Nat.sub_le
-      --   decide
       rcases this with ⟨t, hsome, hk⟩
       exists t
       conv => arg 1; lhs; whnf
@@ -354,9 +341,12 @@ theorem insertionRoundsRootTransformation'
       apply And.intro
       . rw [←hsome]
         congr
-        . exact Eq.symm (ZMod.val_cast_of_lt ixLeOrd)
-        . exact Eq.symm (Nat.mod_eq_of_lt ixLeOrd)
-        . rw [ZMod.val_cast_of_lt ixLeOrd] at bound; exact bound
+        rw [ZMod.val_add, Nat.mod_eq_of_lt]
+        . rfl
+        . conv => lhs; arg 2; whnf
+          calc
+            startIndex.val + 1 < 2 ^ D + 1 := Nat.add_lt_add_right bound 1
+            _ < Order := by decide
       . exact hk
     . contradiction
 
