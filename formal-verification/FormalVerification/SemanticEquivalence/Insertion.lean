@@ -186,50 +186,6 @@ lemma treeTransformationSemantics_next {B : ℕ} {identities : Vector F B.succ}
       assumption
     . contradiction
 
--- theorem insertionRoundsRootTransformation
---   {B : ℕ} {startIndex : Nat} {identities : Vector F B} {proofs : Vector (Vector F D) B}
---   (indexIsValid : startIndex + B < 2 ^ D):
---   insertionRoundsSemantics startIndex tree identities proofs k →
---   ∃postTree, treeTransformationSemantics tree identities startIndex = some postTree ∧ k postTree.root := by
---   intro hp
---   induction B generalizing startIndex tree with
---   | zero => exists tree
---   | succ B ih =>
---     unfold insertionRoundsSemantics at hp
---     unfold insertionRoundSemantics at hp
---     split at hp
---     . rename_i bound
---       rcases hp with ⟨-, -, hp⟩
---       have := by
---         refine ih ?_ hp
---         rw [add_assoc]
---         apply Nat.lt_of_le_of_lt
---         . apply Nat.add_le_add_right
---           apply Nat.mod_le
---         . simp; linarith
---       have ixLeOrd : startIndex < Order := by
---         apply LT.lt.trans
---         apply Nat.lt_sub_of_add_lt
---         exact indexIsValid
---         apply Nat.lt_of_le_of_lt
---         apply Nat.sub_le
---         decide
---       rcases this with ⟨t, hsome, hk⟩
---       exists t
---       unfold treeTransformationSemantics
---       apply And.intro
---       . rw [←hsome]
---         split
---         . congr
---           . exact Eq.symm (ZMod.val_cast_of_lt ixLeOrd)
---           . exact Eq.symm (Nat.mod_eq_of_lt ixLeOrd)
---         . rename_i h
---           exfalso
---           apply h
---           linarith
---       . exact hk
---     . contradiction
-
 theorem insertionRoundsRootTransformation
   {B : ℕ} {startIndex : F} {identities : Vector F B} {proofs : Vector (Vector F D) B}:
   insertionRoundsSemantics startIndex tree identities proofs k →

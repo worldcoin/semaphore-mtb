@@ -14,135 +14,165 @@ open SemaphoreMTB (F Order)
 
 open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
+open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
+
 
 -- Deletion round semantic equivalence
 
-lemma sub_zero_is_eq {a b cond : F} {k: F -> Prop}:
-    (fun gate_2 =>
-    ∃gate_3, gate_3 = Gates.sub a b ∧      -- gate_3 = a - b
-    ∃gate_4, Gates.is_zero gate_3 gate_4 ∧ -- gate_4 = (a - b) == 0 = a == b
-    ∃gate_5, Gates.or gate_4 cond gate_5 ∧ -- gate_5 = (a == b) ∨ cond
-    Gates.eq gate_5 (1:F) ∧                -- gate_5 == 1
-    ∃gate_7, Gates.select cond b gate_2 gate_7 ∧ -- return $ if cond then b else gate_2
-    k gate_7) = (fun gate_2 => is_bit cond ∧ match zmod_to_bit cond with
-                  | Bit.zero => (a = b) ∧ k gate_2 -- Update the root
-                  | Bit.one => k b  -- Skip flag set, don't update the root
-                ) := by
-  funext g2
-  unfold Gates.select
-  simp only [or_rw]
-  unfold Gates.sub
-  unfold Gates.is_zero
-  unfold Gates.is_bool
-  unfold Gates.eq
-  simp
-  apply Iff.intro
-  . intros; casesm* (∃ _, _), (_∧ _)
-    rename (cond = 0 ∨ cond = 1) => hp
-    cases hp
-    . simp at *; subst_vars; simp at *; subst_vars; simp at *
-      apply And.intro
-      . apply eq_of_sub_eq_zero; assumption
-      . tauto
-    . subst_vars
-      apply And.intro
-      . tauto
-      . simp at *; subst_vars; assumption
-  . rintro ⟨is_b, rest⟩
-    cases is_b <;> (
-      subst_vars
-      conv at rest => whnf
-    )
-    . cases rest; subst_vars; simp; assumption
-    . simp
-      cases h: decide (a - b = 0) with
-      | false =>
-        simp at h;
-        exists 0
-        apply And.intro
-        . tauto
-        . exists 1
-      | true =>
-        simp at h;
-        exists 1;
-        apply And.intro
-        . tauto
-        . exists 1
+-- def insertionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
+--   if h : Index.val < 2 ^ D then
+--     Tree.itemAtFin ⟨Index.val, h⟩ = 0 ∧
+--     Tree.proofAtFin ⟨Index.val, h⟩ = Proof.reverse ∧
+--     k (Tree.setAtFin ⟨Index.val, h⟩ Item)
+--   else False
 
-def deletion_round (Root: F) (Skip : Bit) (Path : Vector F D) (Item: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
-  match Skip with
-    | Bit.zero => (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec Path) Proof Item = Root) ∧
-                k (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec Path) Proof 0) -- Update the root
-    | Bit.one => k Root  -- Skip flag set, don't update the root
+def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
+  if Index.val < 2 ^ (D + 1)
+    then if h : Index.val < 2 ^ D
+      then Tree.itemAtFin ⟨Index.val, h⟩ = Item ∧
+           Tree.proofAtFin ⟨Index.val, h⟩ = Proof.reverse ∧
+           k (Tree.setAtFin ⟨Index.val, h⟩ 0)
+      else k Tree
+    else False
 
-def deletion_round_prep (Root: F) (Index: F) (Item: F) (Proof: Vector F D) (k: F -> Prop) : Prop :=
-  ∃out: Vector F (D+1), recover_binary_zmod' out = Index ∧ is_vector_binary out ∧
-  is_bit out.last ∧ deletion_round Root (zmod_to_bit out.last) (out.dropLast) Item Proof k
+theorem Gates.to_binary_rangecheck {a : F} {n out} (h: to_binary a n out): a.val < 2^n := by
+  unfold to_binary at h
+  rcases h with ⟨h, hbin⟩
+  cases Nat.lt_or_ge (2^n) Order with
+  | inl hp =>
+    have h := congrArg ZMod.val h
+    rw [recover_binary_zmod_bit hbin, binary_zmod_same_as_nat _ hp] at h
+    rw [←h]
+    exact binary_nat_lt _
+  | inr hp =>
+    calc
+      a.val < Order := a.prop
+      _ ≤ 2^n := by linarith
 
-lemma DeletionRound_uncps {Root: F} {Index: F} {Item: F} {Proof: Vector F D} {k: F -> Prop} :
-  gDeletionRound Root Index Item Proof k ↔
-  deletion_round_prep Root Index Item Proof k := by
+theorem recover_binary_nat_snoc {n} {vs : Vector Bit n} :
+  recover_binary_nat (Vector.snoc vs v) = recover_binary_nat vs + (2 ^ vs.length) * v.toNat := by
+  induction n generalizing v with
+  | zero =>
+    cases vs using Vector.casesOn
+    cases v <;> rfl
+  | succ n ih =>
+    cases vs using Vector.casesOn
+    unfold recover_binary_nat
+    simp [ih, Vector.length, Nat.pow_succ]
+    rw [add_assoc]
+    apply congrArg
+    rw [left_distrib]
+    apply congrArg
+    conv => lhs; rw [mul_comm, mul_assoc]
+    rw [mul_assoc]
+    apply congrArg
+    rw [mul_comm]
+
+
+theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
+  recover_binary_zmod' (Vector.snoc vs v) = recover_binary_zmod' vs + (2 ^ vs.length) * v.val := by
+  induction n generalizing v with
+  | zero =>
+    cases vs using Vector.casesOn
+    simp [recover_binary_zmod']
+  | succ n ih =>
+    cases vs using Vector.casesOn
+    unfold recover_binary_zmod'
+    simp [Vector.length, pow_succ, ih]
+    ring
+
+-- theorem Vector.map_snoc {n} {α β} {f : α → β} {vs : Vector α n} {v : α} :
+--   Vector.map f (Vector.snoc vs v) = Vector.snoc (Vector.map f vs) (f v) := by
+--   induction n generalizing vs with
+--   | zero =>
+--     cases vs using Vector.casesOn
+--     cases v <;> rfl
+--   | succ n ih =>
+--     cases vs using Vector.casesOn
+--     simp [Vector.map]
+--     rw [ih]
+--     simp [Vector.map]
+
+-- todo name
+-- lemma recover_lemma_proof_det {α H d} [Fact (CollisionResistant H)] {tree : MerkleTree α H d} {proof ixbin ix item}:
+--     MerkleTree.recover_tail H (Dir.create_dir_vec ixbin) proof item = tree.root →
+--     proof = tree.proofAtFin ix := by sorry
+
+
+lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
+  apply Fin.eq_of_veq
+  exact Nat.mod_eq_of_lt h
+
+lemma Vector.getElem_snoc_at_length {vs : Vector α n}: (vs.snoc v)[n]'(by simp_arith) = v := by
+  sorry
+
+lemma Vector.getElem_snoc_before_length {vs : Vector α n} {i : ℕ} (hp : i < n): (vs.snoc v)[i]'(by linarith) = vs[i]'hp := by
+  sorry
+
+lemma is_vector_binary_snoc {vs : Vector (ZMod (Nat.succ p)) n} {v}: is_vector_binary (vs.snoc v) ↔ is_vector_binary vs ∧ is_bit v := by sorry
+
+-- lemma Vector.ofFn_get_castAdd {v : Vector α (a + b)} : Vector.ofFn (fun i => v.get (i.castAdd b)) = v.take a := by sorry
+
+theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant poseidon₂)]:
+  gDeletionRound tree.root index item proof k ↔ deletionRoundSemantics index item tree proof (fun t => k t.root) := by
   unfold gDeletionRound
-  simp only [sub_zero_is_eq]
-  simp [VerifyProof_looped, proof_rounds_uncps]
-  simp [Gates.to_binary, and_assoc]
-  apply exists_congr
-  simp
-  intros
-  subst_vars
-  rename_i gate_0 h
-  rw [←Vector.ofFn_get (v := gate_0)]
-  rw [←Vector.ofFn_get (v := gate_0)] at h
-  rw [←Vector.ofFn_get (v := Proof)]
-  rw [and_iff_right]
-  tauto
-  have : is_vector_binary (gate_0.dropLast) := by
-    simp at h
-    apply is_vector_binary_dropLast
-    assumption
-  rw [←Vector.ofFn_get (v := gate_0)]
-  rw [←Vector.ofFn_get (v := gate_0)] at this
-  assumption
-
-def deletion_rounds {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
-  match n with
-  | Nat.zero => k PreRoot
-  | Nat.succ _ => gDeletionRound PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
-    deletion_rounds DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
-
-def DeletionLoop {n} (DeletionIndices: Vector F n) (PreRoot: F) (IdComms: Vector F n) (MerkleProofs: Vector (Vector F D) n) (k : F -> Prop) : Prop :=
-  match n with
-  | Nat.zero => k PreRoot
-  | Nat.succ _ =>
-    deletion_round_prep PreRoot DeletionIndices.head IdComms.head MerkleProofs.head fun next =>
-      DeletionLoop DeletionIndices.tail next IdComms.tail MerkleProofs.tail k
-
-lemma deletion_rounds_uncps {n} {DeletionIndices: Vector F n} {PreRoot: F} {IdComms: Vector F n} {MerkleProofs: Vector (Vector F D) n} {k : F -> Prop}:
-  deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k ↔
-  DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
-  induction DeletionIndices, IdComms, MerkleProofs using Vector.inductionOn₃ generalizing PreRoot with
-  | nil =>
-    unfold deletion_rounds
-    unfold DeletionLoop
-    rfl
-  | cons =>
-    unfold deletion_rounds
-    unfold DeletionLoop
-    rename_i ih
-    simp [ih]
-    simp [DeletionRound_uncps, Dir.dropLastOrder]
-
-lemma DeletionProof_looped (DeletionIndices: Vector F B) (PreRoot: F) (IdComms: Vector F B) (MerkleProofs: Vector (Vector F D) B) (k: F -> Prop) :
-    gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k =
-      deletion_rounds DeletionIndices PreRoot IdComms MerkleProofs k := by
-        unfold gDeletionProof
-        simp [deletion_rounds]
-        rw [←Vector.ofFn_get (v := DeletionIndices)]
-        rw [←Vector.ofFn_get (v := IdComms)]
-        rw [←Vector.ofFn_get (v := MerkleProofs)]
-        rfl
-
-lemma DeletionProof_uncps {DeletionIndices: Vector F B} {PreRoot: F} {IdComms: Vector F B} {MerkleProofs: Vector (Vector F D) B} {k: F -> Prop}:
-    gDeletionProof DeletionIndices PreRoot IdComms MerkleProofs k ↔
-    DeletionLoop DeletionIndices PreRoot IdComms MerkleProofs k := by
-    simp only [DeletionProof_looped, deletion_rounds_uncps]
+  unfold deletionRoundSemantics
+  apply Iff.intro
+  . intro hp
+    rcases hp with ⟨ixbin, hixbin, rest⟩
+    cases ixbin using Vector.revCasesOn with | snoc ixbin ctrlBit =>
+    simp only [Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length] at *
+    conv at rest =>
+      congr
+      . change (item ::ᵥ  Vector.ofFn proof.get); simp only [Vector.ofFn_get]
+      . change (Vector.ofFn ixbin.get); simp only [Vector.ofFn_get]
+      . intro gate_1
+        congr
+        . change (0 ::ᵥ Vector.ofFn proof.get); simp only [Vector.ofFn_get]
+        . change (Vector.ofFn ixbin.get); simp only [Vector.ofFn_get]
+    split; rotate_left
+    . have := Gates.to_binary_rangecheck hixbin
+      contradiction
+    . rcases hixbin with ⟨hIxRecover, hIxIsBin⟩
+      rw [recover_binary_zmod'_snoc] at hIxRecover
+      rw [is_vector_binary_snoc] at hIxIsBin
+      rcases hIxIsBin with ⟨hIxIsBin, hCtrlBitIsBit⟩
+      rw [VerifyProof_uncps] at rest
+      rcases rest with ⟨-, rest⟩
+      rw [VerifyProof_uncps] at rest
+      rcases rest with ⟨-, rest⟩
+      rcases rest with ⟨gate_3, gate_3_def, rest⟩
+      simp only [gate_3_def] at rest
+      clear gate_3_def gate_3
+      rcases rest with ⟨gate_4, gate_4_def, gate_5, gate_5_def, gate_5_eq, gate_7, gate_7_def, hcont⟩
+      cases hCtrlBitIsBit with
+      | inl hz =>
+        cases hz
+        simp at hIxRecover
+        have : index.val < 2^D := by
+          rw [←hIxRecover, @recover_binary_zmod_bit _ _ ⟨by decide⟩ _ hIxIsBin, binary_zmod_same_as_nat _ (by decide)]
+          exact binary_nat_lt _
+        simp only [this, dite_true]
+        simp at gate_7_def
+        simp only [gate_7_def] at *
+        clear gate_7_def gate_7
+        simp at gate_5_def
+        rcases gate_5_def with ⟨-, gate_5_def⟩
+        simp only [gate_5_def] at *
+        clear gate_5_def gate_5
+        unfold Gates.eq at gate_5_eq
+        simp only [gate_5_eq] at *
+        clear gate_5_eq
+        simp [Gates.is_zero, Gates.sub] at gate_4_def
+        replace gate_4_def := eq_of_sub_eq_zero gate_4_def
+        rw [MerkleTree.recover_tail_equals_recover_reverse, ←Dir.recover_binary_zmod'_to_dir this (by decide) hIxIsBin hIxRecover, Fin.castNat_lt_pow this] at gate_4_def hcont
+        refine ⟨?_, ?_, ?_⟩
+        . apply MerkleTree.proof_ceritfies_item
+          exact gate_4_def
+        . apply MerkleTree.recover_proof_reversible
+          exact gate_4_def
+        . unfold MerkleTree.setAtFin
+          rw [←MerkleTree.proof_insert_invariant _ _ _ _ _ gate_4_def]
+          exact hcont
+      | inr hz => sorry
+  . sorry
