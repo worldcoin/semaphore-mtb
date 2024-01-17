@@ -16,16 +16,6 @@ open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
 
-
--- Deletion round semantic equivalence
-
--- def insertionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
---   if h : Index.val < 2 ^ D then
---     Tree.itemAtFin ⟨Index.val, h⟩ = 0 ∧
---     Tree.proofAtFin ⟨Index.val, h⟩ = Proof.reverse ∧
---     k (Tree.setAtFin ⟨Index.val, h⟩ Item)
---   else False
-
 def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
   if Index.val < 2 ^ (D + 1)
     then if h : Index.val < 2 ^ D
@@ -81,37 +71,33 @@ theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
     simp [Vector.length, pow_succ, ih]
     ring
 
--- theorem Vector.map_snoc {n} {α β} {f : α → β} {vs : Vector α n} {v : α} :
---   Vector.map f (Vector.snoc vs v) = Vector.snoc (Vector.map f vs) (f v) := by
---   induction n generalizing vs with
---   | zero =>
---     cases vs using Vector.casesOn
---     cases v <;> rfl
---   | succ n ih =>
---     cases vs using Vector.casesOn
---     simp [Vector.map]
---     rw [ih]
---     simp [Vector.map]
-
--- todo name
--- lemma recover_lemma_proof_det {α H d} [Fact (CollisionResistant H)] {tree : MerkleTree α H d} {proof ixbin ix item}:
---     MerkleTree.recover_tail H (Dir.create_dir_vec ixbin) proof item = tree.root →
---     proof = tree.proofAtFin ix := by sorry
-
 
 lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
   apply Fin.eq_of_veq
   exact Nat.mod_eq_of_lt h
 
 lemma Vector.getElem_snoc_at_length {vs : Vector α n}: (vs.snoc v)[n]'(by simp_arith) = v := by
-  sorry
+  induction n with
+  | zero => cases vs using Vector.casesOn; rfl
+  | succ n ih => cases vs using Vector.casesOn; simp [ih]
 
 lemma Vector.getElem_snoc_before_length {vs : Vector α n} {i : ℕ} (hp : i < n): (vs.snoc v)[i]'(by linarith) = vs[i]'hp := by
-  sorry
+  induction n generalizing i with
+  | zero => cases vs using Vector.casesOn; contradiction
+  | succ n ih =>
+    cases vs using Vector.casesOn;
+    cases i with
+    | zero => simp
+    | succ i => simp [ih (Nat.lt_of_succ_lt_succ hp)]
 
-lemma is_vector_binary_snoc {vs : Vector (ZMod (Nat.succ p)) n} {v}: is_vector_binary (vs.snoc v) ↔ is_vector_binary vs ∧ is_bit v := by sorry
+@[simp]
+lemma Vector.allIxes_snoc {vs : Vector α n} : allIxes f (vs.snoc v) ↔ allIxes f vs ∧ f v := by
+  induction n with
+  | zero => cases vs using Vector.casesOn; simp
+  | succ n ih => cases vs using Vector.casesOn; simp [ih]; tauto
 
--- lemma Vector.ofFn_get_castAdd {v : Vector α (a + b)} : Vector.ofFn (fun i => v.get (i.castAdd b)) = v.take a := by sorry
+lemma is_vector_binary_snoc {vs : Vector (ZMod (Nat.succ p)) n} {v}: is_vector_binary (vs.snoc v) ↔ is_vector_binary vs ∧ is_bit v := by
+  simp [←is_vector_binary_iff_allIxes_is_bit]
 
 theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant poseidon₂)]:
   gDeletionRound tree.root index item proof k ↔ deletionRoundSemantics index item tree proof (fun t => k t.root) := by
@@ -174,5 +160,98 @@ theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant
         . unfold MerkleTree.setAtFin
           rw [←MerkleTree.proof_insert_invariant _ _ _ _ _ gate_4_def]
           exact hcont
-      | inr hz => sorry
-  . sorry
+      | inr ho =>
+        cases ho
+        have : ¬(index.val < 2^D) := by
+          rw [←hIxRecover, ZMod.val_add, Nat.mod_eq_of_lt]
+          . apply not_lt_of_ge
+            have : 2 ^ D = ZMod.val (2 ^ 30 : F) := by rfl
+            simp [Vector.length]
+            rw [←this]
+            exact Nat.le_add_left _ _
+          . simp [Vector.length]
+            apply Nat.lt_of_lt_of_le (m := 2 ^ D + (ZMod.val (2 ^ 30 : F)))
+            . simp [@recover_binary_zmod_bit _ _ ⟨by decide⟩ _ hIxIsBin]
+              rw [binary_zmod_same_as_nat _ (by decide)]
+              exact binary_nat_lt _
+            . decide
+        simp only [this, dite_false]
+        simp at gate_7_def
+        cases gate_7_def
+        assumption
+  . intro hp
+    split at hp <;> try contradiction
+    rename_i lbound
+    split at hp
+    . rename_i bound
+      rcases hp with ⟨hitem, hproof, hcont⟩
+      let indexBits : Vector F D := Vector.map Bit.toZMod (fin_to_bits_le ⟨index.val, bound⟩)
+      apply Exists.intro (indexBits.snoc 0)
+      refine ⟨?_, ?_⟩
+      . unfold Gates.to_binary
+        simp [recover_binary_zmod'_snoc, is_vector_binary_snoc]
+        refine ⟨@fin_to_bits_recover_binary _ _ ⟨by decide⟩ _ bound, @vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _⟩
+      . simp only [Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length, VerifyProof_uncps]
+        conv =>
+          congr
+          . enter [1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
+          . enter [1, 1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
+        refine ⟨vector_binary_of_bit_to_zmod, vector_binary_of_bit_to_zmod, ?_⟩
+        apply Exists.intro (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec $ Vector.ofFn indexBits.get) (Vector.ofFn proof.get) item - tree.root)
+        refine ⟨Eq.refl _, ?_⟩
+        simp only [Vector.ofFn_get]
+        apply Exists.intro 1
+        apply And.intro
+        . rw [MerkleTree.recover_tail_equals_recover_reverse]
+          simp [Gates.is_zero]
+          apply sub_eq_zero_of_eq
+          rw [←Dir.recover_binary_zmod'_to_dir bound (by decide) vector_binary_of_bit_to_zmod (fin_to_bits_recover_binary _ _)]
+          rw [Fin.castNat_lt_pow bound]
+          rw [←MerkleTree.recover_equivalence]
+          unfold MerkleTree.itemAtFin at hitem
+          unfold MerkleTree.proofAtFin at hproof
+          exact ⟨hitem, hproof⟩
+        . simp [Gates.eq]
+          conv =>
+            arg 1
+            congr
+            . skip
+            . change (Dir.create_dir_vec $ Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
+            . change (Vector.ofFn proof.get); simp only [Vector.ofFn_get]
+          apply Eq.subst _ hcont
+          rw [eq_comm, MerkleTree.recover_tail_equals_recover_reverse, ←MerkleTree.recover_equivalence]
+          rw [←Dir.recover_binary_zmod'_to_dir bound (by decide) vector_binary_of_bit_to_zmod (fin_to_bits_recover_binary _ _)]
+          rw [Fin.castNat_lt_pow bound]
+          refine ⟨MerkleTree.read_after_insert_sound _ _ _, ?_⟩
+          unfold MerkleTree.setAtFin
+          rw [MerkleTree.proof_of_set_is_proof]
+          assumption
+    . have decbound : index.val - 2 ^ D < 2 ^ D := by
+        rw [Nat.pow_succ, Nat.mul_succ, Nat.mul_one] at lbound
+        apply Nat.sub_lt_right_of_lt_add
+        . simp [*] at *
+          assumption
+        . assumption
+      let indexBits : Vector F D := Vector.map Bit.toZMod (fin_to_bits_le ⟨index.val - 2^D, decbound⟩)
+      apply Exists.intro (indexBits.snoc 1)
+      simp [VerifyProof_uncps, Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length]
+      conv => enter [2, 1, 1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
+      simp [Gates.to_binary, recover_binary_zmod'_snoc, is_vector_binary_snoc]
+      apply And.intro
+      . apply And.intro
+        . rw [@recover_binary_zmod_bit _ _  ⟨by decide⟩ _ (@vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _), ←binary_nat_zmod_equiv]
+          rw [@zmod_to_bit_coe _ _ ⟨by decide⟩ _, recover_binary_nat_fin_to_bits_le]
+          rw [Nat.cast_sub (by linarith)]
+          simp
+        . exact @vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _
+      . refine ⟨@vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _, ?_⟩
+        conv => enter [1, gate_4, 1, 1, 1, 2]; change Dir.create_dir_vec $ Vector.ofFn indexBits.get; rw [Vector.ofFn_get]
+        conv => enter [1, gate_4, 1, 1, 1, 3]; change Vector.ofFn proof.get; rw [Vector.ofFn_get]
+        simp only [Gates.is_zero]
+        cases eq_or_ne (Gates.sub (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec indexBits) proof item) (MerkleTree.root tree)) 0 with
+        | inl h =>
+          exists 1
+          simp [h, hp, Gates.eq]
+        | inr h =>
+          exists 0
+          simp [h, hp, Gates.eq]
