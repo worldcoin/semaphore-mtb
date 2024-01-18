@@ -19,8 +19,6 @@ import FormalVerification.DeletionCircuit
 
 open SemaphoreMTB (F Order)
 
-instance : Membership α (Vector α n) := ⟨fun x xs => x ∈ xs.toList⟩
-
 namespace Deletion
 
 /-!

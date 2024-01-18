@@ -46,9 +46,9 @@ def insertionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D)
     k (Tree.setAtFin ⟨Index.val, h⟩ Item)
   else False
 
-lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
-  apply Fin.eq_of_veq
-  exact Nat.mod_eq_of_lt h
+-- lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
+--   apply Fin.eq_of_veq
+--   exact Nat.mod_eq_of_lt h
 
 theorem insertionRoundCircuit_eq_insertionRoundSemantics [Fact (CollisionResistant poseidon₂)] {Tree : MerkleTree F poseidon₂ D} :
   gInsertionRound Index Item Tree.root Proof k ↔

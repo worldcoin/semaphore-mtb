@@ -64,25 +64,6 @@ lemma binary_comparison_succeeded_always_succeeds {base arg : SubVector F n is_b
     split <;> simp [Gates.eq, Subtype.property, *]
   }
 
-lemma recover_binary_nat_snoc {n : Nat} {v : Vector Bit n} {b : Bit}:
-  recover_binary_nat (v.snoc b) = recover_binary_nat v + 2^n * b.toNat := by
-  induction n with
-  | zero =>
-    cases v using Vector.casesOn
-    simp [recover_binary_nat]
-  | succ n ih =>
-    cases v using Vector.casesOn with | cons hd tl =>
-    unfold recover_binary_nat
-    simp [ih]
-    rw [Nat.add_assoc,
-        Nat.add_left_cancel_iff,
-        Nat.mul_add,
-        Nat.add_left_cancel_iff,
-        Nat.mul_left_comm,
-        ← Nat.mul_assoc,
-        Nat.pow_succ
-    ]
-
 theorem binary_comparison_with_constant_is_comparison {base arg : SubVector F (Nat.succ n) is_bit }:
   recover_binary_nat (Vector.map bitCases base.lower) > recover_binary_nat (Vector.map bitCases arg.lower) ↔
   binary_comparison_with_constant base arg ⟨n, by simp⟩ 0 0 := by

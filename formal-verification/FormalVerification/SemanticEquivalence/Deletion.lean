@@ -16,15 +16,6 @@ open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
 
-def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
-  if Index.val < 2 ^ (D + 1)
-    then if h : Index.val < 2 ^ D
-      then Tree.itemAtFin ⟨Index.val, h⟩ = Item ∧
-           Tree.proofAtFin ⟨Index.val, h⟩ = Proof.reverse ∧
-           k (Tree.setAtFin ⟨Index.val, h⟩ 0)
-      else k Tree
-    else False
-
 theorem Gates.to_binary_rangecheck {a : F} {n out} (h: to_binary a n out): a.val < 2^n := by
   unfold to_binary at h
   rcases h with ⟨h, hbin⟩
@@ -39,24 +30,24 @@ theorem Gates.to_binary_rangecheck {a : F} {n out} (h: to_binary a n out): a.val
       a.val < Order := a.prop
       _ ≤ 2^n := by linarith
 
-theorem recover_binary_nat_snoc {n} {vs : Vector Bit n} :
-  recover_binary_nat (Vector.snoc vs v) = recover_binary_nat vs + (2 ^ vs.length) * v.toNat := by
-  induction n generalizing v with
-  | zero =>
-    cases vs using Vector.casesOn
-    cases v <;> rfl
-  | succ n ih =>
-    cases vs using Vector.casesOn
-    unfold recover_binary_nat
-    simp [ih, Vector.length, Nat.pow_succ]
-    rw [add_assoc]
-    apply congrArg
-    rw [left_distrib]
-    apply congrArg
-    conv => lhs; rw [mul_comm, mul_assoc]
-    rw [mul_assoc]
-    apply congrArg
-    rw [mul_comm]
+-- theorem recover_binary_nat_snoc {n} {vs : Vector Bit n} :
+--   recover_binary_nat (Vector.snoc vs v) = recover_binary_nat vs + (2 ^ vs.length) * v.toNat := by
+--   induction n generalizing v with
+--   | zero =>
+--     cases vs using Vector.casesOn
+--     cases v <;> rfl
+--   | succ n ih =>
+--     cases vs using Vector.casesOn
+--     unfold recover_binary_nat
+--     simp [ih, Vector.length, Nat.pow_succ]
+--     rw [add_assoc]
+--     apply congrArg
+--     rw [left_distrib]
+--     apply congrArg
+--     conv => lhs; rw [mul_comm, mul_assoc]
+--     rw [mul_assoc]
+--     apply congrArg
+--     rw [mul_comm]
 
 
 theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
@@ -96,8 +87,22 @@ lemma Vector.allIxes_snoc {vs : Vector α n} : allIxes f (vs.snoc v) ↔ allIxes
   | zero => cases vs using Vector.casesOn; simp
   | succ n ih => cases vs using Vector.casesOn; simp [ih]; tauto
 
+-- @[reducible]
+instance : Membership α (Vector α n) := ⟨fun x xs => x ∈ xs.toList⟩
+
 lemma is_vector_binary_snoc {vs : Vector (ZMod (Nat.succ p)) n} {v}: is_vector_binary (vs.snoc v) ↔ is_vector_binary vs ∧ is_bit v := by
   simp [←is_vector_binary_iff_allIxes_is_bit]
+
+namespace Deletion
+
+def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) (Proof : Vector F D) (k : MerkleTree F poseidon₂ D → Prop): Prop :=
+  if Index.val < 2 ^ (D + 1)
+    then if h : Index.val < 2 ^ D
+      then Tree.itemAtFin ⟨Index.val, h⟩ = Item ∧
+           Tree.proofAtFin ⟨Index.val, h⟩ = Proof.reverse ∧
+           k (Tree.setAtFin ⟨Index.val, h⟩ 0)
+      else k Tree
+    else False
 
 theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant poseidon₂)]:
   gDeletionRound tree.root index item proof k ↔ deletionRoundSemantics index item tree proof (fun t => k t.root) := by
@@ -255,3 +260,123 @@ theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant
         | inr h =>
           exists 0
           simp [h, hp, Gates.eq]
+
+def deletionRoundsSemantics {b : Nat}
+  (indices : Vector F b)
+  (items : Vector F b)
+  (proofs : Vector (Vector F D) b)
+  (tree : MerkleTree F poseidon₂ D)
+  (k : F → Prop): Prop := match b with
+  | Nat.zero => k tree.root
+  | Nat.succ _ =>
+    deletionRoundSemantics (indices.head) (items.head) tree (proofs.head) (fun t => deletionRoundsSemantics indices.tail items.tail proofs.tail t k)
+
+theorem deletionProofCircuit_eq_deletionRoundsSemantics [Fact (CollisionResistant poseidon₂)]:
+  gDeletionProof indices tree.root idComms proofs k ↔ deletionRoundsSemantics indices idComms proofs tree k := by
+  unfold gDeletionProof
+  repeat unfold deletionRoundsSemantics
+  repeat (
+    cases indices using Vector.casesOn; rename_i _ indices
+    cases idComms using Vector.casesOn; rename_i _ idComms
+    cases proofs using Vector.casesOn; rename_i _ proofs
+  )
+  simp_rw [deletionRoundCircuit_eq_deletionRoundSemantics]
+  rfl
+
+def treeTransformationSemantics {B : ℕ}
+  (tree : MerkleTree F poseidon₂ D)
+  (indices : Vector F B): Option (MerkleTree F poseidon₂ D) := match B with
+  | 0 => some tree
+  | _ + 1 => if h : indices.head.val < 2 ^ D
+    then treeTransformationSemantics (tree.setAtFin ⟨indices.head.val, h⟩ 0) indices.tail
+    else if indices.head.val < 2 ^ (D + 1)
+      then treeTransformationSemantics tree indices.tail
+      else none
+
+theorem deletionRounds_rootTransformation {B : ℕ} {indices idComms : Vector F B} {proofs : Vector (Vector F D) B} {tree : MerkleTree F poseidon₂ D} {k : F → Prop}:
+  deletionRoundsSemantics indices idComms proofs tree k →
+  ∃postTree, treeTransformationSemantics tree indices = some postTree ∧ k postTree.root := by
+  intro hp
+  induction B generalizing tree with
+  | zero => exists tree
+  | succ B ih =>
+    unfold deletionRoundsSemantics at hp
+    unfold deletionRoundSemantics at hp
+    split at hp
+    . split at hp
+      . rcases hp with ⟨-, -, hp⟩
+        replace hp := ih hp
+        unfold treeTransformationSemantics
+        simp [*]
+      . unfold treeTransformationSemantics
+        replace hp := ih hp
+        simp [*]
+    . contradiction
+
+theorem treeTransform_get_absent {B : ℕ} {i : F} {indices : Vector F B} {tree tree' : MerkleTree F poseidon₂ D}:
+  treeTransformationSemantics tree indices = some tree' → i ∉ indices → tree'[i.val]? = tree[i.val]? := by
+  intro hp hn
+  induction B generalizing tree tree' with
+  | zero => unfold treeTransformationSemantics at hp; injection hp; simp [*]
+  | succ B ih =>
+    unfold treeTransformationSemantics at hp
+    have i_tail : i ∉ indices.tail := by
+      intro h
+      apply hn
+      apply Vector.mem_of_mem_tail
+      assumption
+    split at hp
+    . replace hp := ih hp i_tail
+      rw [hp]; clear hp
+      cases Nat.lt_or_ge i.val (2^D) with
+      | inl _ =>
+        repeat rw [getElem?_eq_some_getElem_of_valid_index] <;> try assumption
+        apply congrArg
+        apply MerkleTree.getElem_setAtFin_invariant_of_neq
+        intro hp
+        apply hn
+        replace hp := Fin.eq_of_veq hp
+        rw [hp]
+        apply Vector.head_mem
+      | inr _ =>
+        repeat rw [getElem?_none_of_invalid_index]
+        all_goals (apply not_lt_of_ge; assumption)
+    . split at hp
+      . exact ih hp i_tail
+      . contradiction
+
+theorem treeTranform_get_present {B : ℕ} {i : F} {indices : Vector F B} {tree tree' : MerkleTree F poseidon₂ D}:
+  treeTransformationSemantics tree indices = some tree' → i ∈ indices → tree'[i.val]! = 0 := by
+  intro hp hi
+  induction B generalizing tree tree' with
+  | zero => cases indices using Vector.casesOn; cases hi
+  | succ B ih =>
+    unfold treeTransformationSemantics at hp
+    cases indices using Vector.casesOn; rename_i hix tix
+    split at hp
+    . rename_i range
+      have : Decidable (i ∈ tix.toList) := by infer_instance
+      cases this with
+      | isTrue h => exact ih hp h
+      | isFalse h =>
+        rw [getElem!_eq_getElem?_get!]
+        rw [treeTransform_get_absent hp h]
+        cases eq_or_ne i hix with
+        | inl heq =>
+          cases heq
+          rw [getElem?_eq_some_getElem_of_valid_index] <;> try exact range
+          apply MerkleTree.read_after_insert_sound
+        | inr hne => cases hi <;> contradiction
+    . rename_i invalid
+      cases List.eq_or_ne_mem_of_mem hi with
+      | inl heq =>
+        rw [getElem!_eq_getElem?_get!, getElem?_none_of_invalid_index]
+        . rfl
+        . rw [heq]; exact invalid
+      | inr h =>
+        rcases h with ⟨-, range⟩
+        split at hp
+        . exact ih hp range
+        . contradiction
+
+end Deletion
