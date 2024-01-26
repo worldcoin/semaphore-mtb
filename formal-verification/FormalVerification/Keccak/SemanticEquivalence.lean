@@ -5,269 +5,185 @@ import Mathlib
 
 open SemaphoreMTB (F Order)
 
-structure UniqueSolution (f : α → Prop) (range : α → Prop) where
-  val : Subtype range
-  uniq : ∀x, f x ↔ x = val
+def Xor_64_64_uniqueAssignment (v1 v2 : Vector Bool 64):
+  UniqueAssignment (SemaphoreMTB.Xor_64_64 (v1.map Bool.toZMod) (v2.map Bool.toZMod)) (Vector.map Bool.toZMod) := by
+  simp [SemaphoreMTB.Xor_64_64, Vector.getElem_map, Gates.xor_bool]
+  rw [←Vector.map_nil]
+  repeat rw [←Vector.map_cons]
+  apply UniqueAssignment.constant
 
-def xor_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.xor a.val b.val x) is_bit := by
-  cases a using bitCases' with
-  | zero => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bZero
-      simp [Gates.xor]
-    | one =>
-      apply UniqueSolution.mk bOne
-      simp [Gates.xor]
-  | one => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bOne
-      simp [Gates.xor]
-    | one =>
-      apply UniqueSolution.mk bZero
-      simp [Gates.xor]
+def And_64_64_uniqueAssignment (v1 v2 : Vector Bool 64):
+  UniqueAssignment (SemaphoreMTB.And_64_64 (v1.map Bool.toZMod) (v2.map Bool.toZMod)) (Vector.map Bool.toZMod) := by
+  simp [SemaphoreMTB.And_64_64, Vector.getElem_map, Gates.and_bool]
+  rw [←Vector.map_nil]
+  repeat rw [←Vector.map_cons]
+  apply UniqueAssignment.constant
 
-def and_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.and a.val b.val x) is_bit := by
-  cases a using bitCases' with
-  | zero => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bZero
-      simp [Gates.and]
-    | one =>
-      apply UniqueSolution.mk bZero
-      simp [Gates.and]
-  | one => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bZero
-      simp [Gates.and]
-    | one =>
-      apply UniqueSolution.mk bOne
-      simp [Gates.and]
+def Not_64_uniqueAssignment (v1 : Vector Bool 64):
+  UniqueAssignment (SemaphoreMTB.Not_64 (v1.map Bool.toZMod)) (Vector.map Bool.toZMod) := by
+  simp [SemaphoreMTB.Not_64, Vector.getElem_map, Gates.not_bool]
+  rw [←Vector.map_nil]
+  repeat rw [←Vector.map_cons]
+  apply UniqueAssignment.constant
 
-def or_unique (a b : {f : F // is_bit f}): UniqueSolution (fun x => Gates.or a.val b.val x) is_bit := by
-  cases a using bitCases' with
-  | zero => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bZero
-      simp
-    | one =>
-      apply UniqueSolution.mk bOne
-      simp
-  | one => cases b using bitCases' with
-    | zero =>
-      apply UniqueSolution.mk bOne
-      simp
-    | one =>
-      apply UniqueSolution.mk bOne
-      simp
+def Xor5Round_uniqueAssignment {v1 v2 v3 v4 v5 : Bool}:
+  UniqueAssignment (SemaphoreMTB.Xor5Round v1.toZMod v2.toZMod v3.toZMod v4.toZMod v5.toZMod) Bool.toZMod := by
+  simp [SemaphoreMTB.Xor5Round, Gates.xor_bool]
+  apply UniqueAssignment.constant
 
-def not_unique (a : {f : F // is_bit f}): UniqueSolution (fun x => x = Gates.sub (1:F) a) is_bit := by
-  cases a using bitCases' with
-  | zero =>
-    apply UniqueSolution.mk bOne
-    simp
-  | one =>
-    apply UniqueSolution.mk bZero
-    simp
-
-structure ConstantOf (f : (β → Prop) → Prop) (range : β → Prop) where
-  val : Subtype range
-  equiv : ∀k, f k = k val
-
-def ConstantOf_constant {x : α} {range : α → Prop} (hp : range x): ConstantOf (fun k => k x) range :=
-  ⟨⟨x, hp⟩, fun _ => rfl⟩
-
-def ConstantOf_compose { f: (β → Prop) → Prop } {g : β → (γ → Prop) → Prop} {range : γ → Prop}
-  (f_constant : ConstantOf f dom) (g_constant : ∀(c : Subtype dom), ConstantOf (g c) range):
-  ConstantOf (fun k => f (λx ↦ g x k)) range := by
-  rcases f_constant with ⟨c, _⟩
-  rcases g_constant c with ⟨g, _⟩
-  exists g
-  simp [*]
-
-def ConstantOf_compose_existential { f : α → Prop } {g : α → (β → Prop) → Prop} {range : β → Prop}
-  (f_uniq : UniqueSolution f dom) (g_constant : ∀(c : Subtype dom), ConstantOf (g c) range):
-  ConstantOf (fun k => ∃x, f x ∧ g x k) range := by
-  rcases f_uniq with ⟨c, _⟩
-  rcases g_constant c with ⟨g, _⟩
-  exists g
-  simp [*]
-
-def Xor_64_64_constant (v1 v2 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.Xor_64_64 v1.val v2.val) (Vector.allIxes is_bit) := by
-  repeat (
-    apply ConstantOf_compose_existential
-    rw [Vector.getElem_allIxes, Vector.getElem_allIxes]
-    apply xor_unique
-    intro _
-  )
-  apply ConstantOf_constant
-  simp [Subtype.property]
-
-def Xor_64_64_constant' (v₁ v₂ : Vector F 64) {prop₁ : Vector.allIxes is_bit v₁} {prop₂ : Vector.allIxes is_bit v₂}:
-  ConstantOf (SemaphoreMTB.Xor_64_64 v₁ v₂) (Vector.allIxes is_bit) :=
-  Xor_64_64_constant ⟨v₁, prop₁⟩ ⟨v₂, prop₂⟩
-
-def And_64_64_constant (v1 v2 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.And_64_64 v1.val v2.val) (Vector.allIxes is_bit) := by
-  repeat (
-    apply ConstantOf_compose_existential
-    rw [Vector.getElem_allIxes, Vector.getElem_allIxes]
-    apply and_unique
-    intro _
-  )
-  apply ConstantOf_constant
-  simp [Subtype.property]
-
-def Not_64_64_constant (v1 : SubVector F 64 is_bit):
-  ConstantOf (SemaphoreMTB.Not_64 v1.val) (Vector.allIxes is_bit) := by
-  repeat (
-    apply ConstantOf_compose_existential
-    rw [Vector.getElem_allIxes]
-    apply not_unique
-    intro _
-  )
-  apply ConstantOf_constant
-  simp [Subtype.property]
-
-def Xor5Round_constant {v1 v2 v3 v4 v5 : {v: F // is_bit v}}:
-  ConstantOf (SemaphoreMTB.Xor5Round v1.val v2.val v3.val v4.val v5.val) is_bit := by
-  repeat (
-    apply ConstantOf_compose_existential
-    apply xor_unique
-    intro _
-  )
-  apply ConstantOf_constant
-  apply Subtype.property
-
-def Xor5_64_64_64_64_64_constant {v1 v2 v3 v4 v5 : SubVector F 64 is_bit}:
-  ConstantOf (SemaphoreMTB.Xor5_64_64_64_64_64 v1.val v2.val v3.val v4.val v5.val) (Vector.allIxes is_bit) := by
+def Xor5_64_64_64_64_64_uniqueAssignment {v1 v2 v3 v4 v5 : Vector Bool 64}:
+  UniqueAssignment (SemaphoreMTB.Xor5_64_64_64_64_64 (v1.map Bool.toZMod) (v2.map Bool.toZMod) (v3.map Bool.toZMod) (v4.map Bool.toZMod) (v5.map Bool.toZMod)) (Vector.map Bool.toZMod) := by
   unfold SemaphoreMTB.Xor5_64_64_64_64_64
+  simp only [Vector.getElem_map]
   repeat (
-    apply ConstantOf_compose
-    repeat rw [Vector.getElem_allIxes]
-    apply Xor5Round_constant
+    apply UniqueAssignment.compose
+    apply Xor5Round_uniqueAssignment
     intro _
   )
-  apply ConstantOf_constant
-  simp [Subtype.property]
+  rw [←Vector.map_nil]
+  repeat rw [←Vector.map_cons]
+  apply UniqueAssignment.constant
 
-def KeccakRound_64_5_5_64_constant
-  { state : {v : Vector (Vector (Vector F 64) 5) 5 // Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) v} }
-  { rc : SubVector F 64 is_bit }:
-  ConstantOf (SemaphoreMTB.KeccakRound_64_5_5_64 state.val rc.val) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
+def KeccakRound_64_5_5_64_uniqueAssignment
+  { state : Vector (Vector (Vector Bool 64) 5) 5}
+  { rc : Vector Bool 64 }:
+  UniqueAssignment (SemaphoreMTB.KeccakRound_64_5_5_64 (Vector.map (Vector.map (Vector.map Bool.toZMod)) state) (rc.map Bool.toZMod)) (Vector.map (Vector.map (Vector.map Bool.toZMod))) := by
   unfold SemaphoreMTB.KeccakRound_64_5_5_64
-  repeat rw [Vector.getElem_allIxes₂]
+  simp only [Vector.getElem_map]
 
   repeat (
-    apply ConstantOf_compose
-    apply Xor5_64_64_64_64_64_constant
+    apply UniqueAssignment.compose
+    apply Xor5_64_64_64_64_64_uniqueAssignment
     intro _
   )
 
   repeat (
-    apply ConstantOf_compose (dom := Vector.allIxes is_bit)
-    apply ConstantOf_constant
-    simp [Vector.allIxes_indexed]
+    apply UniqueAssignment.compose (embf := Vector.map Bool.toZMod)
+    . unfold SemaphoreMTB.Rot_64_1
+      simp only [Vector.getElem_map]
+      rw [←Vector.map_nil]
+      repeat rw [←Vector.map_cons]
+      apply UniqueAssignment.constant
     intro _
-    apply ConstantOf_compose
-    apply Xor_64_64_constant
-    intro _
-  )
-
-  repeat (
-    apply ConstantOf_compose
-    apply Xor_64_64_constant
+    apply UniqueAssignment.compose
+    apply Xor_64_64_uniqueAssignment
     intro _
   )
 
   repeat (
-    apply ConstantOf_compose (dom := Vector.allIxes is_bit)
-    apply ConstantOf_constant
-    simp [Vector.allIxes_indexed, Subtype.property]
+    apply UniqueAssignment.compose
+    apply Xor_64_64_uniqueAssignment
+    intro _
+  )
+
+  (
+    apply UniqueAssignment.compose (embf := Vector.map Bool.toZMod)
+    . apply UniqueAssignment.constant
     intro _
   )
 
   repeat (
-    apply ConstantOf_compose
-    apply Not_64_64_constant
-    intro _
-    apply ConstantOf_compose
-    apply And_64_64_constant
-    intro _
-    apply ConstantOf_compose
-    apply Xor_64_64_constant
+    apply UniqueAssignment.compose (embf := Vector.map Bool.toZMod)
+    . apply UniqueAssignment.constant'
+      simp only [Vector.getElem_map]
+      rw [←Vector.map_nil]
+      repeat rw [←Vector.map_cons]
     intro _
   )
 
-  apply ConstantOf_compose
-  apply Xor_64_64_constant
+  repeat (
+    apply UniqueAssignment.compose
+    apply Not_64_uniqueAssignment
+    intro _
+    apply UniqueAssignment.compose
+    apply And_64_64_uniqueAssignment
+    intro _
+    apply UniqueAssignment.compose
+    apply Xor_64_64_uniqueAssignment
+    intro _
+  )
+
+  apply UniqueAssignment.compose
+  apply Xor_64_64_uniqueAssignment
   intro _
 
-  apply ConstantOf_constant
-  simp [Vector.allIxes_indexed₃, Subtype.property]
+  apply UniqueAssignment.constant'
+  repeat rw [←Vector.map_singleton (f := Vector.map Bool.toZMod)]
+  repeat rw [←Vector.map_cons]
+  rw [←Vector.map_singleton]
+  repeat rw [←Vector.map_cons]
 
-def KeccakF_64_5_5_64_24_24_constant
-  { state : {v : Vector (Vector (Vector F 64) 5) 5 // Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) v} }
-  { rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } }:
-  ConstantOf (fun k => SemaphoreMTB.KeccakF_64_5_5_64_24_24 state.val rc.val k) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
+def KeccakF_64_5_5_64_24_24_uniqueAssignment
+  { state : Vector (Vector (Vector Bool 64) 5) 5}
+  { rc : Vector (Vector Bool 64) 24 }:
+  UniqueAssignment (SemaphoreMTB.KeccakF_64_5_5_64_24_24 (Vector.map (Vector.map (Vector.map Bool.toZMod)) state) (rc.map (Vector.map Bool.toZMod))) (Vector.map (Vector.map (Vector.map Bool.toZMod))) := by
   unfold SemaphoreMTB.KeccakF_64_5_5_64_24_24
   repeat (
-    apply ConstantOf_compose
-    rw [Vector.getElem_allIxes]
-    apply KeccakRound_64_5_5_64_constant
+    apply UniqueAssignment.compose
+    . simp only [Vector.getElem_map]
+      apply KeccakRound_64_5_5_64_uniqueAssignment
     intro _
   )
-  apply ConstantOf_constant
-  apply Subtype.property
+  apply UniqueAssignment.constant
 
-def KeccakF_64_5_5_64_24_24_constant'
-  ( state : Vector (Vector (Vector F 64) 5) 5)
-  ( state_prop : Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit)) state)
-  ( rc : Vector (Vector F 64) 24)
-  ( rc_prop :  Vector.allIxes (Vector.allIxes is_bit) rc):
-  ConstantOf (SemaphoreMTB.KeccakF_64_5_5_64_24_24 state rc) (Vector.allIxes (Vector.allIxes (Vector.allIxes is_bit))) := by
-  apply KeccakF_64_5_5_64_24_24_constant (state := ⟨state, state_prop⟩) (rc := ⟨rc, rc_prop⟩)
-
-def KeccakGadget_640_64_24_640_256_24_1088_1_constant
-  (input : { v : Vector F 640 // Vector.allIxes is_bit v})
-  ( rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } ):
-  ConstantOf (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 input.val rc.val) (Vector.allIxes is_bit) := by
+def KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment
+  (input : Vector Bool 640)
+  ( rc : Vector (Vector Bool 64) 24):
+  UniqueAssignment (SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1 (input.map Bool.toZMod) (rc.map (Vector.map Bool.toZMod))) (Vector.map Bool.toZMod) := by
   unfold SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
-  apply ConstantOf_compose_existential
-  apply xor_unique (a := bZero) (b := bOne)
+  simp only [ ←Bool.toZMod_zero
+            , ←Bool.toZMod_one
+            , Vector.getElem_map
+            ]
+  simp only [Gates.xor_bool, exists_eq_left]
+  simp only [ ←Vector.map_singleton (f:=Bool.toZMod)
+            , ←Vector.map_singleton (f:=Vector.map Bool.toZMod)
+            , ←Vector.map_singleton (f:=Vector.map (Vector.map Bool.toZMod))
+            , ←Vector.map_cons
+            ]
+  apply UniqueAssignment.compose
+  apply KeccakF_64_5_5_64_24_24_uniqueAssignment
   intro _
-  apply ConstantOf_compose
-  apply KeccakF_64_5_5_64_24_24_constant'
-  simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
-  apply Subtype.property
-  intro _
-  apply ConstantOf_constant
-  simp [Vector.allIxes_indexed₃]
+  simp only [Vector.getElem_map]
+  simp only [ ←Vector.map_singleton (f:=Bool.toZMod)
+            , ←Vector.map_cons
+            ]
+  apply UniqueAssignment.constant
 
-def KeccakGadget_1568_64_24_1568_256_24_1088_1_constant
-  (input : { v : Vector F 1568 // Vector.allIxes is_bit v})
-  ( rc : { v : Vector (Vector F 64) 24 // Vector.allIxes (Vector.allIxes is_bit) v } ):
-  ConstantOf (SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1 input.val rc.val) (Vector.allIxes is_bit) := by
+def KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment
+  (input : Vector Bool 1568)
+  ( rc : Vector (Vector Bool 64) 24):
+  UniqueAssignment (SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1 (input.map Bool.toZMod) (rc.map (Vector.map Bool.toZMod))) (Vector.map Bool.toZMod) := by
   unfold SemaphoreMTB.KeccakGadget_1568_64_24_1568_256_24_1088_1
-  apply ConstantOf_compose_existential
-  apply xor_unique (a := bZero) (b := bOne)
+  simp only [ ←Bool.toZMod_zero
+            , ←Bool.toZMod_one
+            , Vector.getElem_map
+            ]
+  simp only [Gates.xor_bool, exists_eq_left]
+  simp only [ ←Vector.map_singleton (f:=Bool.toZMod)
+            , ←Vector.map_singleton (f:=Vector.map Bool.toZMod)
+            , ←Vector.map_singleton (f:=Vector.map (Vector.map Bool.toZMod))
+            , ←Vector.map_cons
+            ]
+  apply UniqueAssignment.compose
+  apply KeccakF_64_5_5_64_24_24_uniqueAssignment
   intro _
-  apply ConstantOf_compose
-  apply KeccakF_64_5_5_64_24_24_constant'
-  . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
-  . apply Subtype.property
+  simp only [Vector.getElem_map]
   repeat (
+    apply UniqueAssignment.compose
+    . apply Xor_64_64_uniqueAssignment
     intro _
-    apply ConstantOf_compose
-    apply Xor_64_64_constant'
-    . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
-    . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
   )
+  simp only [ ←Vector.map_singleton (f:=Vector.map (Vector.map Bool.toZMod))
+            , ←Vector.map_singleton (f:=Vector.map Bool.toZMod)
+            , ←Vector.map_cons
+            ]
+  apply UniqueAssignment.compose
+  apply KeccakF_64_5_5_64_24_24_uniqueAssignment
   intro _
-  apply ConstantOf_compose
-  apply KeccakF_64_5_5_64_24_24_constant'
-  . simp only [Vector.allIxes_cons, Vector.allIxes_nil, Vector.allIxes_indexed₂, is_bit_zero, is_bit_one, true_and, and_true, Subtype.property]
-  . apply Subtype.property
-  intro _
-  apply ConstantOf_constant
-  simp [Vector.allIxes_indexed₃]
+
+  simp only [Vector.getElem_map]
+  simp only [ ←Vector.map_singleton (f:=Bool.toZMod)
+            , ←Vector.map_cons
+            ]
+  apply UniqueAssignment.constant

@@ -1,7 +1,4 @@
-import ProvenZk.Binary
-import ProvenZk.Hash
-import ProvenZk.Merkle
-import ProvenZk.Misc
+import ProvenZk
 
 import FormalVerification
 import FormalVerification.Utils
@@ -16,82 +13,24 @@ open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
 
-theorem Gates.to_binary_rangecheck {a : F} {n out} (h: to_binary a n out): a.val < 2^n := by
-  unfold to_binary at h
-  rcases h with ⟨h, hbin⟩
-  cases Nat.lt_or_ge (2^n) Order with
-  | inl hp =>
-    have h := congrArg ZMod.val h
-    rw [recover_binary_zmod_bit hbin, binary_zmod_same_as_nat _ hp] at h
-    rw [←h]
-    exact binary_nat_lt _
-  | inr hp =>
-    calc
-      a.val < Order := a.prop
-      _ ≤ 2^n := by linarith
 
--- theorem recover_binary_nat_snoc {n} {vs : Vector Bit n} :
---   recover_binary_nat (Vector.snoc vs v) = recover_binary_nat vs + (2 ^ vs.length) * v.toNat := by
+-- theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
+--   recover_binary_zmod' (Vector.snoc vs v) = recover_binary_zmod' vs + (2 ^ vs.length) * v.val := by
 --   induction n generalizing v with
 --   | zero =>
 --     cases vs using Vector.casesOn
---     cases v <;> rfl
+--     simp [recover_binary_zmod']
 --   | succ n ih =>
 --     cases vs using Vector.casesOn
---     unfold recover_binary_nat
---     simp [ih, Vector.length, Nat.pow_succ]
---     rw [add_assoc]
---     apply congrArg
---     rw [left_distrib]
---     apply congrArg
---     conv => lhs; rw [mul_comm, mul_assoc]
---     rw [mul_assoc]
---     apply congrArg
---     rw [mul_comm]
+--     unfold recover_binary_zmod'
+--     simp [Vector.length, pow_succ, ih]
+--     ring
+
+-- lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
+--   apply Fin.eq_of_veq
+--   exact Nat.mod_eq_of_lt h
 
 
-theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
-  recover_binary_zmod' (Vector.snoc vs v) = recover_binary_zmod' vs + (2 ^ vs.length) * v.val := by
-  induction n generalizing v with
-  | zero =>
-    cases vs using Vector.casesOn
-    simp [recover_binary_zmod']
-  | succ n ih =>
-    cases vs using Vector.casesOn
-    unfold recover_binary_zmod'
-    simp [Vector.length, pow_succ, ih]
-    ring
-
-
-lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
-  apply Fin.eq_of_veq
-  exact Nat.mod_eq_of_lt h
-
-lemma Vector.getElem_snoc_at_length {vs : Vector α n}: (vs.snoc v)[n]'(by simp_arith) = v := by
-  induction n with
-  | zero => cases vs using Vector.casesOn; rfl
-  | succ n ih => cases vs using Vector.casesOn; simp [ih]
-
-lemma Vector.getElem_snoc_before_length {vs : Vector α n} {i : ℕ} (hp : i < n): (vs.snoc v)[i]'(by linarith) = vs[i]'hp := by
-  induction n generalizing i with
-  | zero => cases vs using Vector.casesOn; contradiction
-  | succ n ih =>
-    cases vs using Vector.casesOn;
-    cases i with
-    | zero => simp
-    | succ i => simp [ih (Nat.lt_of_succ_lt_succ hp)]
-
-@[simp]
-lemma Vector.allIxes_snoc {vs : Vector α n} : allIxes f (vs.snoc v) ↔ allIxes f vs ∧ f v := by
-  induction n with
-  | zero => cases vs using Vector.casesOn; simp
-  | succ n ih => cases vs using Vector.casesOn; simp [ih]; tauto
-
--- @[reducible]
-instance : Membership α (Vector α n) := ⟨fun x xs => x ∈ xs.toList⟩
-
-lemma is_vector_binary_snoc {vs : Vector (ZMod (Nat.succ p)) n} {v}: is_vector_binary (vs.snoc v) ↔ is_vector_binary vs ∧ is_bit v := by
-  simp [←is_vector_binary_iff_allIxes_is_bit]
 
 namespace Deletion
 
@@ -103,163 +42,138 @@ def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) 
            k (Tree.setAtFin ⟨Index.val, h⟩ 0)
       else k Tree
     else False
+end Deletion
+-- instance : Fact (Order > 2) := ⟨by decide⟩
+-- def Fin.msb {d:ℕ} (v : Fin (2^d.succ)): Bool := v.val ≥ 2^d
+
+
+-- @[simp]
+-- theorem Fin.msb_false_of_lt {d:ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d): Fin.msb v = false := by
+--   simpa [msb]
+
+-- def Fin.lsbs {d:ℕ} (v : Fin (2^d.succ)): Fin (2^d) := ⟨v.val - (Fin.msb v).toNat * 2^d, prop⟩ where
+--   prop := by
+--     cases Nat.lt_or_ge v.val (2^d) with
+--     | inl lt =>
+--       simp [lt, Bool.toNat]
+--     | inr ge =>
+--       apply Nat.sub_lt_left_of_lt_add
+--       . simp [msb, ge, Bool.toNat]
+--       . have : 2^d + 2^d = 2^d.succ := by simp_arith [pow_succ]
+--         simp [msb, ge, Bool.toNat, v.prop, this]
+
+-- @[simp]
+-- theorem Fin.lsbs_eq_val_of_lt {d:ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d): Fin.lsbs v = ⟨v, h⟩ := by
+--   simp [lsbs, *, Bool.toNat]
+
+-- theorem fin_to_bits_le_succ_eq_snoc {d : ℕ} {v : Fin (2^d.succ)}:
+--   fin_to_bits_le v = (fin_to_bits_le (Fin.lsbs v)).snoc (Fin.msb v) := by
+
+-- theorem fin_to_bits_le_succ_eq_snoc_zero_of_lt {d : ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d):
+--   fin_to_bits_le v = (fin_to_bits_le ⟨v.val, h⟩).snoc false := by
+--   simp [fin_to_bits_le_succ_eq_snoc, Fin.msb_false_of_lt h, Fin.lsbs_eq_of_lt h]
+
+-- theorem fin_to_bits_le_succ_eq_snoc_one_of_ge {d : ℕ} {v : Fin (2^d.succ)} (h : v.val ≥ 2^d):
+--   fin_to_bits_le v = (fin_to_bits_le ⟨v.val - 2^d, ((by sorry): v.val - 2^d < 2^d)⟩).snoc true := by sorry
+--   -- simp [fin_to_bits_le_succ_eq_snoc, Fin.msb_zero_of_lt h, Fin.lsbs_eq_of_lt h]
+
+-- @[simp]
+-- theorem Bit.toZMod_zero {n:ℕ} : Bit.toZMod (n:=n) Bit.zero = 0 := by rfl
+
+-- @[simp]
+-- theorem Bit.toZMod_one {n:ℕ} : Bit.toZMod (n:=n) Bit.one = 1 := by rfl
+
+@[simp]
+theorem Gates.is_zero_sub_one_iff_eq {n:ℕ} [Fact (n > 1)] {a b : ZMod n}: Gates.is_zero (Gates.sub a b) 1 ↔ a = b := by
+  simp [Gates.is_zero, Gates.sub]
+  apply Iff.intro <;> intro hp
+  . exact eq_of_sub_eq_zero hp
+  . exact sub_eq_zero_of_eq hp
+
+theorem exists_vector_succ_iff_exists_snoc {α d} {pred : Vector α (Nat.succ d) → Prop}:
+  (∃v, pred v) ↔ ∃vs v, pred (Vector.snoc vs v) := by
+  apply Iff.intro
+  . rintro ⟨v, hp⟩
+    cases v using Vector.revCasesOn
+    apply Exists.intro
+    apply Exists.intro
+    assumption
+  . rintro ⟨vs, v, hp⟩
+    exists vs.snoc v
+
+@[simp]
+theorem exists_eq_left₂ {pred : α → β → Prop}:
+  (∃a b, (a = c ∧ b = d) ∧ pred a b) ↔ pred c d := by
+  simp [and_assoc]
+
+@[simp]
+theorem Gates.is_zero_def {N} {a out : ZMod N} : Gates.is_zero a out ↔ out = Bool.toZMod (a = 0) := by
+  simp [Gates.is_zero]
+  apply Iff.intro
+  . rintro (_ | _) <;> simp [*]
+  . rintro ⟨_⟩
+    simp [Bool.toZMod, Bool.toNat]
+    tauto
+
+@[simp]
+theorem Gates.eq_def : Gates.eq a b ↔ a = b := by simp [Gates.eq]
+
+@[simp]
+theorem Bool.toZMod_eq_one_iff_eq_one {n:ℕ} [Fact (n > 1)] : (Bool.toZMod a : ZMod n) = 1 ↔ a = true := by
+  cases a <;> simp
+
+@[simp]
+theorem Vector.snoc_eq : Vector.snoc xs x = Vector.snoc ys y ↔ xs = ys ∧ x = y := by
+  apply Iff.intro
+  . intro h
+    have := congrArg Vector.reverse h
+    simp at this
+    injection this with this
+    injection this with h t
+    simp [*]
+    apply Vector.eq
+    have := congrArg List.reverse t
+    simpa [this]
+  . intro ⟨_, _⟩
+    simp [*]
+
+theorem MerkleTree.root_set_eq_recover_proof {α H d item index} {tree : MerkleTree α H d}:
+  (set tree index item).root = recover H index (tree.proof index) item := by
+  sorry
+
+namespace Deletion
 
 theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant poseidon₂)]:
   gDeletionRound tree.root index item proof k ↔ deletionRoundSemantics index item tree proof (fun t => k t.root) := by
   unfold gDeletionRound
   unfold deletionRoundSemantics
-  apply Iff.intro
-  . intro hp
-    rcases hp with ⟨ixbin, hixbin, rest⟩
-    cases ixbin using Vector.revCasesOn with | snoc ixbin ctrlBit =>
-    simp only [Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length] at *
-    conv at rest =>
-      congr
-      . change (item ::ᵥ  Vector.ofFn proof.get); simp only [Vector.ofFn_get]
-      . change (Vector.ofFn ixbin.get); simp only [Vector.ofFn_get]
-      . intro gate_1
-        congr
-        . change (0 ::ᵥ Vector.ofFn proof.get); simp only [Vector.ofFn_get]
-        . change (Vector.ofFn ixbin.get); simp only [Vector.ofFn_get]
-    split; rotate_left
-    . have := Gates.to_binary_rangecheck hixbin
-      contradiction
-    . rcases hixbin with ⟨hIxRecover, hIxIsBin⟩
-      rw [recover_binary_zmod'_snoc] at hIxRecover
-      rw [is_vector_binary_snoc] at hIxIsBin
-      rcases hIxIsBin with ⟨hIxIsBin, hCtrlBitIsBit⟩
-      rw [VerifyProof_uncps] at rest
-      rcases rest with ⟨-, rest⟩
-      rw [VerifyProof_uncps] at rest
-      rcases rest with ⟨-, rest⟩
-      rcases rest with ⟨gate_3, gate_3_def, rest⟩
-      simp only [gate_3_def] at rest
-      clear gate_3_def gate_3
-      rcases rest with ⟨gate_4, gate_4_def, gate_5, gate_5_def, gate_5_eq, gate_7, gate_7_def, hcont⟩
-      cases hCtrlBitIsBit with
-      | inl hz =>
-        cases hz
-        simp at hIxRecover
-        have : index.val < 2^D := by
-          rw [←hIxRecover, @recover_binary_zmod_bit _ _ ⟨by decide⟩ _ hIxIsBin, binary_zmod_same_as_nat _ (by decide)]
-          exact binary_nat_lt _
-        simp only [this, dite_true]
-        simp at gate_7_def
-        simp only [gate_7_def] at *
-        clear gate_7_def gate_7
-        simp at gate_5_def
-        rcases gate_5_def with ⟨-, gate_5_def⟩
-        simp only [gate_5_def] at *
-        clear gate_5_def gate_5
-        unfold Gates.eq at gate_5_eq
-        simp only [gate_5_eq] at *
-        clear gate_5_eq
-        simp [Gates.is_zero, Gates.sub] at gate_4_def
-        replace gate_4_def := eq_of_sub_eq_zero gate_4_def
-        rw [MerkleTree.recover_tail_equals_recover_reverse, ←Dir.recover_binary_zmod'_to_dir this (by decide) hIxIsBin hIxRecover, Fin.castNat_lt_pow this] at gate_4_def hcont
-        refine ⟨?_, ?_, ?_⟩
-        . apply MerkleTree.proof_ceritfies_item
-          exact gate_4_def
-        . apply MerkleTree.recover_proof_reversible
-          exact gate_4_def
-        . unfold MerkleTree.setAtFin
-          rw [←MerkleTree.proof_insert_invariant _ _ _ _ _ gate_4_def]
-          exact hcont
-      | inr ho =>
-        cases ho
-        have : ¬(index.val < 2^D) := by
-          rw [←hIxRecover, ZMod.val_add, Nat.mod_eq_of_lt]
-          . apply not_lt_of_ge
-            have : 2 ^ D = ZMod.val (2 ^ 30 : F) := by rfl
-            simp [Vector.length]
-            rw [←this]
-            exact Nat.le_add_left _ _
-          . simp [Vector.length]
-            apply Nat.lt_of_lt_of_le (m := 2 ^ D + (ZMod.val (2 ^ 30 : F)))
-            . simp [@recover_binary_zmod_bit _ _ ⟨by decide⟩ _ hIxIsBin]
-              rw [binary_zmod_same_as_nat _ (by decide)]
-              exact binary_nat_lt _
-            . decide
-        simp only [this, dite_false]
-        simp at gate_7_def
-        cases gate_7_def
+  rw [exists_vector_succ_iff_exists_snoc]
+  simp only [Vector.getElem_snoc_before_length, Vector.getElem_snoc_at_length]
+  conv =>
+    pattern (occs := *) _ ::ᵥ _
+    . change item ::ᵥ Vector.ofFn proof.get
+    . change Vector.ofFn vs.get
+    . change 0 ::ᵥ Vector.ofFn proof.get
+  simp_rw [Vector.ofFn_get, Gates.to_binary_iff_eq_fin_to_bits_le_of_pow_length_lt]
+  unfold Fin.toBitsLE
+  unfold Fin.toBitsBE
+  cases Decidable.em (index.val < 2^(D+1)) with
+  | inl hlt =>
+    simp [hlt]
+    cases Nat.lt_or_ge index.val (2^D) with
+    | inl hlt =>
+      simp [hlt, VerifyProof_uncps, Gates.sub, sub_eq_zero, ←MerkleTree.recover_equivalence, MerkleTree.setAtFin, MerkleTree.proofAtFin, MerkleTree.root_set_eq_recover_proof]
+      unfold MerkleTree.itemAtFin
+      apply Iff.intro
+      . rintro ⟨⟨a, b⟩, c⟩
+        simp [*]
+      . intro ⟨_, _, _⟩
+        simp [*] at *
         assumption
-  . intro hp
-    split at hp <;> try contradiction
-    rename_i lbound
-    split at hp
-    . rename_i bound
-      rcases hp with ⟨hitem, hproof, hcont⟩
-      let indexBits : Vector F D := Vector.map Bit.toZMod (fin_to_bits_le ⟨index.val, bound⟩)
-      apply Exists.intro (indexBits.snoc 0)
-      refine ⟨?_, ?_⟩
-      . unfold Gates.to_binary
-        simp [recover_binary_zmod'_snoc, is_vector_binary_snoc]
-        refine ⟨@fin_to_bits_recover_binary _ _ ⟨by decide⟩ _ bound, @vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _⟩
-      . simp only [Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length, VerifyProof_uncps]
-        conv =>
-          congr
-          . enter [1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
-          . enter [1, 1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
-        refine ⟨vector_binary_of_bit_to_zmod, vector_binary_of_bit_to_zmod, ?_⟩
-        apply Exists.intro (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec $ Vector.ofFn indexBits.get) (Vector.ofFn proof.get) item - tree.root)
-        refine ⟨Eq.refl _, ?_⟩
-        simp only [Vector.ofFn_get]
-        apply Exists.intro 1
-        apply And.intro
-        . rw [MerkleTree.recover_tail_equals_recover_reverse]
-          simp [Gates.is_zero]
-          apply sub_eq_zero_of_eq
-          rw [←Dir.recover_binary_zmod'_to_dir bound (by decide) vector_binary_of_bit_to_zmod (fin_to_bits_recover_binary _ _)]
-          rw [Fin.castNat_lt_pow bound]
-          rw [←MerkleTree.recover_equivalence]
-          unfold MerkleTree.itemAtFin at hitem
-          unfold MerkleTree.proofAtFin at hproof
-          exact ⟨hitem, hproof⟩
-        . simp [Gates.eq]
-          conv =>
-            arg 1
-            congr
-            . skip
-            . change (Dir.create_dir_vec $ Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
-            . change (Vector.ofFn proof.get); simp only [Vector.ofFn_get]
-          apply Eq.subst _ hcont
-          rw [eq_comm, MerkleTree.recover_tail_equals_recover_reverse, ←MerkleTree.recover_equivalence]
-          rw [←Dir.recover_binary_zmod'_to_dir bound (by decide) vector_binary_of_bit_to_zmod (fin_to_bits_recover_binary _ _)]
-          rw [Fin.castNat_lt_pow bound]
-          refine ⟨MerkleTree.read_after_insert_sound _ _ _, ?_⟩
-          unfold MerkleTree.setAtFin
-          rw [MerkleTree.proof_of_set_is_proof]
-          assumption
-    . have decbound : index.val - 2 ^ D < 2 ^ D := by
-        rw [Nat.pow_succ, Nat.mul_succ, Nat.mul_one] at lbound
-        apply Nat.sub_lt_right_of_lt_add
-        . simp [*] at *
-          assumption
-        . assumption
-      let indexBits : Vector F D := Vector.map Bit.toZMod (fin_to_bits_le ⟨index.val - 2^D, decbound⟩)
-      apply Exists.intro (indexBits.snoc 1)
-      simp [VerifyProof_uncps, Vector.getElem_snoc_at_length, Vector.getElem_snoc_before_length]
-      conv => enter [2, 1, 1]; change (Vector.ofFn indexBits.get); simp only [Vector.ofFn_get]
-      simp [Gates.to_binary, recover_binary_zmod'_snoc, is_vector_binary_snoc]
-      apply And.intro
-      . apply And.intro
-        . rw [@recover_binary_zmod_bit _ _  ⟨by decide⟩ _ (@vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _), ←binary_nat_zmod_equiv]
-          rw [@zmod_to_bit_coe _ _ ⟨by decide⟩ _, recover_binary_nat_fin_to_bits_le]
-          rw [Nat.cast_sub (by linarith)]
-          simp
-        . exact @vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _
-      . refine ⟨@vector_binary_of_bit_to_zmod _ _ ⟨by decide⟩ _, ?_⟩
-        conv => enter [1, gate_4, 1, 1, 1, 2]; change Dir.create_dir_vec $ Vector.ofFn indexBits.get; rw [Vector.ofFn_get]
-        conv => enter [1, gate_4, 1, 1, 1, 3]; change Vector.ofFn proof.get; rw [Vector.ofFn_get]
-        simp only [Gates.is_zero]
-        cases eq_or_ne (Gates.sub (MerkleTree.recover_tail poseidon₂ (Dir.create_dir_vec indexBits) proof item) (MerkleTree.root tree)) 0 with
-        | inl h =>
-          exists 1
-          simp [h, hp, Gates.eq]
-        | inr h =>
-          exists 0
-          simp [h, hp, Gates.eq]
+    | inr hge =>
+      have : ¬index.val < 2 ^ D := by linarith
+      simp [this, hge, Vector.snoc_eq, VerifyProof_uncps, Gates.sub, sub_eq_zero]
+  | inr hge => simp [hge]
 
 def deletionRoundsSemantics {b : Nat}
   (indices : Vector F b)
@@ -355,10 +269,9 @@ theorem treeTranform_get_present {B : ℕ} {i : F} {indices : Vector F B} {tree 
     cases indices using Vector.casesOn; rename_i hix tix
     split at hp
     . rename_i range
-      have : Decidable (i ∈ tix.toList) := by infer_instance
-      cases this with
-      | isTrue h => exact ih hp h
-      | isFalse h =>
+      cases Decidable.em (i ∈ tix.toList) with
+      | inl h => exact ih hp h
+      | inr h =>
         rw [getElem!_eq_getElem?_get!]
         rw [treeTransform_get_absent hp h]
         cases eq_or_ne i hix with
