@@ -2,7 +2,7 @@ import FormalVerification
 import FormalVerification.Utils
 import FormalVerification.BinaryReps.Basic
 import FormalVerification.BinaryReps.SemanticEquivalence
-import FormalVerification.Keccak.SemanticEquivalence
+import FormalVerification.Keccak
 import ProvenZk
 import Mathlib.Data.Vector.MapLemmas
 open SemaphoreMTB (F Order)
@@ -59,7 +59,7 @@ theorem Deletion_InputHash_deterministic :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_640_64_24_640_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ] at h₁ h₂
@@ -79,14 +79,14 @@ theorem Deletion_skipHashing :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_640_64_24_640_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ]
   simp
 
 def reducedKeccak640 (v : Vector Bool 640) : F :=
-  (Fin.ofBitsLE (permute rev_ix_256 (KeccakGadget_640_64_24_640_256_24_1088_1_constant v RCBits).val)).val
+  (Fin.ofBitsLE (permute rev_ix_256 (KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment v RCBits).val)).val
 
 theorem reducedKeccak640_zeros :
   reducedKeccak640 (Vector.replicate 640 false) = 4544803827027086362579185658884299814463816764684804205918064517636252260498 := by
@@ -111,7 +111,7 @@ theorem Deletion_InputHash_injective :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_640_64_24_640_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ] at h₁ h₂
@@ -164,7 +164,7 @@ theorem Insertion_InputHash_deterministic :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_1568_64_24_1568_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ] at h₁ h₂
@@ -173,7 +173,7 @@ theorem Insertion_InputHash_deterministic :
   simp [h₁, h₂]
 
 def reducedKeccak1568 (v : Vector Bool 1568) : F :=
-  (Fin.ofBitsLE (permute rev_ix_256 (KeccakGadget_1568_64_24_1568_256_24_1088_1_constant v RCBits).val)).val
+  (Fin.ofBitsLE (permute rev_ix_256 (KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment v RCBits).val)).val
 
 theorem reducedKeccak1568_zeros :
   reducedKeccak1568 (Vector.replicate 1568 false) = 0x2872693cd1edb903471cf4a03c1e436f32dccf7ffa2218a4e0354c2514004511 := by
@@ -198,7 +198,7 @@ theorem Insertion_InputHash_injective :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_1568_64_24_1568_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ] at h₁ h₂
@@ -230,7 +230,7 @@ theorem Insertion_skipHashing :
     RCBitsField_def,
     ←Vector.map_permute,
     Vector.map_hAppend,
-    (KeccakGadget_1568_64_24_1568_256_24_1088_1_constant _ _).equiv,
+    (KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment _ _).equiv,
     FromBinaryBigEndian_256_uncps,
     Gates.eq
   ] at h

@@ -5,9 +5,8 @@ import ProvenZk.Ext.Vector
 
 import FormalVerification
 import FormalVerification.Utils
-import FormalVerification.Poseidon.Spec
-import FormalVerification.Poseidon.Correctness
-import FormalVerification.KeccakUniqueness
+import FormalVerification.Poseidon
+import FormalVerification.InputHashing
 import FormalVerification.BinaryReps.Basic
 import FormalVerification.BinaryReps.SemanticEquivalence
 

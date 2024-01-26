@@ -2,8 +2,7 @@ import ProvenZk
 
 import FormalVerification
 import FormalVerification.Utils
-import FormalVerification.Poseidon.Spec
-import FormalVerification.Poseidon.Correctness
+import FormalVerification.Poseidon
 
 import FormalVerification.SemanticEquivalence.Verification
 

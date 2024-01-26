@@ -2,20 +2,13 @@ import ProvenZk
 
 import FormalVerification
 import FormalVerification.Utils
-import FormalVerification.Poseidon.Spec
-import FormalVerification.Poseidon.Correctness
+import FormalVerification.Poseidon
 
 open SemaphoreMTB (F Order)
 
 abbrev D := 30
 abbrev B := 4
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
-
-def poseidon₂ : Hash F 2 := fun a => (Poseidon.perm Constants.x5_254_3 vec![0, a.get 0, a.get 1]).get 0
-
-lemma Poseidon2_uncps (a b : F) (k : F -> Prop) : SemaphoreMTB.Poseidon2 a b k ↔ k (poseidon₂ vec![a, b]) := by
-    simp [SemaphoreMTB.Poseidon2, poseidon₂, poseidon_3_correct, getElem]
-    rfl
 
 lemma ProofRound_uncps {direction: Bool} {hash: F} {sibling: F} {k: F -> Prop} :
     SemaphoreMTB.ProofRound direction.toZMod hash sibling k ↔
