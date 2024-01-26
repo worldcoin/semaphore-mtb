@@ -1,6 +1,6 @@
 import ProvenZk
 import FormalVerification
-import FormalVerification.Utils
+import FormalVerification.Common
 
 open SemaphoreMTB (F Order)
 

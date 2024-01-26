@@ -1,6 +1,6 @@
 import FormalVerification
-import FormalVerification.Utils
-import FormalVerification.BinaryReps.Basic
+import FormalVerification.Common
+import FormalVerification.ReducednessCheck
 import ProvenZk
 
 open SemaphoreMTB (F Order)

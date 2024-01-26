@@ -4,14 +4,13 @@ import ProvenZk.Merkle
 import ProvenZk.Ext.Vector
 
 import FormalVerification
-import FormalVerification.Utils
+import FormalVerification.Insertion
+import FormalVerification.Deletion
+import FormalVerification.Common
 import FormalVerification.Poseidon
 import FormalVerification.InputHashing
-import FormalVerification.BinaryReps.Basic
-import FormalVerification.BinaryReps.SemanticEquivalence
-
-
-import FormalVerification.SemanticEquivalence
+import FormalVerification.ReducednessCheck
+import FormalVerification.BinaryDecompositions
 
 open SemaphoreMTB (F Order)
 
@@ -68,7 +67,7 @@ theorem before_insertion_all_items_zero
   ∀ i ∈ [startIndex.val:startIndex.val + B], tree[i]! = 0 := by
   intro hp i hir
   have hp := Insertion_skipHashing hp
-  rw [insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
+  rw [Insertion.insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
   have hp'' := ix_bound hp
   rw [getElem!_eq_getElem?_get!]
   rw [before_insertion_all_zero hp]; rfl

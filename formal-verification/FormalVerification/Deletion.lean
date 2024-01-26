@@ -1,35 +1,16 @@
 import ProvenZk
 
 import FormalVerification
-import FormalVerification.Utils
+import FormalVerification.Common
 import FormalVerification.Poseidon
 
-import FormalVerification.SemanticEquivalence.Verification
+import FormalVerification.MerkleProofs
 
 open SemaphoreMTB (F Order)
 
 open SemaphoreMTB renaming DeletionRound_30_30 → gDeletionRound
 open SemaphoreMTB renaming DeletionProof_4_4_30_4_4_30 → gDeletionProof
 open SemaphoreMTB renaming VerifyProof_31_30 → gVerifyProof
-
-
--- theorem recover_binary_zmod'_snoc {n} {vs : Vector (ZMod (Nat.succ p)) n} {v}:
---   recover_binary_zmod' (Vector.snoc vs v) = recover_binary_zmod' vs + (2 ^ vs.length) * v.val := by
---   induction n generalizing v with
---   | zero =>
---     cases vs using Vector.casesOn
---     simp [recover_binary_zmod']
---   | succ n ih =>
---     cases vs using Vector.casesOn
---     unfold recover_binary_zmod'
---     simp [Vector.length, pow_succ, ih]
---     ring
-
--- lemma Fin.castNat_lt_pow {n k : ℕ} (h : n < 2^k) : ↑n = Fin.mk n h := by
---   apply Fin.eq_of_veq
---   exact Nat.mod_eq_of_lt h
-
-
 
 namespace Deletion
 
@@ -41,112 +22,12 @@ def deletionRoundSemantics (Index Item : F) (Tree : MerkleTree F poseidon₂ D) 
            k (Tree.setAtFin ⟨Index.val, h⟩ 0)
       else k Tree
     else False
-end Deletion
--- instance : Fact (Order > 2) := ⟨by decide⟩
--- def Fin.msb {d:ℕ} (v : Fin (2^d.succ)): Bool := v.val ≥ 2^d
-
-
--- @[simp]
--- theorem Fin.msb_false_of_lt {d:ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d): Fin.msb v = false := by
---   simpa [msb]
-
--- def Fin.lsbs {d:ℕ} (v : Fin (2^d.succ)): Fin (2^d) := ⟨v.val - (Fin.msb v).toNat * 2^d, prop⟩ where
---   prop := by
---     cases Nat.lt_or_ge v.val (2^d) with
---     | inl lt =>
---       simp [lt, Bool.toNat]
---     | inr ge =>
---       apply Nat.sub_lt_left_of_lt_add
---       . simp [msb, ge, Bool.toNat]
---       . have : 2^d + 2^d = 2^d.succ := by simp_arith [pow_succ]
---         simp [msb, ge, Bool.toNat, v.prop, this]
-
--- @[simp]
--- theorem Fin.lsbs_eq_val_of_lt {d:ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d): Fin.lsbs v = ⟨v, h⟩ := by
---   simp [lsbs, *, Bool.toNat]
-
--- theorem fin_to_bits_le_succ_eq_snoc {d : ℕ} {v : Fin (2^d.succ)}:
---   fin_to_bits_le v = (fin_to_bits_le (Fin.lsbs v)).snoc (Fin.msb v) := by
-
--- theorem fin_to_bits_le_succ_eq_snoc_zero_of_lt {d : ℕ} {v : Fin (2^d.succ)} (h : v.val < 2^d):
---   fin_to_bits_le v = (fin_to_bits_le ⟨v.val, h⟩).snoc false := by
---   simp [fin_to_bits_le_succ_eq_snoc, Fin.msb_false_of_lt h, Fin.lsbs_eq_of_lt h]
-
--- theorem fin_to_bits_le_succ_eq_snoc_one_of_ge {d : ℕ} {v : Fin (2^d.succ)} (h : v.val ≥ 2^d):
---   fin_to_bits_le v = (fin_to_bits_le ⟨v.val - 2^d, ((by sorry): v.val - 2^d < 2^d)⟩).snoc true := by sorry
---   -- simp [fin_to_bits_le_succ_eq_snoc, Fin.msb_zero_of_lt h, Fin.lsbs_eq_of_lt h]
-
--- @[simp]
--- theorem Bit.toZMod_zero {n:ℕ} : Bit.toZMod (n:=n) Bit.zero = 0 := by rfl
-
--- @[simp]
--- theorem Bit.toZMod_one {n:ℕ} : Bit.toZMod (n:=n) Bit.one = 1 := by rfl
-
-@[simp]
-theorem Gates.is_zero_sub_one_iff_eq {n:ℕ} [Fact (n > 1)] {a b : ZMod n}: Gates.is_zero (Gates.sub a b) 1 ↔ a = b := by
-  simp [Gates.is_zero, Gates.sub]
-  apply Iff.intro <;> intro hp
-  . exact eq_of_sub_eq_zero hp
-  . exact sub_eq_zero_of_eq hp
-
-theorem exists_vector_succ_iff_exists_snoc {α d} {pred : Vector α (Nat.succ d) → Prop}:
-  (∃v, pred v) ↔ ∃vs v, pred (Vector.snoc vs v) := by
-  apply Iff.intro
-  . rintro ⟨v, hp⟩
-    cases v using Vector.revCasesOn
-    apply Exists.intro
-    apply Exists.intro
-    assumption
-  . rintro ⟨vs, v, hp⟩
-    exists vs.snoc v
-
-@[simp]
-theorem exists_eq_left₂ {pred : α → β → Prop}:
-  (∃a b, (a = c ∧ b = d) ∧ pred a b) ↔ pred c d := by
-  simp [and_assoc]
-
-@[simp]
-theorem Gates.is_zero_def {N} {a out : ZMod N} : Gates.is_zero a out ↔ out = Bool.toZMod (a = 0) := by
-  simp [Gates.is_zero]
-  apply Iff.intro
-  . rintro (_ | _) <;> simp [*]
-  . rintro ⟨_⟩
-    simp [Bool.toZMod, Bool.toNat]
-    tauto
-
-@[simp]
-theorem Gates.eq_def : Gates.eq a b ↔ a = b := by simp [Gates.eq]
-
-@[simp]
-theorem Bool.toZMod_eq_one_iff_eq_one {n:ℕ} [Fact (n > 1)] : (Bool.toZMod a : ZMod n) = 1 ↔ a = true := by
-  cases a <;> simp
-
-@[simp]
-theorem Vector.snoc_eq : Vector.snoc xs x = Vector.snoc ys y ↔ xs = ys ∧ x = y := by
-  apply Iff.intro
-  . intro h
-    have := congrArg Vector.reverse h
-    simp at this
-    injection this with this
-    injection this with h t
-    simp [*]
-    apply Vector.eq
-    have := congrArg List.reverse t
-    simpa [this]
-  . intro ⟨_, _⟩
-    simp [*]
-
-theorem MerkleTree.root_set_eq_recover_proof {α H d item index} {tree : MerkleTree α H d}:
-  (set tree index item).root = recover H index (tree.proof index) item := by
-  sorry
-
-namespace Deletion
 
 theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant poseidon₂)]:
   gDeletionRound tree.root index item proof k ↔ deletionRoundSemantics index item tree proof (fun t => k t.root) := by
   unfold gDeletionRound
   unfold deletionRoundSemantics
-  rw [exists_vector_succ_iff_exists_snoc]
+  rw [Vector.exists_succ_iff_exists_snoc]
   simp only [Vector.getElem_snoc_before_length, Vector.getElem_snoc_at_length]
   conv =>
     pattern (occs := *) _ ::ᵥ _
@@ -158,21 +39,16 @@ theorem deletionRoundCircuit_eq_deletionRoundSemantics [Fact (CollisionResistant
   unfold Fin.toBitsBE
   cases Decidable.em (index.val < 2^(D+1)) with
   | inl hlt =>
-    simp [hlt]
     cases Nat.lt_or_ge index.val (2^D) with
     | inl hlt =>
-      simp [hlt, VerifyProof_uncps, Gates.sub, sub_eq_zero, ←MerkleTree.recover_equivalence, MerkleTree.setAtFin, MerkleTree.proofAtFin, MerkleTree.root_set_eq_recover_proof]
-      unfold MerkleTree.itemAtFin
-      apply Iff.intro
-      . rintro ⟨⟨a, b⟩, c⟩
-        simp [*]
-      . intro ⟨_, _, _⟩
-        simp [*] at *
-        assumption
+      simp [*, VerifyProof_uncps', sub_eq_zero, MerkleTree.root_setAtFin_eq_recoverAtFin]
+      apply Iff.intro <;> {
+        intros; casesm* _ ∧ _; simp [*] at *; assumption
+      }
     | inr hge =>
       have : ¬index.val < 2 ^ D := by linarith
-      simp [this, hge, Vector.snoc_eq, VerifyProof_uncps, Gates.sub, sub_eq_zero]
-  | inr hge => simp [hge]
+      simp [*, VerifyProof_uncps, sub_eq_zero]
+  | inr hge => simp [*]
 
 def deletionRoundsSemantics {b : Nat}
   (indices : Vector F b)
@@ -245,11 +121,11 @@ theorem treeTransform_get_absent {B : ℕ} {i : F} {indices : Vector F B} {tree 
       | inl _ =>
         repeat rw [getElem?_eq_some_getElem_of_valid_index] <;> try assumption
         apply congrArg
-        apply MerkleTree.getElem_setAtFin_invariant_of_neq
+        apply MerkleTree.itemAtFin_setAtFin_invariant_of_neq
         intro hp
         apply hn
-        replace hp := Fin.eq_of_veq hp
-        rw [hp]
+        injection hp with hp
+        cases (Fin.eq_of_veq hp)
         apply Vector.head_mem
       | inr _ =>
         repeat rw [getElem?_none_of_invalid_index]
@@ -277,7 +153,7 @@ theorem treeTranform_get_present {B : ℕ} {i : F} {indices : Vector F B} {tree 
         | inl heq =>
           cases heq
           rw [getElem?_eq_some_getElem_of_valid_index] <;> try exact range
-          apply MerkleTree.read_after_insert_sound
+          simp [getElem]
         | inr hne => cases hi <;> contradiction
     . rename_i invalid
       cases List.eq_or_ne_mem_of_mem hi with
@@ -290,5 +166,41 @@ theorem treeTranform_get_present {B : ℕ} {i : F} {indices : Vector F B} {tree 
         split at hp
         . exact ih hp range
         . contradiction
+
+theorem exists_assignment {B : ℕ} {indices : Vector F B} {tree : MerkleTree F poseidon₂ D} (ixesOk : ∀i ∈ indices, i.val < 2 ^ (D+1)):
+  ∃items proofs postRoot, deletionRoundsSemantics indices items proofs tree (fun t => t = postRoot):= by
+  induction B generalizing tree with
+  | zero => simp [deletionRoundsSemantics]
+  | succ B ih =>
+    cases indices using Vector.casesOn with | cons i indices =>
+    simp [deletionRoundsSemantics, deletionRoundSemantics, ixesOk]
+    split
+    . have := ih (indices := indices) (tree := tree.setAtFin ⟨i.val, by assumption⟩ 0) (by
+        intro i hi
+        apply ixesOk
+        apply Vector.mem_of_mem_tail
+        simp
+        exact hi
+      )
+      rcases this with ⟨items, proofs, postRoot, h⟩
+      rw [Vector.exists_succ_iff_exists_cons]
+      apply Exists.intro
+      exists items
+      rw [Vector.exists_succ_iff_exists_cons]
+      apply Exists.intro
+      exists proofs
+      exists postRoot
+      simp [←Vector.reverse_eq]
+      exact ⟨by rfl, by rfl, h⟩
+    . have := ih (indices := indices) (tree := tree) (by
+        intro i hi
+        apply ixesOk
+        apply Vector.mem_of_mem_tail
+        simp
+        exact hi
+      )
+      rcases this with ⟨items, proofs, h⟩
+      exists (0 ::ᵥ items)
+      exists (Vector.replicate D 0 ::ᵥ proofs)
 
 end Deletion
