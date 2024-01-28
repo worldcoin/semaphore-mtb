@@ -10,6 +10,22 @@ import FormalVerification.BinaryDecompositions
 
 open SemaphoreMTB (F Order)
 
+
+namespace Poseidon
+
+/--
+Tests the Poseidon implementation automatically derived from the circuit, by
+comparing its output on an arbitrary value to a reference value.
+
+The reference value is taken from
+<https://extgit.iaik.tugraz.at/krypto/hadeshash/blob/master/code/test_vectors.txt>
+-/
+theorem poseidon₂_test:
+    poseidon₂ vec![1,2] = 0x115cc0f5e7d690413df64c6b9662e9cf2a3617f2743245519e19607a4417189a
+  := by native_decide
+
+end Poseidon
+
 namespace Deletion
 
 /--
