@@ -53,14 +53,6 @@ def insertionRoundsSemantics {b : Nat}
       proofs.head
       fun t => insertionRoundsSemantics (startIndex + 1) t identities.tail proofs.tail k
 
--- theorem exists_binder {f : α → Prop} : (∃x, x = y ∧ f x) ↔ f y := by
---   apply Iff.intro
---   . intro ⟨x, ⟨hx, hfx⟩⟩
---     rw [←hx]
---     exact hfx
---   . intro hfy
---     refine ⟨y, ⟨rfl, hfy⟩⟩
-
 theorem insertionRoundsCircuit_eq_insertionRoundsSemantics [Fact (CollisionResistant poseidon₂)]  {Tree : MerkleTree F poseidon₂ D}:
   gInsertionProof startIndex Tree.root idComms proofs k ↔
   insertionRoundsSemantics startIndex Tree idComms proofs k := by

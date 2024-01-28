@@ -23,19 +23,19 @@ def RCBitsField : Vector (Vector F 64) 24 := vec![vec![(1:F), (0:F), (0:F), (0:F
 theorem RCBitsField_def : RCBitsField = RCBits.map (Vector.map Bool.toZMod) := by native_decide
 
 def DeletionMbuCircuit_4_4_30_4_4_30_Fold (InputHash: F) (DeletionIndices: Vector F 4) (PreRoot: F) (PostRoot: F) (IdComms: Vector F 4) (MerkleProofs: Vector (Vector F 30) 4): Prop :=
-    SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[0] fun gate_0 =>
-    SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[1] fun gate_1 =>
-    SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[2] fun gate_2 =>
-    SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[3] fun gate_3 =>
-    SemaphoreMTB.ToReducedBigEndian_256 PreRoot fun gate_4 =>
-    SemaphoreMTB.ToReducedBigEndian_256 PostRoot fun gate_5 =>
-    SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
-      (Vector.ofFnGet gate_0 ++ Vector.ofFnGet gate_1 ++ Vector.ofFnGet gate_2 ++ Vector.ofFnGet gate_3 ++ Vector.ofFnGet gate_4 ++ Vector.ofFnGet gate_5) RCBitsField fun gate_6 =>
-    SemaphoreMTB.FromBinaryBigEndian_256 gate_6 fun gate_7 =>
-    Gates.eq InputHash gate_7 ∧
-    SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices PreRoot IdComms MerkleProofs fun gate_9 =>
-    Gates.eq gate_9 PostRoot ∧
-    True
+  SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[0] fun gate_0 =>
+  SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[1] fun gate_1 =>
+  SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[2] fun gate_2 =>
+  SemaphoreMTB.ToReducedBigEndian_32 DeletionIndices[3] fun gate_3 =>
+  SemaphoreMTB.ToReducedBigEndian_256 PreRoot fun gate_4 =>
+  SemaphoreMTB.ToReducedBigEndian_256 PostRoot fun gate_5 =>
+  SemaphoreMTB.KeccakGadget_640_64_24_640_256_24_1088_1
+    (Vector.ofFnGet gate_0 ++ Vector.ofFnGet gate_1 ++ Vector.ofFnGet gate_2 ++ Vector.ofFnGet gate_3 ++ Vector.ofFnGet gate_4 ++ Vector.ofFnGet gate_5) RCBitsField fun gate_6 =>
+  SemaphoreMTB.FromBinaryBigEndian_256 gate_6 fun gate_7 =>
+  Gates.eq InputHash gate_7 ∧
+  SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices PreRoot IdComms MerkleProofs fun gate_9 =>
+  Gates.eq gate_9 PostRoot ∧
+  True
 
 theorem DeletionCircuit_folded {InputHash PreRoot PostRoot : F} {DeletionIndices IdComms : Vector F 4} {MerkleProofs: Vector (Vector F 30) 4}:
   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices PreRoot PostRoot IdComms MerkleProofs =

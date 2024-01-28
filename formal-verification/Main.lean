@@ -1,8 +1,4 @@
-import ProvenZk.Binary
-import ProvenZk.Hash
-import ProvenZk.Merkle
-import ProvenZk.Ext.Vector
-
+import ProvenZk
 import FormalVerification
 import FormalVerification.Insertion
 import FormalVerification.Deletion
@@ -16,17 +12,61 @@ open SemaphoreMTB (F Order)
 
 namespace Deletion
 
-/-!
-### Input Hash Correctness
+theorem root_transformation_correct
+    [Fact (CollisionResistant poseidon₂)]
+    {tree : MerkleTree F poseidon₂ D}:
+    SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 inputHash deletionIndices tree.root postRoot identities merkleProofs →
+    ∃(postTree : MerkleTree F poseidon₂ D),
+    postTree.root = postRoot ∧
+    (∀ i ∈ deletionIndices, postTree[i.val]! = 0) ∧
+    (∀ i, i ∉ deletionIndices → postTree[i.val]! = tree[i.val]!)
+  := by
+  intro hp
+  replace hp := Deletion_skipHashing hp
+  rw [deletionProofCircuit_eq_deletionRoundsSemantics] at hp
+  replace hp := deletionRounds_rootTransformation hp
+  rcases hp with ⟨postTree, treeTrans, rootTrans⟩
+  exists postTree
+  refine ⟨rootTrans, ?inrange, ?outrange⟩
+  . intro i hi
+    apply treeTranform_get_present treeTrans hi
+  . intro i hi
+    simp [getElem!_eq_getElem?_get!]
+    apply congrArg
+    apply treeTransform_get_absent treeTrans hi
 
-Both Semaphore MTB circuits use a construction where the inputs that are
-logically used as public inputs, are instead concatenated and hashed to a single
-field element. This hash is the only real public input to the circuit. This is
-done to significantly reduce the cost of proof verification.
-
-This section establishes the correctness of that construction.
--/
-section InputHash
+theorem assignment_exists
+  [Fact (CollisionResistant poseidon₂)]
+  {tree : MerkleTree F poseidon₂ D}:
+    (∀i ∈ indices, i.val < 2^(D+1)) →
+    ∃inputHash identities proofs postRoot, SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 inputHash indices tree.root postRoot identities proofs
+  := by
+  intro h;
+  simp only [DeletionCircuit_folded, DeletionMbuCircuit_4_4_30_4_4_30_Fold]
+  simp only [
+    Vector.ofFnGet_id,
+    ToReducedBigEndian_32_uncps,
+    ToReducedBigEndian_256_uncps,
+    RCBitsField_def,
+    ←Vector.map_permute,
+    Vector.map_hAppend,
+    (KeccakGadget_640_64_24_640_256_24_1088_1_uniqueAssignment _ _).equiv,
+    FromBinaryBigEndian_256_uncps,
+    Gates.eq,
+    deletionProofCircuit_eq_deletionRoundsSemantics
+  ]
+  have := exists_assignment (tree := tree) h
+  rcases this with ⟨_, _, _, hp⟩
+  repeat apply Exists.intro
+  apply And.intro (Eq.refl _)
+  simp
+  apply hp
+  simp only [D] at h
+  all_goals {
+    apply Nat.lt_trans _ ((by decide) : 2 ^ 31 < 2 ^ 32)
+    apply h
+    simp [getElem]
+  }
 
 /--
 Establishes that the deletion circuit's InputHash parameter is uniquely
@@ -34,26 +74,39 @@ determined by DeletionIndices, PreRoot and PostRoot. That is done by showing
 that any two valid assigments that agree on those parameters, must also agree
 on InputHash.
 -/
-theorem DeletionCircuit_InputHash_deterministic:
+theorem inputHash_deterministic:
   (SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₁ DeletionIndices PreRoot PostRoot IdComms₁ MerkleProofs₁ ∧
    SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₂ DeletionIndices PreRoot PostRoot IdComms₂ MerkleProofs₂)
   → InputHash₁ = InputHash₂
   := Deletion_InputHash_deterministic
 
+def testString80 : String :=
+  "This string is exactly 80 bytes long, which is unbelievably lucky for this test."
 
-end InputHash
+def testVector640 : Vector Bool 640 :=
+  Subtype.mk (testString80.toUTF8.toList.map (fun b => Vector.toList $ Fin.toBitsLE (d := 8) b.val)).join (by native_decide)
 
-section InputValidations
+/--
+The reference number is obtained by hashing the test string using the following Solidity code:
+```solidity
+string memory data = "This string is exactly 80 bytes long, which is unbelievably lucky for this test.";
+uint256 result;
+assembly {
+  result := mod(keccak256(add(data, 0x20), mload(data)), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001)
+}
+```
+-/
+theorem reducedKeccak640_test :
+  reducedKeccak640 testVector640 = 0x799e635101207dc20689c342be25dc6f5a2f25b51d2a5ac3c9fee51694b3609 := by native_decide
 
-theorem indices_rangecheck:
-  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices PreRoot PostRoot IdComms MerkleProofs →
-  ∀ v ∈ DeletionIndices, v.val < 2^32 := by
-  intro hp v hv
-  have hp := Deletion_skipHashing hp
-  sorry
+axiom reducedKeccak640_collision_resistant :
+  ∀x y, reducedKeccak640 x = reducedKeccak640 y → x = y
 
-end InputValidations
-
+theorem inputHash_injective:
+  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
+  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
+  DeletionIndices₁ = DeletionIndices₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂  :=
+  Deletion_InputHash_injective reducedKeccak640_collision_resistant
 
 end Deletion
 
@@ -82,13 +135,14 @@ theorem before_insertion_all_items_zero
       _ < Order := by decide
 
 theorem root_transformation_correct
-  [Fact (CollisionResistant poseidon₂)]
-  {Tree : MerkleTree F poseidon₂ D}:
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex Tree.root PostRoot IdComms MerkleProofs →
-  ∃(postTree : MerkleTree F poseidon₂ D),
-  postTree.root = PostRoot ∧
-  (∀ i, i ∈ [StartIndex.val:StartIndex.val + B] → postTree[i]! = IdComms[i-StartIndex.val]!) ∧
-  (∀ i, i ∉ [StartIndex.val:StartIndex.val + B] → postTree[i]! = Tree[i]!) := by
+    [Fact (CollisionResistant poseidon₂)]
+    {Tree : MerkleTree F poseidon₂ D}:
+    SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex Tree.root PostRoot IdComms MerkleProofs →
+    ∃(postTree : MerkleTree F poseidon₂ D),
+    postTree.root = PostRoot ∧
+    (∀ i, i ∈ [StartIndex.val:StartIndex.val + B] → postTree[i]! = IdComms[i-StartIndex.val]!) ∧
+    (∀ i, i ∉ [StartIndex.val:StartIndex.val + B] → postTree[i]! = Tree[i]!)
+  := by
   intro hp
   have hp := Insertion_skipHashing hp
   rw [insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
@@ -126,87 +180,83 @@ theorem root_transformation_correct
         apply eq_comm.mp
         apply treeTransform_get_gt treeTrans h
 
+theorem assignment_exists [Fact (CollisionResistant poseidon₂)] {tree : MerkleTree F poseidon₂ D}:
+    startIndex + B < 2 ^ D ∧
+    (∀i, (h: i ∈ [startIndex : startIndex + B]) → tree[i]! = 0) →
+    ∃proofs postRoot inputHash, SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 inputHash startIndex tree.root postRoot idComms proofs
+  := by
+  rintro ⟨ix_ok, items_zero⟩
+  simp only [InsertionMbuCircuit_4_30_4_4_30_folded]
+  unfold InsertionMbuCircuit_4_30_4_4_30_Fold
+  simp only [
+    Vector.ofFnGet_id,
+    ToReducedBigEndian_32_uncps,
+    ToReducedBigEndian_256_uncps,
+    RCBitsField_def,
+    ←Vector.map_permute,
+    Vector.map_hAppend,
+    (KeccakGadget_1568_64_24_1568_256_24_1088_1_uniqueAssignment _ _).equiv,
+    FromBinaryBigEndian_256_uncps,
+    Gates.eq
+  ]
+  simp [insertionRoundsCircuit_eq_insertionRoundsSemantics]
+  have := exists_assignment (identities := idComms) ix_ok (by
+    intro i h
+    apply getElem_of_getElem!
+    apply items_zero
+    assumption
+  )
+  rcases this with ⟨proofs, postRoot, h⟩
+  exists proofs, postRoot
+  apply And.intro
+  . apply Exists.intro
+    apply Exists.intro
+    . rfl
+    . simp only [D, B] at ix_ok
+      rw [ZMod.val_cast_of_lt]
+      . linarith
+      . simp only [Order]; linarith
+  . exact h
+
 /--
 Establishes that the insertion circuit's InputHash parameter is uniquely
 determined by StartIndex, PreRoot, PostRoot and the identity commitments. That
 is done by showing that any two valid assigments that agree on those
 parameters, must also agree on InputHash.
 -/
-theorem InsertionCircuit_InputHash_deterministic:
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₁ StartIndex PreRoot PostRoot IdComms MerkleProofs₁ ∧
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₂ StartIndex PreRoot PostRoot IdComms MerkleProofs₂ →
-  InputHash₁ = InputHash₂
+theorem inputHash_deterministic:
+    SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₁ StartIndex PreRoot PostRoot IdComms MerkleProofs₁ ∧
+    SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash₂ StartIndex PreRoot PostRoot IdComms MerkleProofs₂ →
+    InputHash₁ = InputHash₂
   := Insertion_InputHash_deterministic
 
-theorem reducedKeccak1568_zeros :
-  reducedKeccak1568 (SubVector.lift (Vector.replicate 1568 bZero)) = 0x2872693cd1edb903471cf4a03c1e436f32dccf7ffa2218a4e0354c2514004511 := by
-  native_decide
+def testString196 : String :=
+  "This is string is exactly 196 bytes long, which happens to be exactly the length we need to test the 1568-bit keccak hash implementation, that can be found in the SemaphoreMTB Insertion Circuit..."
+def testVector1568 : Vector Bool 1568 :=
+  Subtype.mk (testString196.toUTF8.toList.map (fun b => Vector.toList $ Fin.toBitsLE (d := 8) b.val)).join (by native_decide)
 
-theorem reducedKeccak1568_ones :
-  reducedKeccak1568 (SubVector.lift (Vector.replicate 1568 bOne)) = 0x1d7add23b253ac47705200179f6ea5df39ba965ccda0a213c2afc112bc842a5 := by
-  native_decide
+/--
+The reference number is obtained by hashing the test string using the following Solidity code:
+```solidity
+string memory data = "This is string is exactly 196 bytes long, which happens to be exactly the length we need to test the 1568-bit keccak hash implementation, that can be found in the SemaphoreMTB Insertion Circuit...";
+uint256 result;
+assembly {
+  result := mod(keccak256(add(data, 0x20), mload(data)), 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001)
+}
+```
+-/
+theorem reducedKeccak1568_test :
+  reducedKeccak1568 testVector1568 = 0x204e42742e70b563e147bca3aac705534bfae2e7d17691127dd6425b23f5ba43 := by native_decide
 
 axiom reducedKeccak1568_collision_resistant :
   ∀x y, reducedKeccak1568 x = reducedKeccak1568 y → x = y
 
-theorem InsertionCircuit_InputHash_injective:
+theorem inputHash_injective:
   SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
   SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
   StartIndex₁ = StartIndex₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂ ∧ IdComms₁ = IdComms₂ :=
-  Insertion_InputHash_injective (fun hp => reducedKeccak1568_collision_resistant _ _ hp)
+  Insertion_InputHash_injective reducedKeccak1568_collision_resistant
 
 end Insertion
 
--- def treeInsertionSpec {d b} (tree : MerkleTree F poseidon₂ d)
-
--- /-
-
--- theorem insertion_is_set_circuit
---   [Fact (CollisionResistant poseidon₂)]
---   (Tree: MerkleTree F poseidon₂ D)
---   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (hzero : InsertionLoopZero Tree StartIndex IdComms xs_small) (k : F -> Prop) :
---   TreeInsertCircuit Tree StartIndex IdComms xs_small (fun newTree => k newTree.root) ↔
---   (let items := list_of_items_insert Tree StartIndex IdComms xs_small
---   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
---   SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k) := by
---   simp
---   rw [InsertionProof_uncps]
---   rw [insertion_loop_equivalence']
---   simp [hzero]
-
--- theorem deletion_is_set_circuit [Fact (CollisionResistant poseidon₂)]
---   (Tree : MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) (k : F -> Prop) :
---   TreeDeleteCircuit Tree DeletionIndices xs_small (fun newTree => k newTree.root) ↔
---   let items := (list_of_items_delete Tree DeletionIndices xs_small)
---   let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
---   SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs k := by
---   rw [DeletionProof_uncps]
---   simp [deletion_loop_equivalence']
-
--- theorem before_insertion_all_zeroes_batch
---   [Fact (CollisionResistant poseidon₂)]
---   (Tree: MerkleTree F poseidon₂ D)
---   (StartIndex: Nat) (IdComms: Vector F B) (xs_small : is_index_in_range_nat D (StartIndex + B)) (k : F -> Prop) :
---   let items := list_of_items_insert Tree StartIndex IdComms xs_small
---   let proofs := list_of_proofs_insert Tree StartIndex IdComms xs_small
---   SemaphoreMTB.InsertionProof_4_30_4_4_30 StartIndex Tree.root items proofs k →
---   (∀ i ∈ [StartIndex:StartIndex + B], MerkleTree.tree_item_at_fin Tree (i:F).val = (0:F)) := by
---   simp [InsertionProof_uncps]
---   apply before_insertion_all_zeroes_batch'
-
--- -- TreeDeleteZero checks that item_at is equal to 0 if the skip flag is false
--- theorem after_deletion_all_zeroes_batch [Fact (CollisionResistant poseidon₂)] {range : i ∈ [0:B]}
---   (Tree: MerkleTree F poseidon₂ D) (DeletionIndices : Vector F B) (xs_small : are_indices_in_range (D+1) DeletionIndices) :
---   let items := (list_of_items_delete Tree DeletionIndices xs_small)
---   let proofs := (list_of_proofs_delete Tree DeletionIndices xs_small)
---   SemaphoreMTB.DeletionProof_4_4_30_4_4_30 DeletionIndices Tree.root items proofs (fun finalRoot => t.root = finalRoot) →
---   TreeDeleteZero t (DeletionIndices[i]'(by rcases range; linarith)) (by apply for_all_is_index_in_range (Indices := DeletionIndices) (xs_small := xs_small) (range := by tauto)) := by
---   simp [DeletionProof_uncps]
---   rw [<-deletion_loop_equivalence']
---   simp [MerkleTree.eq_root_eq_tree]
---   rcases range with ⟨_, hi⟩
---   apply after_deletion_all_zeroes (range := ⟨zero_le _, hi⟩)
-
--- def main : IO Unit := pure ()
-
--- -/
+def main (_ : List String): IO UInt32 := pure 0
