@@ -12,9 +12,17 @@ open SemaphoreMTB (F Order)
 
 namespace Deletion
 
+/--
+States the exact semantics of the deletion circuit.
+Whenever the circuit is satisfied, there exists a Merkle tree, such that:
+1. its root is equal to the one given as the `postRoot` input;
+2. for every index `i` in `deletionIndices`, the value at index `i` is zero;
+3. for every index `i` not in `deletionIndices`, the value at index `i` is
+   unchanged.
+-/
 theorem root_transformation_correct
-    [Fact (CollisionResistant poseidon₂)]
-    {tree : MerkleTree F poseidon₂ D}:
+  [Fact (CollisionResistant poseidon₂)]
+  {tree : MerkleTree F poseidon₂ D}:
     SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 inputHash deletionIndices tree.root postRoot identities merkleProofs →
     ∃(postTree : MerkleTree F poseidon₂ D),
     postTree.root = postRoot ∧
@@ -35,9 +43,19 @@ theorem root_transformation_correct
     apply congrArg
     apply treeTransform_get_absent treeTrans hi
 
+/--
+States that for any given tree and list of valid indices, there exists a choice
+of other parameters, such that the deletion circuit is satisfied. As a corollary,
+we can be certain that the system will always be able to remove any identity from
+the tree.
+NB indices are consider valid if they are less than 2ᴰ⁺¹, where D is the merkle
+tree depth. This allows the circuit to use indices larger than the tree size to
+pad batches.
+-/
 theorem assignment_exists
   [Fact (CollisionResistant poseidon₂)]
-  {tree : MerkleTree F poseidon₂ D}:
+  {tree : MerkleTree F poseidon₂ D}
+  {indices : Vector F B}:
     (∀i ∈ indices, i.val < 2^(D+1)) →
     ∃inputHash identities proofs postRoot, SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 inputHash indices tree.root postRoot identities proofs
   := by
@@ -75,18 +93,29 @@ that any two valid assigments that agree on those parameters, must also agree
 on InputHash.
 -/
 theorem inputHash_deterministic:
-  (SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₁ DeletionIndices PreRoot PostRoot IdComms₁ MerkleProofs₁ ∧
-   SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₂ DeletionIndices PreRoot PostRoot IdComms₂ MerkleProofs₂)
-  → InputHash₁ = InputHash₂
+    (SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₁ DeletionIndices PreRoot PostRoot IdComms₁ MerkleProofs₁ ∧
+     SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash₂ DeletionIndices PreRoot PostRoot IdComms₂ MerkleProofs₂)
+    → InputHash₁ = InputHash₂
   := Deletion_InputHash_deterministic
 
+/--
+Arbitrary string used for testing the 640-bit keccak hash implementation.
+-/
 def testString80 : String :=
   "This string is exactly 80 bytes long, which is unbelievably lucky for this test."
 
+/--
+An embedding of the test string into a vector of bits, by taking the little-endian
+bit decomposition of the ASCII value of each character.
+-/
 def testVector640 : Vector Bool 640 :=
   Subtype.mk (testString80.toUTF8.toList.map (fun b => Vector.toList $ Fin.toBitsLE (d := 8) b.val)).join (by native_decide)
 
 /--
+Tests the Keccak implementation automatically derived from the circuit, by
+comparing its output on an arbitrary value to a reference value computed using
+solidity.
+
 The reference number is obtained by hashing the test string using the following Solidity code:
 ```solidity
 string memory data = "This string is exactly 80 bytes long, which is unbelievably lucky for this test.";
@@ -99,25 +128,42 @@ assembly {
 theorem reducedKeccak640_test :
   reducedKeccak640 testVector640 = 0x799e635101207dc20689c342be25dc6f5a2f25b51d2a5ac3c9fee51694b3609 := by native_decide
 
+/--
+This axiom is necessary for the proof of the injectivity of the input hash
+parameter. It is obviously not true (e.g. by the pigeonhole principle), but it
+captures the usual intuition behind hash functions.
+-/
 axiom reducedKeccak640_collision_resistant :
   ∀x y, reducedKeccak640 x = reducedKeccak640 y → x = y
 
+/--
+States that the input hash parameter is injective. That is, if two valid
+assignments share the same input hash, then they must agree on all other public
+parameters.
+-/
 theorem inputHash_injective:
-  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
-  SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
-  DeletionIndices₁ = DeletionIndices₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂  :=
-  Deletion_InputHash_injective reducedKeccak640_collision_resistant
+    SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
+    SemaphoreMTB.DeletionMbuCircuit_4_4_30_4_4_30 InputHash DeletionIndices₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
+    DeletionIndices₁ = DeletionIndices₂ ∧ PreRoot₁ = PreRoot₂ ∧ PostRoot₁ = PostRoot₂
+  := Deletion_InputHash_injective reducedKeccak640_collision_resistant
 
 end Deletion
 
 namespace Insertion
 
+/--
+Checks input validation on the insertion circuit. The circuit being satisfied
+implies that all items at modified indices are zero, therefore it is impossible
+to use this circuit to, either accidentally or malicious, overwrite existing
+data.
+-/
 theorem before_insertion_all_items_zero
   [Fact (CollisionResistant poseidon₂)]
   {tree: MerkleTree F poseidon₂ D}
   {startIndex : F}:
-  SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash startIndex tree.root PostRoot IdComms MerkleProofs →
-  ∀ i ∈ [startIndex.val:startIndex.val + B], tree[i]! = 0 := by
+    SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash startIndex tree.root PostRoot IdComms MerkleProofs →
+    ∀ i ∈ [startIndex.val:startIndex.val + B], tree[i]! = 0
+  := by
   intro hp i hir
   have hp := Insertion_skipHashing hp
   rw [Insertion.insertionRoundsCircuit_eq_insertionRoundsSemantics] at hp
@@ -134,6 +180,15 @@ theorem before_insertion_all_items_zero
       _ < 2^D + 1 := Nat.add_lt_add_right hp'' (k := 1)
       _ < Order := by decide
 
+/--
+States the exact semantics of the insertion circuit.
+Whenever the circuit is satisfied, there exists a Merkle tree, such that:
+1. its root is equal to the one given as the `postRoot` input;
+2. for every index `i` such that `startIndex ≤ i < startIndex + B`, the value
+   at index `i` is equal to `idComms[i-startIndex]`;
+3. for every index `i` outside the specified range, the value at index `i`
+   remains unchanged.
+-/
 theorem root_transformation_correct
     [Fact (CollisionResistant poseidon₂)]
     {Tree : MerkleTree F poseidon₂ D}:
@@ -180,9 +235,18 @@ theorem root_transformation_correct
         apply eq_comm.mp
         apply treeTransform_get_gt treeTrans h
 
+/--
+States that for any given tree, a valid start index, and a list of identities,
+there exists a choice of the other parameters such that the insertion circuit
+is satisfied. As a corollary, we can be certain that the system will always be
+able to progress, as long as there is enough free space in the tree.
+
+NB a start index is considered valid if it denotes the beginning of a length-B
+block of empty leaves.
+-/
 theorem assignment_exists [Fact (CollisionResistant poseidon₂)] {tree : MerkleTree F poseidon₂ D}:
     startIndex + B < 2 ^ D ∧
-    (∀i, (h: i ∈ [startIndex : startIndex + B]) → tree[i]! = 0) →
+    (∀i ∈ [startIndex : startIndex + B], tree[i]! = 0) →
     ∃proofs postRoot inputHash, SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 inputHash startIndex tree.root postRoot idComms proofs
   := by
   rintro ⟨ix_ok, items_zero⟩
@@ -230,8 +294,16 @@ theorem inputHash_deterministic:
     InputHash₁ = InputHash₂
   := Insertion_InputHash_deterministic
 
+/--
+Arbitrary string used for testing the 1568-bit keccak hash implementation.
+-/
 def testString196 : String :=
   "This is string is exactly 196 bytes long, which happens to be exactly the length we need to test the 1568-bit keccak hash implementation, that can be found in the SemaphoreMTB Insertion Circuit..."
+
+/--
+An embedding of the test string into a vector of bits, by taking the little-endian
+bit decomposition of the ASCII value of each character.
+-/
 def testVector1568 : Vector Bool 1568 :=
   Subtype.mk (testString196.toUTF8.toList.map (fun b => Vector.toList $ Fin.toBitsLE (d := 8) b.val)).join (by native_decide)
 
@@ -248,9 +320,19 @@ assembly {
 theorem reducedKeccak1568_test :
   reducedKeccak1568 testVector1568 = 0x204e42742e70b563e147bca3aac705534bfae2e7d17691127dd6425b23f5ba43 := by native_decide
 
+/--
+This axiom is necessary for the proof of the injectivity of the input hash
+parameter. It is obviously not true (e.g. by the pigeonhole principle), but it
+captures the usual intuition behind hash functions.
+-/
 axiom reducedKeccak1568_collision_resistant :
   ∀x y, reducedKeccak1568 x = reducedKeccak1568 y → x = y
 
+/--
+States that the input hash parameter is injective. That is, if two valid
+assignments share the same input hash, then they must agree on all other public
+parameters.
+-/
 theorem inputHash_injective:
   SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₁ PreRoot₁ PostRoot₁ IdComms₁ MerkleProofs₁ ∧
   SemaphoreMTB.InsertionMbuCircuit_4_30_4_4_30 InputHash StartIndex₂ PreRoot₂ PostRoot₂ IdComms₂ MerkleProofs₂ →
