@@ -83,5 +83,15 @@ func bigIntLE(s string) big.Int {
 	}
 
 	bi.SetBytes(b)
+
+	// Reduce the number by BN254 group order, because the circuit does the same
+	modulus, ok := new(big.Int).SetString(
+		"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10,
+	)
+	if !ok {
+		panic("can't set big int to BN254 group order")
+	}
+	bi.Mod(&bi, modulus)
+
 	return bi
 }
