@@ -12,6 +12,8 @@ import (
 
 const laneSize = 64
 const stateSize = 5
+const blockSize = 1088
+const domainSeparatorSize = 8
 
 func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
 	hash := abstractor.Call1(api, KeccakGadget{
@@ -19,7 +21,7 @@ func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []
 		InputData:       data,
 		OutputSize:      256,
 		Rounds:          24,
-		BlockSize:       1088,
+		BlockSize:       blockSize,
 		RotationOffsets: R,
 		RoundConstants:  RC,
 		Domain:          0x01,
@@ -33,7 +35,7 @@ func NewSHA3_256(api frontend.API, inputSize int, data ...frontend.Variable) []f
 		InputData:       data,
 		OutputSize:      256,
 		Rounds:          24,
-		BlockSize:       1088,
+		BlockSize:       blockSize,
 		RotationOffsets: R,
 		RoundConstants:  RC,
 		Domain:          0x06,
@@ -145,23 +147,23 @@ type KeccakGadget struct {
 
 func (g KeccakGadget) DefineGadget(api frontend.API) interface{} {
 	// Padding
-	paddingSize := int(math.Ceil(float64(g.InputSize)/float64(g.BlockSize))) * g.BlockSize
+	paddedSize := int(math.Ceil(float64(g.InputSize+domainSeparatorSize)/float64(g.BlockSize))) * g.BlockSize
 	if len(g.InputData) == 0 {
-		paddingSize = g.BlockSize
+		paddedSize = g.BlockSize
 	}
 
-	P := make([]frontend.Variable, paddingSize)
+	P := make([]frontend.Variable, paddedSize)
 	for i := 0; i < len(g.InputData); i += 1 {
 		P[i] = g.InputData[i]
 	}
 
 	// write domain separator
-	for i := 0; i < 8; i += 1 {
+	for i := 0; i < domainSeparatorSize; i += 1 {
 		P[i+len(g.InputData)] = (g.Domain >> i) & 1
 	}
 
 	// fill with zero bytes
-	for i := len(g.InputData) + 8; i < len(P); i += 1 {
+	for i := len(g.InputData) + domainSeparatorSize; i < len(P); i += 1 {
 		P[i] = 0
 	}
 

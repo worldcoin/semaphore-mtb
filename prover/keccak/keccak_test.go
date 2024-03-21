@@ -34,6 +34,18 @@ func (circuit *TestKeccakCircuit2) Define(api frontend.API) error {
 	return nil
 }
 
+type TestKeccakCircuitBlockSize struct {
+	Input [blockSize]frontend.Variable `gnark:"input"`
+	Hash  frontend.Variable            `gnark:",public"`
+}
+
+func (circuit *TestKeccakCircuitBlockSize) Define(api frontend.API) error {
+	hash := NewKeccak256(api, len(circuit.Input), circuit.Input[:]...)
+	sum := api.FromBinary(hash...)
+	api.AssertIsEqual(circuit.Hash, sum)
+	return nil
+}
+
 type TestSHACircuit struct {
 	Input [0]frontend.Variable `gnark:"input"`
 	Hash  frontend.Variable    `gnark:",public"`
@@ -63,9 +75,20 @@ func TestKeccak(t *testing.T) {
 		Hash:  bigIntLE("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
 	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
 
+	// Keccak: input equal block size
+	var circuit3 TestKeccakCircuitBlockSize
+	var inputArray [1088]frontend.Variable
+	fillArray(1, inputArray[:])
+	assert.ProverSucceeded(
+		&circuit3, &TestKeccakCircuitBlockSize{
+			Input: inputArray,
+			Hash:  bigIntLE("0x2d417340362cd4144efbf52adc1bfb7a4b40254f55f3b0f09efa6a1ef299b51a"),
+		}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254),
+	)
+
 	// SHA3: hash empty input
-	var circuit3 TestSHACircuit
-	assert.ProverSucceeded(&circuit3, &TestSHACircuit{
+	var circuit4 TestSHACircuit
+	assert.ProverSucceeded(&circuit4, &TestSHACircuit{
 		Input: [0]frontend.Variable{},
 		Hash:  bigIntLE("0xa7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
 	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
@@ -83,5 +106,22 @@ func bigIntLE(s string) big.Int {
 	}
 
 	bi.SetBytes(b)
+
+	// Reduce the number by BN254 group order, because the circuit does the same
+	modulus, ok := new(big.Int).SetString(
+		"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10,
+	)
+	if !ok {
+		panic("can't set big int to BN254 group order")
+	}
+	bi.Mod(&bi, modulus)
+
 	return bi
+}
+
+// Fill an array with a specific value.
+func fillArray(value int, inputArray []frontend.Variable) {
+	for i := range inputArray {
+		inputArray[i] = value
+	}
 }
