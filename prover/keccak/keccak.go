@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/consensys/gnark/frontend"
-	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/v3/abstractor"
 )
 
 // Implemention of the Keccak in gnark following the specification of the Keccak team
