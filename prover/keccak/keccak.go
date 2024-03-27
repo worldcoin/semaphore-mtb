@@ -1,9 +1,12 @@
 package keccak
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/consensys/gnark/frontend"
+	"github.com/consensys/gnark/std/hash/sha3"
+	"github.com/consensys/gnark/std/math/uints"
 	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
 )
 
@@ -14,6 +17,42 @@ const laneSize = 64
 const stateSize = 5
 const blockSize = 1088
 const domainSeparatorSize = 8
+
+func Keccak256(api frontend.API, inputSize int, data ...frontend.Variable) (hash []frontend.Variable, err error) {
+	// Ensure that data has the expected size
+	if len(data) != inputSize {
+		return nil, fmt.Errorf("unexpected size of input data")
+	}
+
+	// Pad bits with frontend.Variable(0) until len(data) is a multiple of 8
+	if inputSize%8 != 0 {
+		padSize := 8 - (inputSize % 8)
+		data = append(data, make([]frontend.Variable, padSize)...)
+	}
+
+	// Convert bits to slice of uint8
+	var input []uints.U8
+	for i := 0; i < inputSize; i += 8 {
+		byteSlice := data[i : i+8]
+		byteFv := api.FromBinary(byteSlice...)
+		byteU8 := uints.U8{Val: byteFv}
+		input = append(input, byteU8)
+	}
+
+	h, err := sha3.NewLegacyKeccak256(api)
+	if err != nil {
+		return nil, err
+	}
+	h.Write(input)
+
+	// Convert slice of uint8 to one variable
+	for _, sumByte := range h.Sum() {
+		sumBits := api.ToBinary(sumByte.Val, 8)
+		hash = append(hash, sumBits...)
+	}
+
+	return hash, nil
+}
 
 func NewKeccak256(api frontend.API, inputSize int, data ...frontend.Variable) []frontend.Variable {
 	hash := abstractor.Call1(api, KeccakGadget{

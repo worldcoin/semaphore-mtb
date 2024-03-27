@@ -50,7 +50,10 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 		bits = append(bits, bits_id...)
 	}
 
-	hash := keccak.NewKeccak256(api, (circuit.BatchSize+2)*256+32, bits...)
+	hash, err := keccak.Keccak256(api, (circuit.BatchSize+2)*256+32, bits...)
+	if err != nil {
+		return err
+	}
 	sum := abstractor.Call(api, FromBinaryBigEndian{Variable: hash})
 
 	// The same endianness conversion has been performed in the hash generation
