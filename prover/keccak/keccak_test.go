@@ -1,127 +1,100 @@
 package keccak
 
 import (
-	"math/big"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc"
-	"github.com/consensys/gnark/backend"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
 )
 
-type TestKeccakCircuit1 struct {
-	Input [8]frontend.Variable `gnark:"input"`
-	Hash  frontend.Variable    `gnark:",public"`
+type testCircuit struct {
+	In       []frontend.Variable
+	Expected []frontend.Variable
 }
 
-func (circuit *TestKeccakCircuit1) Define(api frontend.API) error {
-	hash := NewKeccak256(api, len(circuit.Input), circuit.Input[:]...)
-	sum := api.FromBinary(hash...)
-	api.AssertIsEqual(circuit.Hash, sum)
-	return nil
-}
-
-type TestKeccakCircuit2 struct {
-	Input [0]frontend.Variable `gnark:"input"`
-	Hash  frontend.Variable    `gnark:",public"`
-}
-
-func (circuit *TestKeccakCircuit2) Define(api frontend.API) error {
-	hash := NewKeccak256(api, 0)
-	sum := api.FromBinary(hash...)
-	api.AssertIsEqual(circuit.Hash, sum)
-	return nil
-}
-
-type TestKeccakCircuitBlockSize struct {
-	Input [blockSize]frontend.Variable `gnark:"input"`
-	Hash  frontend.Variable            `gnark:",public"`
-}
-
-func (circuit *TestKeccakCircuitBlockSize) Define(api frontend.API) error {
-	hash := NewKeccak256(api, len(circuit.Input), circuit.Input[:]...)
-	sum := api.FromBinary(hash...)
-	api.AssertIsEqual(circuit.Hash, sum)
-	return nil
-}
-
-type TestSHACircuit struct {
-	Input [0]frontend.Variable `gnark:"input"`
-	Hash  frontend.Variable    `gnark:",public"`
-}
-
-func (circuit *TestSHACircuit) Define(api frontend.API) error {
-	hash := NewSHA3_256(api, 0)
-	sum := api.FromBinary(hash...)
-	api.AssertIsEqual(circuit.Hash, sum)
-	return nil
-}
-
-func TestKeccak(t *testing.T) {
-	assert := test.NewAssert(t)
-
-	// Keccak: hash zero byte
-	var circuit1 TestKeccakCircuit1
-	assert.ProverSucceeded(&circuit1, &TestKeccakCircuit1{
-		Input: [8]frontend.Variable{0, 0, 0, 0, 0, 0, 0, 0},
-		Hash:  bigIntLE("0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a"),
-	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
-
-	// Keccak: hash empty input
-	var circuit2 TestKeccakCircuit2
-	assert.ProverSucceeded(&circuit2, &TestKeccakCircuit2{
-		Input: [0]frontend.Variable{},
-		Hash:  bigIntLE("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"),
-	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
-
-	// Keccak: input equal block size
-	var circuit3 TestKeccakCircuitBlockSize
-	var inputArray [1088]frontend.Variable
-	fillArray(1, inputArray[:])
-	assert.ProverSucceeded(
-		&circuit3, &TestKeccakCircuitBlockSize{
-			Input: inputArray,
-			Hash:  bigIntLE("0x2d417340362cd4144efbf52adc1bfb7a4b40254f55f3b0f09efa6a1ef299b51a"),
-		}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254),
-	)
-
-	// SHA3: hash empty input
-	var circuit4 TestSHACircuit
-	assert.ProverSucceeded(&circuit4, &TestSHACircuit{
-		Input: [0]frontend.Variable{},
-		Hash:  bigIntLE("0xa7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"),
-	}, test.WithBackends(backend.GROTH16), test.WithCurves(ecc.BN254))
-
-}
-
-// we need to feed in the hash in little endian
-func bigIntLE(s string) big.Int {
-	var bi big.Int
-	bi.SetString(s, 0)
-
-	b := bi.Bytes()
-	for i := 0; i < len(b)/2; i++ {
-		b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
+func (c *testCircuit) Define(api frontend.API) error {
+	sum, err := Keccak256(api, c.In)
+	if err != nil {
+		return err
 	}
 
-	bi.SetBytes(b)
-
-	// Reduce the number by BN254 group order, because the circuit does the same
-	modulus, ok := new(big.Int).SetString(
-		"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10,
-	)
-	if !ok {
-		panic("can't set big int to BN254 group order")
+	for i := range c.Expected {
+		api.AssertIsEqual(c.Expected[i], sum[i])
 	}
-	bi.Mod(&bi, modulus)
-
-	return bi
+	return nil
 }
 
-// Fill an array with a specific value.
-func fillArray(value int, inputArray []frontend.Variable) {
-	for i := range inputArray {
-		inputArray[i] = value
+func TestKeccak256(t *testing.T) {
+	// Helper function to convert a hex string to []frontend.Variable, 1 bit per element
+	hexToBits := func(hexStr string) ([]frontend.Variable, error) {
+		bytes, err := hex.DecodeString(hexStr)
+		if err != nil {
+			return nil, err
+		}
+		vars := make([]frontend.Variable, len(bytes)*8)
+		for i, b := range bytes {
+			for j := 0; j < 8; j++ {
+				vars[i*8+j] = frontend.Variable((b >> j) & 1)
+			}
+		}
+		return vars, nil
+	}
+
+	// Helper function to generate hex string in the format of b repeated count times
+	var repeatHex = func(b byte, count int) string {
+		hexStr := fmt.Sprintf("%02x", b)
+		return strings.Repeat(hexStr, count)
+	}
+
+	// Table driven test cases
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		// Test vectors from https://bob.nem.ninja/test-vectors.html
+		{"", "C5D2460186F7233C927E7DB2DCC703C0E500B653CA82273B7BFAD8045D85A470"},
+		{"CC", "EEAD6DBFC7340A56CAEDC044696A168870549A6A7F6F56961E84A54BD9970B8A"},
+		{"41FB", "A8EACEDA4D47B3281A795AD9E1EA2122B407BAF9AABCB9E18B5717B7873537D2"},
+		{"1F877C", "627D7BC1491B2AB127282827B8DE2D276B13D7D70FB4C5957FDF20655BC7AC30"},
+		{"C1ECFDFC", "B149E766D7612EAF7D55F74E1A4FDD63709A8115B14F61FCD22AA4ABC8B8E122"},
+		{"9F2FCC7C90DE090D6B87CD7E9718C1EA6CB21118FC2D5DE9F97E5DB6AC1E9C10",
+			"24DD2EE02482144F539F810D2CAA8A7B75D0FA33657E47932122D273C3F6F6D1"},
+
+		// Other test vectors verified against https://emn178.github.io/online-tools/keccak_256.html
+		{"00", "bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a"},
+		{repeatHex(0x00, 8), "011b4d03dd8c01f1049143cf9c4c817e4b167f1d1b83e5c6f0f10d89ba1e7bce"},
+		{repeatHex(0xaa, 50), "04b992b0fda7cc35cb6c2ae5423b463e8f519efd70d8bab8394c1cd42839c2e2"},
+		{repeatHex(0xfd, 640), "e1eb3e4b14a80a72d3decb952300b2efe0616341e0e55d98f60669873eb43d4d"},
+		{repeatHex(0xcb, 1088), "5d89305ddc9240e623acebd3050d80102a35e7be3023314aff13bb0be19c0653"},
+	}
+
+	for _, tc := range testCases {
+		in, err := hexToBits(tc.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expected, err := hexToBits(tc.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		circuit := &testCircuit{
+			In:       in,
+			Expected: expected,
+		}
+
+		witness := &testCircuit{
+			In:       in,
+			Expected: expected,
+		}
+
+		if err := test.IsSolved(circuit, witness, ecc.BN254.ScalarField()); err != nil {
+			t.Fatalf("Test case with input '%s' failed: %s", tc.input, err)
+		}
 	}
 }

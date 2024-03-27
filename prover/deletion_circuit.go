@@ -49,7 +49,10 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	bits_post := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
 
-	hash := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...)
+	hash, err := keccak.Keccak256(api, bits)
+	if err != nil {
+		return err
+	}
 	sum := abstractor.Call(api, FromBinaryBigEndian{Variable: hash})
 
 	// The same endianness conversion has been performed in the hash generation
