@@ -1,4 +1,5 @@
 .idea
+*.olean
 out
 gnark-mbu
 gnark-mbu.exe
