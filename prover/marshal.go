@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"worldcoin/gnark-mbu/logging"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -289,6 +290,7 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	var totalRead int64 = 0
 	var intBuf [4]byte
 
+	logging.Logger().Debug().Msg("Reading tree depth")
 	read, err := io.ReadFull(r, intBuf[:])
 	totalRead += int64(read)
 	if err != nil {
@@ -296,6 +298,7 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	}
 	ps.TreeDepth = binary.BigEndian.Uint32(intBuf[:])
 
+	logging.Logger().Debug().Msg("Reading batch size")
 	read, err = io.ReadFull(r, intBuf[:])
 	totalRead += int64(read)
 	if err != nil {
@@ -303,6 +306,7 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	}
 	ps.BatchSize = binary.BigEndian.Uint32(intBuf[:])
 
+	logging.Logger().Debug().Msg("Reading proving key")
 	ps.ProvingKey = groth16.NewProvingKey(ecc.BN254)
 	keyRead, err := ps.ProvingKey.UnsafeReadFrom(r)
 	totalRead += keyRead
@@ -310,6 +314,7 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 		return totalRead, err
 	}
 
+	logging.Logger().Debug().Msg("Reading verifying key")
 	ps.VerifyingKey = groth16.NewVerifyingKey(ecc.BN254)
 	keyRead, err = ps.VerifyingKey.UnsafeReadFrom(r)
 	totalRead += keyRead
@@ -317,6 +322,7 @@ func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 		return totalRead, err
 	}
 
+	logging.Logger().Debug().Msg("Reading constraint system")
 	ps.ConstraintSystem = groth16.NewCS(ecc.BN254)
 	keyRead, err = ps.ConstraintSystem.ReadFrom(r)
 	totalRead += keyRead
