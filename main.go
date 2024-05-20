@@ -7,7 +7,9 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+
 	"worldcoin/gnark-mbu/logging"
+	poseidon "worldcoin/gnark-mbu/poseidon_native"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
 
@@ -226,7 +228,7 @@ func main() {
 
 					if mode == server.InsertionMode {
 						params := prover.InsertionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon.NewTree(treeDepth)
 
 						params.StartIndex = 0
 						params.PreRoot = tree.Root()
@@ -241,7 +243,7 @@ func main() {
 						r, err = json.Marshal(&params)
 					} else if mode == server.DeletionMode {
 						params := prover.DeletionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon.NewTree(treeDepth)
 
 						params.DeletionIndices = make([]uint32, batchSize)
 						params.IdComms = make([]big.Int, batchSize)

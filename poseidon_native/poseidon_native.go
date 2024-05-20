@@ -1,8 +1,9 @@
-package main
+package poseidon_native
 
 import (
-	"github.com/iden3/go-iden3-crypto/poseidon"
 	"math/big"
+
+	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 
 type PoseidonNode interface {
