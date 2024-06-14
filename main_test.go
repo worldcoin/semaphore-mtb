@@ -1,11 +1,13 @@
 package main_test
 
 import (
-	gnarkLogger "github.com/consensys/gnark/logger"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	gnarkLogger "github.com/consensys/gnark/logger"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
