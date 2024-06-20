@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	"worldcoin/gnark-mbu/logging"
 
 	"worldcoin/gnark-mbu/prover"
@@ -110,7 +111,7 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var proof *prover.Proof
+	var responseBytes []byte
 	if handler.mode == InsertionMode {
 		var params prover.InsertionParameters
 
@@ -120,7 +121,18 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		proof, err = handler.provingSystem.ProveInsertion(&params)
+		var response *prover.InsertionResponse
+		response, err = handler.provingSystem.ProveInsertion(&params)
+		if err != nil {
+			provingError(err).send(w)
+			return
+		}
+
+		responseBytes, err = json.Marshal(&response)
+		if err != nil {
+			unexpectedError(err).send(w)
+			return
+		}
 	} else if handler.mode == DeletionMode {
 		var params prover.DeletionParameters
 
@@ -130,18 +142,18 @@ func (handler proveHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		var proof *prover.Proof
 		proof, err = handler.provingSystem.ProveDeletion(&params)
-	}
+		if err != nil {
+			provingError(err).send(w)
+			return
+		}
 
-	if err != nil {
-		provingError(err).send(w)
-		return
-	}
-
-	responseBytes, err := json.Marshal(&proof)
-	if err != nil {
-		unexpectedError(err).send(w)
-		return
+		responseBytes, err = json.Marshal(&proof)
+		if err != nil {
+			unexpectedError(err).send(w)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)

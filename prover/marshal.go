@@ -35,14 +35,67 @@ func toHex(i *big.Int) string {
 	return fmt.Sprintf("0x%s", i.Text(16))
 }
 
+type InsertionResponseJSON struct {
+	InputHash          string `json:"inputHash"`
+	ExpectedEvaluation string `json:"expectedEvaluation"`
+	Commitment4844     string `json:"commitment4844"`
+	Proof              Proof  `json:"proof"`
+	KzgProof           string `json:"kzgProof"`
+}
+
+func (r *InsertionResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		&InsertionResponseJSON{
+			InputHash:          toHex(&r.InputHash),
+			ExpectedEvaluation: hex.EncodeToString(r.ExpectedEvaluation[:]),
+			Commitment4844:     hex.EncodeToString(r.Commitment4844[:]),
+			Proof:              r.Proof,
+			KzgProof:           hex.EncodeToString(r.KzgProof[:]),
+		},
+	)
+}
+
+func (r *InsertionResponse) UnmarshalJSON(data []byte) error {
+	aux := &InsertionResponseJSON{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if err := fromHex(&r.InputHash, aux.InputHash); err != nil {
+		return err
+	}
+
+	expectedEvaluation, err := hex.DecodeString(aux.ExpectedEvaluation)
+	if err != nil || len(expectedEvaluation) != 32 {
+		return fmt.Errorf("invalid ExpectedEvaluation: %s", aux.ExpectedEvaluation)
+	}
+	copy(r.ExpectedEvaluation[:], expectedEvaluation)
+
+	commitment4844, err := hex.DecodeString(aux.Commitment4844)
+	if err != nil || len(commitment4844) != 48 {
+		return fmt.Errorf("invalid Commitment4844: %s", aux.Commitment4844)
+	}
+	copy(r.Commitment4844[:], commitment4844)
+
+	r.Proof = aux.Proof
+
+	kzgProof, err := hex.DecodeString(aux.KzgProof)
+	if err != nil || len(kzgProof) != 48 {
+		return fmt.Errorf("invalid KzgProof: %s", aux.KzgProof)
+	}
+	copy(r.KzgProof[:], kzgProof)
+
+	return nil
+}
+
 type InsertionParametersJSON struct {
-	InputHash    string     `json:"inputHash"`
 	StartIndex   uint32     `json:"startIndex"`
 	PreRoot      string     `json:"preRoot"`
 	PostRoot     string     `json:"postRoot"`
 	IdComms      []string   `json:"identityCommitments"`
 	MerkleProofs [][]string `json:"merkleProofs"`
 }
+
 type DeletionParametersJSON struct {
 	InputHash       string     `json:"inputHash"`
 	DeletionIndices []uint32   `json:"deletionIndices"`
@@ -54,7 +107,6 @@ type DeletionParametersJSON struct {
 
 func (p *InsertionParameters) MarshalJSON() ([]byte, error) {
 	paramsJson := InsertionParametersJSON{}
-	paramsJson.InputHash = toHex(&p.InputHash)
 	paramsJson.StartIndex = p.StartIndex
 	paramsJson.PreRoot = toHex(&p.PreRoot)
 	paramsJson.PostRoot = toHex(&p.PostRoot)
@@ -77,11 +129,6 @@ func (p *InsertionParameters) UnmarshalJSON(data []byte) error {
 	var params InsertionParametersJSON
 
 	err := json.Unmarshal(data, &params)
-	if err != nil {
-		return err
-	}
-
-	err = fromHex(&p.InputHash, params.InputHash)
 	if err != nil {
 		return err
 	}
