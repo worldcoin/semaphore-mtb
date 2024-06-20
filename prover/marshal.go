@@ -1,17 +1,22 @@
 package prover
 
 import (
-	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
 	"os"
+
+	curve "github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fp"
+
 	"worldcoin/gnark-mbu/logging"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
+	bn254 "github.com/consensys/gnark/backend/groth16/bn254"
 )
 
 func fromHex(i *big.Int, s string) error {
@@ -20,6 +25,10 @@ func fromHex(i *big.Int, s string) error {
 		return fmt.Errorf("invalid number: %s", s)
 	}
 	return nil
+}
+
+func toHexElement(i fp.Element) string {
+	return fmt.Sprintf("0x%s", i.Text(16))
 }
 
 func toHex(i *big.Int) string {
@@ -180,31 +189,42 @@ func (p *DeletionParameters) UnmarshalJSON(data []byte) error {
 }
 
 type ProofJSON struct {
-	Ar  [2]string    `json:"ar"`
-	Bs  [2][2]string `json:"bs"`
-	Krs [2]string    `json:"krs"`
+	Ar            [2]string    `json:"ar"`
+	Bs            [2][2]string `json:"bs"`
+	Krs           [2]string    `json:"krs"`
+	Commitments   [][2]string  `json:"commitments"`
+	CommitmentPok [2]string    `json:"commitmentPok"`
 }
 
 func (p *Proof) MarshalJSON() ([]byte, error) {
-	const fpSize = 32
-	var buf bytes.Buffer
-	_, err := p.Proof.WriteRawTo(&buf)
-	if err != nil {
-		return nil, err
-	}
-	proofBytes := buf.Bytes()
-	proofJson := ProofJSON{}
-	proofHexNumbers := [8]string{}
-	for i := 0; i < 8; i++ {
-		proofHexNumbers[i] = toHex(new(big.Int).SetBytes(proofBytes[i*fpSize : (i+1)*fpSize]))
+	proof, ok := p.Proof.(*bn254.Proof)
+	if !ok {
+		return nil, fmt.Errorf("invalid proof type, should be bn254.Proof, got %T", p.Proof)
 	}
 
-	proofJson.Ar = [2]string{proofHexNumbers[0], proofHexNumbers[1]}
-	proofJson.Bs = [2][2]string{
-		{proofHexNumbers[2], proofHexNumbers[3]},
-		{proofHexNumbers[4], proofHexNumbers[5]},
+	proofJson := ProofJSON{}
+
+	proofJson.Ar[0] = toHexElement(proof.Ar.X)
+	proofJson.Ar[1] = toHexElement(proof.Ar.Y)
+
+	proofJson.Bs[0][0] = toHexElement(proof.Bs.X.A1)
+	proofJson.Bs[0][1] = toHexElement(proof.Bs.X.A0)
+	proofJson.Bs[1][0] = toHexElement(proof.Bs.Y.A1)
+	proofJson.Bs[1][1] = toHexElement(proof.Bs.Y.A0)
+
+	proofJson.Krs[0] = toHexElement(proof.Krs.X)
+	proofJson.Krs[1] = toHexElement(proof.Krs.Y)
+
+	for _, c := range proof.Commitments {
+		commitment := [2]string{
+			toHexElement(c.X),
+			toHexElement(c.Y),
+		}
+		proofJson.Commitments = append(proofJson.Commitments, commitment)
 	}
-	proofJson.Krs = [2]string{proofHexNumbers[6], proofHexNumbers[7]}
+
+	proofJson.CommitmentPok[0] = toHexElement(proof.CommitmentPok.X)
+	proofJson.CommitmentPok[1] = toHexElement(proof.CommitmentPok.Y)
 
 	return json.Marshal(proofJson)
 }
@@ -215,35 +235,55 @@ func (p *Proof) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	proofHexNumbers := [8]string{
-		proofJson.Ar[0],
-		proofJson.Ar[1],
-		proofJson.Bs[0][0],
-		proofJson.Bs[0][1],
-		proofJson.Bs[1][0],
-		proofJson.Bs[1][1],
-		proofJson.Krs[0],
-		proofJson.Krs[1],
+
+	proof := new(bn254.Proof)
+
+	if _, err = proof.Ar.X.SetString(proofJson.Ar[0]); err != nil {
+		return err
 	}
-	proofInts := [8]big.Int{}
-	for i := 0; i < 8; i++ {
-		err = fromHex(&proofInts[i], proofHexNumbers[i])
-		if err != nil {
+	if _, err = proof.Ar.Y.SetString(proofJson.Ar[1]); err != nil {
+		return err
+	}
+
+	if _, err = proof.Bs.X.A1.SetString(proofJson.Bs[0][0]); err != nil {
+		return err
+	}
+	if _, err = proof.Bs.X.A0.SetString(proofJson.Bs[0][1]); err != nil {
+		return err
+	}
+	if _, err = proof.Bs.Y.A1.SetString(proofJson.Bs[1][0]); err != nil {
+		return err
+	}
+	if _, err = proof.Bs.Y.A0.SetString(proofJson.Bs[1][1]); err != nil {
+		return err
+	}
+
+	if _, err = proof.Krs.X.SetString(proofJson.Krs[0]); err != nil {
+		return err
+	}
+	if _, err = proof.Krs.Y.SetString(proofJson.Krs[1]); err != nil {
+		return err
+	}
+
+	proof.Commitments= make([]curve.G1Affine, len(proofJson.Commitments))
+	for i, c := range proofJson.Commitments {
+		if _, err = proof.Commitments[i].X.SetString(c[0]); err != nil {
+			return err
+		}
+		if _, err = proof.Commitments[i].Y.SetString(c[1]); err != nil {
 			return err
 		}
 	}
-	const fpSize = 32
-	proofBytes := make([]byte, 8*fpSize)
-	for i := 0; i < 8; i++ {
-		copy(proofBytes[i*fpSize:(i+1)*fpSize], proofInts[i].Bytes())
-	}
 
-	p.Proof = groth16.NewProof(ecc.BN254)
-
-	_, err = p.Proof.ReadFrom(bytes.NewReader(proofBytes))
-	if err != nil {
+	if _, err = proof.CommitmentPok.X.SetString(proofJson.CommitmentPok[0]); err != nil {
 		return err
 	}
+	if _, err = proof.CommitmentPok.Y.SetString(proofJson.CommitmentPok[1]); err != nil {
+		return err
+	}
+
+	p.Proof = proof
+
 	return nil
 }
 
