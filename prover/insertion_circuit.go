@@ -36,17 +36,17 @@ func (circuit *InsertionMbuCircuit) Define(api frontend.API) error {
 	// We convert all the inputs to the keccak hash to use big-endian (network) byte
 	// ordering so that it agrees with Solidity. This ensures that we don't have to
 	// perform the conversion inside the contract and hence save on gas.
-	bits_start := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.StartIndex, Size: 32})
+	bits_start := abstractor.Call1(api, ToBigEndian{Variable: circuit.StartIndex, Size: 32})
 	bits = append(bits, bits_start...)
 
-	bits_pre := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
+	bits_pre := abstractor.Call1(api, ToBigEndian{Variable: circuit.PreRoot, Size: 256})
 	bits = append(bits, bits_pre...)
 
-	bits_post := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
+	bits_post := abstractor.Call1(api, ToBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits_id := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.IdComms[i], Size: 256})
+		bits_id := abstractor.Call1(api, ToBigEndian{Variable: circuit.IdComms[i], Size: 256})
 		bits = append(bits, bits_id...)
 	}
 

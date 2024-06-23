@@ -39,14 +39,14 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	var bits []frontend.Variable
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits_idx := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.DeletionIndices[i], Size: 32})
+		bits_idx := abstractor.Call1(api, ToBigEndian{Variable: circuit.DeletionIndices[i], Size: 32})
 		bits = append(bits, bits_idx...)
 	}
 
-	bits_pre := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
+	bits_pre := abstractor.Call1(api, ToBigEndian{Variable: circuit.PreRoot, Size: 256})
 	bits = append(bits, bits_pre...)
 
-	bits_post := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
+	bits_post := abstractor.Call1(api, ToBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
 
 	hash, err := keccak.Keccak256(api, bits)
