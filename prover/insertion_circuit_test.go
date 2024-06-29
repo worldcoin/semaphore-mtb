@@ -2,7 +2,6 @@ package prover
 
 import (
 	"crypto/rand"
-	"math"
 	"math/big"
 	"testing"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/test"
 	gokzg4844 "github.com/crate-crypto/go-kzg-4844"
-	"github.com/iden3/go-iden3-crypto/keccak256"
 	"github.com/stretchr/testify/require"
 
 	poseidon "worldcoin/gnark-mbu/poseidon_native"
@@ -103,50 +101,4 @@ func generateRandomIdentities(count int) []big.Int {
 		ids[i] = *n
 	}
 	return ids
-}
-
-// identitiesToBlob converts a slice of big.Int into a KZG 4844 Blob.
-func identitiesToBlob(ids []big.Int) *gokzg4844.Blob {
-	if len(ids) > gokzg4844.ScalarsPerBlob {
-		panic("too many identities for a blob")
-	}
-	var blob gokzg4844.Blob
-	for i, id := range ids {
-		startByte := i * 32
-		id.FillBytes(blob[startByte : startByte+32])
-	}
-	return &blob
-}
-
-// bytesToBn254BigInt converts a slice of bytes to a *big.Int and reduces it by BN254 modulus
-func bytesToBn254BigInt(b []byte) *big.Int {
-	n := new(big.Int).SetBytes(b)
-	modulus := bn254fr.Modulus()
-	return n.Mod(n, modulus)
-}
-
-// bigIntsToChallenge converts input bit.Ints to a challenge for a proof of knowledge of a polynomial.
-// The challenge is defined as a gokzg4844.Scalar of a keccak256 hash of all input big.Ints reduced
-// by BN254 modulus.
-func bigIntsToChallenge(input []big.Int) (challenge gokzg4844.Scalar) {
-	var inputBytes []byte
-	for _, i := range input {
-		temp := make([]byte, 32)
-		inputBytes = append(inputBytes, i.FillBytes(temp)...)
-	}
-
-	// Reduce keccak because gokzg4844 API expects that
-	hashBytes := bytesToBn254BigInt(keccak256.Hash(inputBytes)).Bytes()
-
-	copy(challenge[:], hashBytes)
-	return challenge
-}
-
-// treeDepth calculates the depth of a binary tree containing the given number of leaves
-func treeDepth(leavesCount int) (height int) {
-	if leavesCount <= 0 {
-		return 0
-	}
-	height = int(math.Ceil(math.Log2(float64(leavesCount))))
-	return
 }

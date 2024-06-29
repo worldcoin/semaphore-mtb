@@ -1,11 +1,17 @@
 package main_test
 
 import (
-	gnarkLogger "github.com/consensys/gnark/logger"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/consensys/gnark-crypto/ecc"
+	"github.com/consensys/gnark/backend/groth16"
+	"github.com/consensys/gnark/frontend"
+	gnarkLogger "github.com/consensys/gnark/logger"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
@@ -15,11 +21,13 @@ const ProverAddress = "localhost:8080"
 const MetricsAddress = "localhost:9999"
 
 var mode string
+var ps *prover.ProvingSystem
 
 func TestMain(m *testing.M) {
 	gnarkLogger.Set(*logging.Logger())
 	logging.Logger().Info().Msg("Setting up the prover")
-	ps, err := prover.SetupInsertion(3, 2)
+	var err error
+	ps, err = prover.SetupInsertion(3, 2)
 	if err != nil {
 		panic(err)
 	}
@@ -64,7 +72,6 @@ func TestInsertionHappyPath(t *testing.T) {
 		return
 	}
 	body := `{
-		"inputHash":"0x5057a31740d54d42ac70c05e0768fb770c682cb2c559bdd03fe4099f7e584e4f",
 		"startIndex":0,
 		"preRoot":"0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238",
 		"postRoot":"0x2267bee7aae8ed55eb9aecff101145335ed1dd0a5a276a2b7eb3ae7d20e232d8",
@@ -79,6 +86,37 @@ func TestInsertionHappyPath(t *testing.T) {
 	}
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("Expected status code %d, got %d", http.StatusOK, response.StatusCode)
+	}
+
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var ir prover.InsertionResponse
+	if err = json.Unmarshal(responseBody, &ir); err != nil {
+		t.Fatal(err)
+	}
+
+	var params prover.InsertionParameters
+	if err = json.Unmarshal([]byte(body), &params); err != nil {
+		t.Fatal(err)
+	}
+
+	publicWitness, err := frontend.NewWitness(&prover.InsertionMbuCircuit{
+		InputHash:          ir.InputHash,
+		ExpectedEvaluation: ir.ExpectedEvaluation[:],
+		Commitment4844:     ir.Commitment4844[:],
+		StartIndex:         params.StartIndex,
+		PreRoot:            params.PreRoot,
+		PostRoot:           params.PostRoot,
+	}, ecc.BN254.ScalarField(), frontend.PublicOnly())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = groth16.Verify(ir.Proof.Proof, ps.VerifyingKey, publicWitness); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -239,7 +239,6 @@ func main() {
 							params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 						}
 						params.PostRoot = tree.Root()
-						params.ComputeInputHashInsertion()
 						r, err = json.Marshal(&params)
 					} else if mode == server.DeletionMode {
 						params := prover.DeletionParameters{}
@@ -335,7 +334,7 @@ func main() {
 						return err
 					}
 
-					var proof *prover.Proof
+					var r []byte
 					if mode == server.InsertionMode {
 						var params prover.InsertionParameters
 						err = json.Unmarshal(bytes, &params)
@@ -343,7 +342,12 @@ func main() {
 							return err
 						}
 						logging.Logger().Info().Msg("params read successfully")
-						proof, err = ps.ProveInsertion(&params)
+						var response *prover.InsertionResponse
+						response, err = ps.ProveInsertion(&params)
+						r, err = json.Marshal(&response)
+						if err != nil {
+							return err
+						}
 					} else if mode == server.DeletionMode {
 						var params prover.DeletionParameters
 						err = json.Unmarshal(bytes, &params)
@@ -351,15 +355,16 @@ func main() {
 							return err
 						}
 						logging.Logger().Info().Msg("params read successfully")
+						var proof *prover.Proof
 						proof, err = ps.ProveDeletion(&params)
+						r, err = json.Marshal(&proof)
+						if err != nil {
+							return err
+						}
 					} else {
 						return fmt.Errorf("Invalid mode: %s", mode)
 					}
 
-					if err != nil {
-						return err
-					}
-					r, _ := json.Marshal(&proof)
 					fmt.Println(string(r))
 					return nil
 				},
