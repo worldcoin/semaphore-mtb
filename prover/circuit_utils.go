@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover/poseidon"
 
@@ -244,18 +245,17 @@ func (r ReducedModRCheck) DefineGadget(api frontend.API) interface{} {
 	return []frontend.Variable{}
 }
 
-// ToReducedBinaryBigEndian converts the provided variable to the corresponding bit
+// ToBigEndian converts the provided variable to the corresponding bit
 // pattern using big-endian byte ordering. It also makes sure to pick the smallest
 // binary representation (i.e. one that is reduced modulo scalar field order).
-type ToReducedBigEndian struct {
+type ToBigEndian struct {
 	Variable frontend.Variable
 
 	Size int
 }
 
-func (gadget ToReducedBigEndian) DefineGadget(api frontend.API) interface{} {
+func (gadget ToBigEndian) DefineGadget(api frontend.API) interface{} {
 	bitsLittleEndian := api.ToBinary(gadget.Variable, gadget.Size)
-	abstractor.CallVoid(api, ReducedModRCheck{Input: bitsLittleEndian})
 
 	// Swapping Endianness
 	// It does not introduce any new circuit constraints as it simply moves the
