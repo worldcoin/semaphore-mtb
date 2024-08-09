@@ -103,10 +103,11 @@ func TestInsertionHappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	versionedKzgHash := prover.KzgToVersionedHash(ir.Commitment4844)
 	publicWitness, err := frontend.NewWitness(&prover.InsertionMbuCircuit{
 		InputHash:          ir.InputHash,
-		ExpectedEvaluation: ir.ExpectedEvaluation[:],
-		Commitment4844:     ir.Commitment4844[:],
+		ExpectedEvaluation: *prover.BytesToBn254BigInt(ir.ExpectedEvaluation[:]),
+		Commitment4844:     *prover.BytesToBn254BigInt(versionedKzgHash[:]),
 		StartIndex:         params.StartIndex,
 		PreRoot:            params.PreRoot,
 		PostRoot:           params.PostRoot,

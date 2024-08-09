@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"math"
@@ -320,8 +321,8 @@ func identitiesToBlob(ids []big.Int) *gokzg4844.Blob {
 	return &blob
 }
 
-// bytesToBn254BigInt converts a slice of bytes to a *big.Int and reduces it by BN254 modulus
-func bytesToBn254BigInt(b []byte) *big.Int {
+// BytesToBn254BigInt converts a slice of bytes to a *big.Int and reduces it by BN254 modulus
+func BytesToBn254BigInt(b []byte) *big.Int {
 	n := new(big.Int).SetBytes(b)
 	modulus := bn254fr.Modulus()
 	return n.Mod(n, modulus)
@@ -338,7 +339,7 @@ func bigIntsToChallenge(input []big.Int) (challenge gokzg4844.Scalar) {
 	}
 
 	// Reduce keccak because gokzg4844 API expects that
-	hashBytes := bytesToBn254BigInt(keccak256.Hash(inputBytes)).Bytes()
+	hashBytes := BytesToBn254BigInt(keccak256.Hash(inputBytes)).Bytes()
 
 	copy(challenge[:], hashBytes)
 	return challenge
@@ -350,5 +351,13 @@ func treeDepth(leavesCount int) (height int) {
 		return 0
 	}
 	height = int(math.Ceil(math.Log2(float64(leavesCount))))
+	return
+}
+
+// KzgToVersionedHash converts a KZG commitment to a versioned hash.
+// Implementation as per https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md#helpers
+func KzgToVersionedHash(commitment gokzg4844.KZGCommitment) (hash [32]byte) {
+	hash = sha256.Sum256(commitment[:])
+	hash[0] = 0x01 // magic number, must be there
 	return
 }
