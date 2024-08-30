@@ -85,7 +85,7 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Insertion
 		idCommsTree.Update(i, params.IdComms[i])
 	}
 	incomingIdsTreeRoot := idCommsTree.Root()
-	incomingIdsTreeRoot = *bytesToBn254BigInt(incomingIdsTreeRoot.Bytes())
+	incomingIdsTreeRoot = *BytesToBn254BigInt(incomingIdsTreeRoot.Bytes())
 
 	proofs := make([][]frontend.Variable, ps.BatchSize)
 	for i := 0; i < int(ps.BatchSize); i++ {
@@ -106,9 +106,10 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Insertion
 	if err != nil {
 		return nil, err
 	}
-	commitment4844 := *bytesToBn254BigInt(commitment[:])
+	versionedKzgHash := KzgToVersionedHash(commitment)
+	versionedKzgHashReduced := *BytesToBn254BigInt(versionedKzgHash[:])
 
-	challenge := bigIntsToChallenge([]big.Int{incomingIdsTreeRoot, commitment4844})
+	challenge := bigIntsToChallenge([]big.Int{incomingIdsTreeRoot, versionedKzgHashReduced})
 	kzgProof, evaluation, err := ctx.ComputeKZGProof(blob, challenge, numGoRoutines)
 	if err != nil {
 		return nil, err
@@ -121,8 +122,8 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Insertion
 
 	assignment := InsertionMbuCircuit{
 		InputHash:          incomingIdsTreeRoot,
-		ExpectedEvaluation: evaluation[:],
-		Commitment4844:     commitment4844,
+		ExpectedEvaluation: *BytesToBn254BigInt(evaluation[:]),
+		Commitment4844:     versionedKzgHashReduced,
 		StartIndex:         params.StartIndex,
 		PreRoot:            params.PreRoot,
 		PostRoot:           params.PostRoot,

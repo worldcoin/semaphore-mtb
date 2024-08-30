@@ -32,16 +32,17 @@ func TestInsertionCircuit(t *testing.T) {
 		smallTree.Update(i, id)
 	}
 	incomingIdsTreeRoot := smallTree.Root()
-	incomingIdsTreeRoot = *bytesToBn254BigInt(incomingIdsTreeRoot.Bytes())
+	incomingIdsTreeRoot = *BytesToBn254BigInt(incomingIdsTreeRoot.Bytes())
 
 	ctx, err := gokzg4844.NewContext4096Secure()
 	require.NoError(t, err)
 	blob := identitiesToBlob(incomingIds)
 	commitment, err := ctx.BlobToKZGCommitment(blob, numGoRoutines)
 	require.NoError(t, err)
-	commitment4844 := *bytesToBn254BigInt(commitment[:])
+	versionedKzgHash := KzgToVersionedHash(commitment)
+	versionedKzgHashReduced := *BytesToBn254BigInt(versionedKzgHash[:])
 
-	challenge := bigIntsToChallenge([]big.Int{incomingIdsTreeRoot, commitment4844})
+	challenge := bigIntsToChallenge([]big.Int{incomingIdsTreeRoot, versionedKzgHashReduced})
 	proof, evaluation, err := ctx.ComputeKZGProof(blob, challenge, numGoRoutines)
 	require.NoError(t, err)
 	err = ctx.VerifyKZGProof(commitment, challenge, evaluation, proof)
@@ -75,8 +76,8 @@ func TestInsertionCircuit(t *testing.T) {
 
 	assignment := InsertionMbuCircuit{
 		InputHash:          incomingIdsTreeRoot,
-		ExpectedEvaluation: evaluation[:],
-		Commitment4844:     commitment4844,
+		ExpectedEvaluation: *BytesToBn254BigInt(evaluation[:]),
+		Commitment4844:     versionedKzgHashReduced,
 		StartIndex:         existingUsersCount,
 		PreRoot:            preRoot,
 		PostRoot:           postRoot,
