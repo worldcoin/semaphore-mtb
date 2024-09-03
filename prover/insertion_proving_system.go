@@ -151,14 +151,28 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Insertion
 	}, nil
 }
 
-func (ps *ProvingSystem) VerifyInsertion(inputHash big.Int, proof *Proof) error {
+func (ps *ProvingSystem) VerifyInsertion(ir *InsertionResponse, params *InsertionParameters) error {
+	proofs := make([][]frontend.Variable, ps.BatchSize)
+	for i := 0; i < int(ps.BatchSize); i++ {
+		proofs[i] = make([]frontend.Variable, ps.TreeDepth)
+	}
+
+	versionedKzgHash := KzgToVersionedHash(ir.Commitment4844)
 	publicAssignment := InsertionMbuCircuit{
-		InputHash: inputHash,
-		IdComms:   make([]frontend.Variable, ps.BatchSize),
+		InputHash:          ir.InputHash,
+		ExpectedEvaluation: *BytesToBn254BigInt(ir.ExpectedEvaluation[:]),
+		Commitment4844:     *BytesToBn254BigInt(versionedKzgHash[:]),
+		StartIndex:         params.StartIndex,
+		PreRoot:            params.PreRoot,
+		PostRoot:           params.PostRoot,
+
+		// Initialize private slices to silence warnings
+		IdComms:      make([]frontend.Variable, ps.BatchSize),
+		MerkleProofs: proofs,
 	}
 	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254.ScalarField(), frontend.PublicOnly())
 	if err != nil {
 		return err
 	}
-	return groth16.Verify(proof.Proof, ps.VerifyingKey, witness)
+	return groth16.Verify(ir.Proof.Proof, ps.VerifyingKey, witness)
 }
