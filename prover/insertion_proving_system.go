@@ -1,7 +1,9 @@
 package prover
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"github.com/consensys/gnark/backend"
 	"math/big"
 
 	gokzg4844 "github.com/crate-crypto/go-kzg-4844"
@@ -136,7 +138,8 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Insertion
 		return nil, err
 	}
 	logging.Logger().Info().Msg("generating proof")
-	proof, err := groth16.Prove(ps.ConstraintSystem, ps.ProvingKey, witness)
+	proof, err := groth16.Prove(ps.ConstraintSystem, ps.ProvingKey, witness,
+		backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return nil, err
 	}
@@ -174,5 +177,5 @@ func (ps *ProvingSystem) VerifyInsertion(ir *InsertionResponse, params *Insertio
 	if err != nil {
 		return err
 	}
-	return groth16.Verify(ir.Proof.Proof, ps.VerifyingKey, witness)
+	return groth16.Verify(ir.Proof.Proof, ps.VerifyingKey, witness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 }
