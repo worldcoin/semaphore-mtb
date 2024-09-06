@@ -38,19 +38,31 @@ func toHex(i *big.Int) string {
 type InsertionResponseJSON struct {
 	InputHash          string `json:"inputHash"`
 	ExpectedEvaluation string `json:"expectedEvaluation"`
-	Commitment4844     string `json:"commitment4844"`
+	Commitment4844     []string `json:"commitment4844"`
 	Proof              Proof  `json:"proof"`
-	KzgProof           string `json:"kzgProof"`
+	KzgProof           []string `json:"kzgProof"`
 }
 
 func (r *InsertionResponse) MarshalJSON() ([]byte, error) {
+	kzgCommitmentParts := []string{
+		hex.EncodeToString(r.Commitment4844[:16]),
+		hex.EncodeToString(r.Commitment4844[16:32]),
+		hex.EncodeToString(r.Commitment4844[32:48]),
+	}
+
+	kzgProofParts := []string{
+		hex.EncodeToString(r.KzgProof[:16]),
+		hex.EncodeToString(r.KzgProof[16:32]),
+		hex.EncodeToString(r.KzgProof[32:48]),
+	}
+
 	return json.Marshal(
 		&InsertionResponseJSON{
 			InputHash:          toHex(&r.InputHash),
 			ExpectedEvaluation: hex.EncodeToString(r.ExpectedEvaluation[:]),
-			Commitment4844:     hex.EncodeToString(r.Commitment4844[:]),
+			Commitment4844:     kzgCommitmentParts,
 			Proof:              r.Proof,
-			KzgProof:           hex.EncodeToString(r.KzgProof[:]),
+			KzgProof:           kzgProofParts,
 		},
 	)
 }
@@ -71,17 +83,31 @@ func (r *InsertionResponse) UnmarshalJSON(data []byte) error {
 	}
 	copy(r.ExpectedEvaluation[:], expectedEvaluation)
 
-	commitment4844, err := hex.DecodeString(aux.Commitment4844)
-	if err != nil || len(commitment4844) != 48 {
-		return fmt.Errorf("invalid Commitment4844: %s", aux.Commitment4844)
+	var commitment4844 []byte
+	for _, part := range aux.Commitment4844 {
+		partBytes, err := hex.DecodeString(part)
+		if err != nil || len(partBytes) != 16 {
+			return fmt.Errorf("invalid Commitment4844 part: %s", part)
+		}
+		commitment4844 = append(commitment4844, partBytes...)
+	}
+	if len(commitment4844) != 48 {
+		return fmt.Errorf("invalid concatenated commitment4844 length: %d", len(commitment4844))
 	}
 	copy(r.Commitment4844[:], commitment4844)
 
 	r.Proof = aux.Proof
 
-	kzgProof, err := hex.DecodeString(aux.KzgProof)
-	if err != nil || len(kzgProof) != 48 {
-		return fmt.Errorf("invalid KzgProof: %s", aux.KzgProof)
+	var kzgProof []byte
+	for _, part := range aux.KzgProof {
+		partBytes, err := hex.DecodeString(part)
+		if err != nil || len(partBytes) != 16 {
+			return fmt.Errorf("invalid KzgProof part: %s", part)
+		}
+		kzgProof = append(kzgProof, partBytes...)
+	}
+	if len(kzgProof) != 48 {
+		return fmt.Errorf("invalid concatenated KzgProof length: %d", len(kzgProof))
 	}
 	copy(r.KzgProof[:], kzgProof)
 
