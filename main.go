@@ -374,17 +374,14 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
-					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs", Required: true},
+					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs. Required for deletion only", Required: false},
+					&cli.StringFlag{Name: "params", Usage: "JSON with test parameters (gen-test-params output)", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					mode := context.String("mode")
 
 					keys := context.String("keys-file")
-					var inputHash big.Int
-					_, ok := inputHash.SetString(context.String("input-hash"), 0)
-					if !ok {
-						return fmt.Errorf("invalid number: %s", context.String("input-hash"))
-					}
+
 					ps, err := prover.ReadSystemFromFile(keys)
 					if err != nil {
 						return err
@@ -395,16 +392,37 @@ func main() {
 					if err != nil {
 						return err
 					}
-					var proof prover.Proof
-					err = json.Unmarshal(bytes, &proof)
-					if err != nil {
-						return err
-					}
 					logging.Logger().Info().Msg("proof read successfully")
 
 					if mode == server.InsertionMode {
-						err = ps.VerifyInsertion(inputHash, &proof)
+						var response *prover.InsertionResponse
+						err = json.Unmarshal(bytes, &response)
+						if err != nil {
+							return err
+						}
+
+						logging.Logger().Info().Msg("reading parameters")
+						var params *prover.InsertionParameters
+						err = json.Unmarshal([]byte(context.String("params")), &params)
+						if err != nil {
+							return err
+						}
+						logging.Logger().Info().Msg("params read successfully")
+
+						err = ps.VerifyInsertion(response, params)
 					} else if mode == server.DeletionMode {
+						var inputHash big.Int
+						_, ok := inputHash.SetString(context.String("input-hash"), 0)
+						if !ok {
+							return fmt.Errorf("invalid number: %s", context.String("input-hash"))
+						}
+
+						var proof prover.Proof
+						err = json.Unmarshal(bytes, &proof)
+						if err != nil {
+							return err
+						}
+
 						err = ps.VerifyDeletion(inputHash, &proof)
 					} else {
 						return fmt.Errorf("Invalid mode: %s", mode)
