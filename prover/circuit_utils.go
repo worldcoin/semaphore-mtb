@@ -1,10 +1,18 @@
 package prover
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"os"
 	"strconv"
+
+	bn254fr "github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	gokzg4844 "github.com/crate-crypto/go-kzg-4844"
+	"github.com/iden3/go-iden3-crypto/keccak256"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover/poseidon"
 
@@ -12,7 +20,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
-	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/v3/abstractor"
 )
 
 type Proof struct {
@@ -244,18 +252,17 @@ func (r ReducedModRCheck) DefineGadget(api frontend.API) interface{} {
 	return []frontend.Variable{}
 }
 
-// ToReducedBinaryBigEndian converts the provided variable to the corresponding bit
+// ToBigEndian converts the provided variable to the corresponding bit
 // pattern using big-endian byte ordering. It also makes sure to pick the smallest
 // binary representation (i.e. one that is reduced modulo scalar field order).
-type ToReducedBigEndian struct {
+type ToBigEndian struct {
 	Variable frontend.Variable
 
 	Size int
 }
 
-func (gadget ToReducedBigEndian) DefineGadget(api frontend.API) interface{} {
+func (gadget ToBigEndian) DefineGadget(api frontend.API) interface{} {
 	bitsLittleEndian := api.ToBinary(gadget.Variable, gadget.Size)
-	abstractor.CallVoid(api, ReducedModRCheck{Input: bitsLittleEndian})
 
 	// Swapping Endianness
 	// It does not introduce any new circuit constraints as it simply moves the
@@ -299,4 +306,58 @@ func toBytesLE(b []byte) []byte {
 
 func (ps *ProvingSystem) ExportSolidity(writer io.Writer) error {
 	return ps.VerifyingKey.ExportSolidity(writer)
+}
+
+// identitiesToBlob converts a slice of big.Int into a KZG 4844 Blob.
+func identitiesToBlob(ids []big.Int) *gokzg4844.Blob {
+	if len(ids) > gokzg4844.ScalarsPerBlob {
+		panic("too many identities for a blob")
+	}
+	var blob gokzg4844.Blob
+	for i, id := range ids {
+		startByte := i * 32
+		id.FillBytes(blob[startByte : startByte+32])
+	}
+	return &blob
+}
+
+// BytesToBn254BigInt converts a slice of bytes to a *big.Int and reduces it by BN254 modulus
+func BytesToBn254BigInt(b []byte) *big.Int {
+	n := new(big.Int).SetBytes(b)
+	modulus := bn254fr.Modulus()
+	return n.Mod(n, modulus)
+}
+
+// bigIntsToChallenge converts input bit.Ints to a challenge for a proof of knowledge of a polynomial.
+// The challenge is defined as a gokzg4844.Scalar of a keccak256 hash of all input big.Ints reduced
+// by BN254 modulus.
+func bigIntsToChallenge(input []big.Int) (challenge gokzg4844.Scalar) {
+	var inputBytes []byte
+	for _, i := range input {
+		temp := make([]byte, 32)
+		inputBytes = append(inputBytes, i.FillBytes(temp)...)
+	}
+
+	// Reduce keccak because gokzg4844 API expects that
+	hashBytes := BytesToBn254BigInt(keccak256.Hash(inputBytes)).Bytes()
+
+	copy(challenge[:], hashBytes)
+	return challenge
+}
+
+// treeDepth calculates the depth of a binary tree containing the given number of leaves
+func treeDepth(leavesCount int) (height int) {
+	if leavesCount <= 0 {
+		return 0
+	}
+	height = int(math.Ceil(math.Log2(float64(leavesCount))))
+	return
+}
+
+// KzgToVersionedHash converts a KZG commitment to a versioned hash.
+// Implementation as per https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md#helpers
+func KzgToVersionedHash(commitment gokzg4844.KZGCommitment) (hash [32]byte) {
+	hash = sha256.Sum256(commitment[:])
+	hash[0] = 0x01 // magic number, must be there
+	return
 }

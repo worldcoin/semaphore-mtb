@@ -1,27 +1,37 @@
 package prover
 
 import (
-	"bytes"
-	"encoding/binary"
+	"crypto/sha256"
 	"fmt"
+	"github.com/consensys/gnark/backend"
 	"math/big"
+
+	gokzg4844 "github.com/crate-crypto/go-kzg-4844"
+
 	"worldcoin/gnark-mbu/logging"
+	poseidon "worldcoin/gnark-mbu/poseidon_native"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/iden3/go-iden3-crypto/keccak256"
 )
 
 type InsertionParameters struct {
-	InputHash    big.Int
 	StartIndex   uint32
 	PreRoot      big.Int
 	PostRoot     big.Int
 	IdComms      []big.Int
 	MerkleProofs [][]big.Int
+}
+
+type InsertionResponse struct {
+	InputHash          big.Int
+	ExpectedEvaluation gokzg4844.Scalar
+	Commitment4844     gokzg4844.KZGCommitment
+	Proof              Proof
+	KzgProof           gokzg4844.KZGProof
 }
 
 func (p *InsertionParameters) ValidateShape(treeDepth uint32, batchSize uint32) error {
@@ -36,34 +46,6 @@ func (p *InsertionParameters) ValidateShape(treeDepth uint32, batchSize uint32) 
 			return fmt.Errorf("wrong size of merkle proof for proof %d: %d", i, len(proof))
 		}
 	}
-	return nil
-}
-
-// ComputeInputHash computes the input hash to the prover and verifier.
-//
-// It uses big-endian byte ordering (network ordering) in order to agree with
-// Solidity and avoid the need to perform the byte swapping operations on-chain
-// where they would increase our gas cost.
-func (p *InsertionParameters) ComputeInputHashInsertion() error {
-	var data []byte
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.BigEndian, p.StartIndex)
-	if err != nil {
-		return err
-	}
-	data = append(data, buf.Bytes()...)
-	data = append(data, p.PreRoot.Bytes()...)
-	data = append(data, p.PostRoot.Bytes()...)
-	for _, v := range p.IdComms {
-		idBytes := v.Bytes()
-		// extend to 32 bytes if necessary, maintaining big-endian ordering
-		if len(idBytes) < 32 {
-			idBytes = append(make([]byte, 32-len(idBytes)), idBytes...)
-		}
-		data = append(data, idBytes...)
-	}
-	hashBytes := keccak256.Hash(data)
-	p.InputHash.SetBytes(hashBytes)
 	return nil
 }
 
@@ -93,14 +75,20 @@ func SetupInsertion(treeDepth uint32, batchSize uint32) (*ProvingSystem, error) 
 	return &ProvingSystem{treeDepth, batchSize, pk, vk, ccs}, nil
 }
 
-func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, error) {
+func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*InsertionResponse, error) {
 	if err := params.ValidateShape(ps.TreeDepth, ps.BatchSize); err != nil {
 		return nil, err
 	}
+
+	idCommsTree := poseidon.NewTree(treeDepth(polynomialDegree))
 	idComms := make([]frontend.Variable, ps.BatchSize)
 	for i := 0; i < int(ps.BatchSize); i++ {
 		idComms[i] = params.IdComms[i]
+		idCommsTree.Update(i, params.IdComms[i])
 	}
+	incomingIdsTreeRoot := idCommsTree.Root()
+	incomingIdsTreeRoot = *BytesToBn254BigInt(incomingIdsTreeRoot.Bytes())
+
 	proofs := make([][]frontend.Variable, ps.BatchSize)
 	for i := 0; i < int(ps.BatchSize); i++ {
 		proofs[i] = make([]frontend.Variable, ps.TreeDepth)
@@ -108,35 +96,86 @@ func (ps *ProvingSystem) ProveInsertion(params *InsertionParameters) (*Proof, er
 			proofs[i][j] = params.MerkleProofs[i][j]
 		}
 	}
-	assignment := InsertionMbuCircuit{
-		InputHash:    params.InputHash,
-		StartIndex:   params.StartIndex,
-		PreRoot:      params.PreRoot,
-		PostRoot:     params.PostRoot,
-		IdComms:      idComms,
-		MerkleProofs: proofs,
+
+	ctx, err := gokzg4844.NewContext4096Secure()
+	if err != nil {
+		return nil, err
 	}
+
+	const numGoRoutines = 0
+	blob := identitiesToBlob(params.IdComms)
+	commitment, err := ctx.BlobToKZGCommitment(blob, numGoRoutines)
+	if err != nil {
+		return nil, err
+	}
+	versionedKzgHash := KzgToVersionedHash(commitment)
+	versionedKzgHashReduced := *BytesToBn254BigInt(versionedKzgHash[:])
+
+	challenge := bigIntsToChallenge([]big.Int{incomingIdsTreeRoot, versionedKzgHashReduced})
+	kzgProof, evaluation, err := ctx.ComputeKZGProof(blob, challenge, numGoRoutines)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ctx.VerifyKZGProof(commitment, challenge, evaluation, kzgProof)
+	if err != nil {
+		return nil, err
+	}
+
+	assignment := InsertionMbuCircuit{
+		InputHash:          incomingIdsTreeRoot,
+		ExpectedEvaluation: *BytesToBn254BigInt(evaluation[:]),
+		Commitment4844:     versionedKzgHashReduced,
+		StartIndex:         params.StartIndex,
+		PreRoot:            params.PreRoot,
+		PostRoot:           params.PostRoot,
+		IdComms:            idComms,
+		MerkleProofs:       proofs,
+	}
+
 	witness, err := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
 	if err != nil {
 		return nil, err
 	}
 	logging.Logger().Info().Msg("generating proof")
-	proof, err := groth16.Prove(ps.ConstraintSystem, ps.ProvingKey, witness)
+	proof, err := groth16.Prove(ps.ConstraintSystem, ps.ProvingKey, witness,
+		backend.WithProverHashToFieldFunction(sha256.New()))
 	if err != nil {
 		return nil, err
 	}
+
 	logging.Logger().Info().Msg("proof generated successfully")
-	return &Proof{proof}, nil
+	return &InsertionResponse{
+		InputHash:          incomingIdsTreeRoot,
+		ExpectedEvaluation: evaluation,
+		Commitment4844:     commitment,
+		Proof:              Proof{proof},
+		KzgProof:           kzgProof,
+	}, nil
 }
 
-func (ps *ProvingSystem) VerifyInsertion(inputHash big.Int, proof *Proof) error {
+func (ps *ProvingSystem) VerifyInsertion(ir *InsertionResponse, params *InsertionParameters) error {
+	proofs := make([][]frontend.Variable, ps.BatchSize)
+	for i := 0; i < int(ps.BatchSize); i++ {
+		proofs[i] = make([]frontend.Variable, ps.TreeDepth)
+	}
+
+	versionedKzgHash := KzgToVersionedHash(ir.Commitment4844)
 	publicAssignment := InsertionMbuCircuit{
-		InputHash: inputHash,
-		IdComms:   make([]frontend.Variable, ps.BatchSize),
+		InputHash:          ir.InputHash,
+		ExpectedEvaluation: *BytesToBn254BigInt(ir.ExpectedEvaluation[:]),
+		Commitment4844:     *BytesToBn254BigInt(versionedKzgHash[:]),
+		StartIndex:         params.StartIndex,
+		PreRoot:            params.PreRoot,
+		PostRoot:           params.PostRoot,
+
+		// Initialize private slices to silence warnings
+		IdComms:      make([]frontend.Variable, ps.BatchSize),
+		MerkleProofs: proofs,
 	}
 	witness, err := frontend.NewWitness(&publicAssignment, ecc.BN254.ScalarField(), frontend.PublicOnly())
 	if err != nil {
 		return err
 	}
-	return groth16.Verify(proof.Proof, ps.VerifyingKey, witness)
+	return groth16.Verify(ir.Proof.Proof, ps.VerifyingKey, witness, backend.WithVerifierHashToFieldFunction(sha256.New()))
 }

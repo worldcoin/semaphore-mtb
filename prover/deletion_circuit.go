@@ -2,12 +2,13 @@ package prover
 
 import (
 	"fmt"
+
 	"worldcoin/gnark-mbu/prover/keccak"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
-	"github.com/reilabs/gnark-lean-extractor/v2/abstractor"
+	"github.com/reilabs/gnark-lean-extractor/v3/abstractor"
 )
 
 type DeletionMbuCircuit struct {
@@ -38,17 +39,20 @@ func (circuit *DeletionMbuCircuit) Define(api frontend.API) error {
 	var bits []frontend.Variable
 
 	for i := 0; i < circuit.BatchSize; i++ {
-		bits_idx := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.DeletionIndices[i], Size: 32})
+		bits_idx := abstractor.Call1(api, ToBigEndian{Variable: circuit.DeletionIndices[i], Size: 32})
 		bits = append(bits, bits_idx...)
 	}
 
-	bits_pre := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PreRoot, Size: 256})
+	bits_pre := abstractor.Call1(api, ToBigEndian{Variable: circuit.PreRoot, Size: 256})
 	bits = append(bits, bits_pre...)
 
-	bits_post := abstractor.Call1(api, ToReducedBigEndian{Variable: circuit.PostRoot, Size: 256})
+	bits_post := abstractor.Call1(api, ToBigEndian{Variable: circuit.PostRoot, Size: 256})
 	bits = append(bits, bits_post...)
 
-	hash := keccak.NewKeccak256(api, circuit.BatchSize*32+2*256, bits...)
+	hash, err := keccak.Keccak256(api, bits)
+	if err != nil {
+		return err
+	}
 	sum := abstractor.Call(api, FromBinaryBigEndian{Variable: hash})
 
 	// The same endianness conversion has been performed in the hash generation

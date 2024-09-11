@@ -7,7 +7,9 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+
 	"worldcoin/gnark-mbu/logging"
+	poseidon "worldcoin/gnark-mbu/poseidon_native"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
 
@@ -226,7 +228,7 @@ func main() {
 
 					if mode == server.InsertionMode {
 						params := prover.InsertionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon.NewTree(treeDepth)
 
 						params.StartIndex = 0
 						params.PreRoot = tree.Root()
@@ -237,11 +239,10 @@ func main() {
 							params.MerkleProofs[i] = tree.Update(i, params.IdComms[i])
 						}
 						params.PostRoot = tree.Root()
-						params.ComputeInputHashInsertion()
 						r, err = json.Marshal(&params)
 					} else if mode == server.DeletionMode {
 						params := prover.DeletionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon.NewTree(treeDepth)
 
 						params.DeletionIndices = make([]uint32, batchSize)
 						params.IdComms = make([]big.Int, batchSize)
@@ -333,7 +334,7 @@ func main() {
 						return err
 					}
 
-					var proof *prover.Proof
+					var r []byte
 					if mode == server.InsertionMode {
 						var params prover.InsertionParameters
 						err = json.Unmarshal(bytes, &params)
@@ -341,7 +342,12 @@ func main() {
 							return err
 						}
 						logging.Logger().Info().Msg("params read successfully")
-						proof, err = ps.ProveInsertion(&params)
+						var response *prover.InsertionResponse
+						response, err = ps.ProveInsertion(&params)
+						r, err = json.Marshal(&response)
+						if err != nil {
+							return err
+						}
 					} else if mode == server.DeletionMode {
 						var params prover.DeletionParameters
 						err = json.Unmarshal(bytes, &params)
@@ -349,15 +355,16 @@ func main() {
 							return err
 						}
 						logging.Logger().Info().Msg("params read successfully")
+						var proof *prover.Proof
 						proof, err = ps.ProveDeletion(&params)
+						r, err = json.Marshal(&proof)
+						if err != nil {
+							return err
+						}
 					} else {
 						return fmt.Errorf("Invalid mode: %s", mode)
 					}
 
-					if err != nil {
-						return err
-					}
-					r, _ := json.Marshal(&proof)
 					fmt.Println(string(r))
 					return nil
 				},
@@ -367,17 +374,14 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
 					&cli.StringFlag{Name: "keys-file", Usage: "proving system file", Required: true},
-					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs", Required: true},
+					&cli.StringFlag{Name: "input-hash", Usage: "the hash of all public inputs. Required for deletion only", Required: false},
+					&cli.StringFlag{Name: "params", Usage: "JSON with test parameters (gen-test-params output)", Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					mode := context.String("mode")
 
 					keys := context.String("keys-file")
-					var inputHash big.Int
-					_, ok := inputHash.SetString(context.String("input-hash"), 0)
-					if !ok {
-						return fmt.Errorf("invalid number: %s", context.String("input-hash"))
-					}
+
 					ps, err := prover.ReadSystemFromFile(keys)
 					if err != nil {
 						return err
@@ -388,16 +392,37 @@ func main() {
 					if err != nil {
 						return err
 					}
-					var proof prover.Proof
-					err = json.Unmarshal(bytes, &proof)
-					if err != nil {
-						return err
-					}
 					logging.Logger().Info().Msg("proof read successfully")
 
 					if mode == server.InsertionMode {
-						err = ps.VerifyInsertion(inputHash, &proof)
+						var response *prover.InsertionResponse
+						err = json.Unmarshal(bytes, &response)
+						if err != nil {
+							return err
+						}
+
+						logging.Logger().Info().Msg("reading parameters")
+						var params *prover.InsertionParameters
+						err = json.Unmarshal([]byte(context.String("params")), &params)
+						if err != nil {
+							return err
+						}
+						logging.Logger().Info().Msg("params read successfully")
+
+						err = ps.VerifyInsertion(response, params)
 					} else if mode == server.DeletionMode {
+						var inputHash big.Int
+						_, ok := inputHash.SetString(context.String("input-hash"), 0)
+						if !ok {
+							return fmt.Errorf("invalid number: %s", context.String("input-hash"))
+						}
+
+						var proof prover.Proof
+						err = json.Unmarshal(bytes, &proof)
+						if err != nil {
+							return err
+						}
+
 						err = ps.VerifyDeletion(inputHash, &proof)
 					} else {
 						return fmt.Errorf("Invalid mode: %s", mode)
