@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"io"
 	"net/http"
 	"worldcoin/gnark-mbu/logging"
+	"worldcoin/gnark-mbu/server/wrapped_http"
 
 	"worldcoin/gnark-mbu/prover"
 
@@ -78,14 +81,26 @@ func spawnServerJob(server *http.Server, label string) RunningJob {
 }
 
 func Run(config *Config, provingSystem *prover.ProvingSystem) RunningJob {
+	// Create non-global registry.
+	registry := prometheus.NewRegistry()
+
+	// Add go runtime metrics and process collectors.
+	registry.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	metricsServer := &http.Server{Addr: config.MetricsAddress, Handler: metricsMux}
 	metricsJob := spawnServerJob(metricsServer, "metrics server")
 	logging.Logger().Info().Str("addr", config.MetricsAddress).Msg("metrics server started")
 
-	proverMux := http.NewServeMux()
-	proverMux.Handle("/prove", proveHandler{provingSystem: provingSystem, mode: config.Mode})
+	proverMux := wrapped_http.NewWrappedServeMuxWithMetrics(registry, nil)
+	proverMux.Handle(
+		"/prove",
+		proveHandler{provingSystem: provingSystem, mode: config.Mode},
+	)
 	proverServer := &http.Server{Addr: config.ProverAddress, Handler: proverMux}
 	proverJob := spawnServerJob(proverServer, "prover server")
 	logging.Logger().Info().Str("addr", config.ProverAddress).Msg("app server started")
