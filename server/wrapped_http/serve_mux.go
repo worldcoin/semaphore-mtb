@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/net/http"
 )
 
 type WrappedServeMux interface {
@@ -16,7 +17,7 @@ type WrappedServeMux interface {
 }
 
 type serveMuxWithMetrics struct {
-	server   *http.ServeMux
+	server   *httptrace.ServeMux
 	buckets  []float64
 	registry prometheus.Registerer
 }
@@ -91,7 +92,7 @@ func NewWrappedServeMuxWithMetrics(registry prometheus.Registerer, buckets []flo
 	}
 
 	return &serveMuxWithMetrics{
-		server:   http.NewServeMux(),
+		server:   httptrace.NewServeMux(),
 		buckets:  buckets,
 		registry: registry,
 	}
