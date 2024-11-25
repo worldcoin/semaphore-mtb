@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+
 	"worldcoin/gnark-mbu/logging"
 
 	"github.com/consensys/gnark-crypto/ecc"
@@ -64,7 +66,6 @@ func (p *InsertionParameters) MarshalJSON() ([]byte, error) {
 }
 
 func (p *InsertionParameters) UnmarshalJSON(data []byte) error {
-
 	var params InsertionParametersJSON
 
 	err := json.Unmarshal(data, &params)
@@ -132,7 +133,6 @@ func (p *DeletionParameters) MarshalJSON() ([]byte, error) {
 }
 
 func (p *DeletionParameters) UnmarshalJSON(data []byte) error {
-
 	var params DeletionParametersJSON
 
 	err := json.Unmarshal(data, &params)
@@ -346,8 +346,8 @@ func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
 			err = closeErr
 		}
 	}()
-
-	_, err = ps.UnsafeReadFrom(file)
+	bufferedReader := bufio.NewReaderSize(file, 4*1024*1024) // 4MB buffer
+	_, err = ps.UnsafeReadFrom(bufferedReader)
 	if err != nil {
 		return
 	}

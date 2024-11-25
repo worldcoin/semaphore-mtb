@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
@@ -130,14 +131,12 @@ func main() {
 
 					if mode == server.InsertionMode {
 						system, err = prover.ImportInsertionSetup(treeDepth, batchSize, pk, vk)
-
 						if err != nil {
 							return err
 						}
 
 					} else if mode == server.DeletionMode {
 						system, err = prover.ImportDeletionSetup(treeDepth, batchSize, pk, vk)
-
 						if err != nil {
 							return err
 						}
