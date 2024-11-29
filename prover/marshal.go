@@ -286,6 +286,45 @@ func (ps *ProvingSystem) WriteTo(w io.Writer) (int64, error) {
 	return totalWritten, nil
 }
 
+func (ps *ProvingSystem) WriteRawTo(w io.Writer) (int64, error) {
+	var totalWritten int64 = 0
+	var intBuf [4]byte
+
+	binary.BigEndian.PutUint32(intBuf[:], ps.TreeDepth)
+	written, err := w.Write(intBuf[:])
+	totalWritten += int64(written)
+	if err != nil {
+		return totalWritten, err
+	}
+
+	binary.BigEndian.PutUint32(intBuf[:], ps.BatchSize)
+	written, err = w.Write(intBuf[:])
+	totalWritten += int64(written)
+	if err != nil {
+		return totalWritten, err
+	}
+
+	keyWritten, err := ps.ProvingKey.WriteRawTo(w)
+	totalWritten += keyWritten
+	if err != nil {
+		return totalWritten, err
+	}
+
+	keyWritten, err = ps.VerifyingKey.WriteRawTo(w)
+	totalWritten += keyWritten
+	if err != nil {
+		return totalWritten, err
+	}
+
+	keyWritten, err = ps.ConstraintSystem.WriteTo(w)
+	totalWritten += keyWritten
+	if err != nil {
+		return totalWritten, err
+	}
+
+	return totalWritten, nil
+}
+
 func (ps *ProvingSystem) UnsafeReadFrom(r io.Reader) (int64, error) {
 	var totalRead int64 = 0
 	var intBuf [4]byte
