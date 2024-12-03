@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
@@ -130,14 +131,12 @@ func main() {
 
 					if mode == server.InsertionMode {
 						system, err = prover.ImportInsertionSetup(treeDepth, batchSize, pk, vk)
-
 						if err != nil {
 							return err
 						}
 
 					} else if mode == server.DeletionMode {
 						system, err = prover.ImportDeletionSetup(treeDepth, batchSize, pk, vk)
-
 						if err != nil {
 							return err
 						}
@@ -436,6 +435,37 @@ func main() {
 						return err
 					}
 					logging.Logger().Info().Int("bytesWritten", written).Msg("Lean circuit written to file")
+
+					return nil
+				},
+			},
+			{
+				Name: "convert-to-raw",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "input", Usage: "Input file", Required: true},
+					&cli.StringFlag{Name: "output", Usage: "Output file", Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					input := context.String("input")
+					output := context.String("output")
+
+					logging.Logger().Info().Msg("Reading proving system from file")
+					ps, err := prover.ReadSystemFromFile(input)
+					if err != nil {
+						return err
+					}
+
+					logging.Logger().Info().Msg("Writing uncompressed proving system to file")
+					file, err := os.Create(output)
+					if err != nil {
+						return err
+					}
+					defer file.Close()
+
+					_, err = ps.WriteRawTo(file)
+					if err != nil {
+						return err
+					}
 
 					return nil
 				},
