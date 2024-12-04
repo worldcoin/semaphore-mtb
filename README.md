@@ -3,6 +3,7 @@
 SMTB is a service for batch processing of Merkle tree updates. It is designed to be used in conjunction with [Semaphore](https://github.com/semaphore-protocol/semaphore). It accepts Merkle tree updates and batches them together into a single one. This is useful for reducing the number of transactions that need to be submitted to the blockchain. The correctness of the batched Merkle tree update is assured through the generation of a SNARK (generated through [gnark](https://github.com/ConsenSys/gnark)).
 
 ## Table of Contents
+
 1. [Features](#features)
 2. [Usage](#usage)
 3. [Benchmarks](#benchmarks)
@@ -20,61 +21,68 @@ SMTB is a service for batch processing of Merkle tree updates. It is designed to
 - [ ] Proving service
 - [ ] Serialize circuit and proving key
 
-## Usage  
-This part explains the existing cli commands.  
-  
+## Usage
+
+This part explains the existing cli commands.
+
 1. setup - builds a circuit with provided batch size and depth, compiles it and writes it to a file.  
-    Flags:  
-        1. output *file path* - A path used to output a file  
-        2. tree-depth *n* - Merkle tree depth  
-        3. batch-size *n* - Batch size for Merkle tree updates
-2. export-solidity  - Reads a key file (generated from setup), and writes a solidity verifier contract.  
-    Flags:  
-        1. keys-file *file path*  
-        2. Optional: output *file* - Outputs to a file, if not provided, it will output to stdandard output  
-3. gen-test-params - Generates test params given the batch size and tree depth. 
-    Flags:  
-        1. tree-depth *n* - Depth of the mock merkle tree  
-        2. batch-size *n* - Batch size for merkle tree updates  
+   Flags:
+   1. output _file path_ - A path used to output a file
+   2. tree-depth _n_ - Merkle tree depth
+   3. batch-size _n_ - Batch size for Merkle tree updates
+2. export-solidity - Reads a key file (generated from setup), and writes a solidity verifier contract.  
+   Flags:
+   1. keys-file _file path_
+   2. Optional: output _file_ - Outputs to a file, if not provided, it will output to stdandard output
+3. gen-test-params - Generates test params given the batch size and tree depth.
+   Flags:
+   1. tree-depth _n_ - Depth of the mock merkle tree
+   2. batch-size _n_ - Batch size for merkle tree updates
 4. start - starts a api server with /prove and /metrics endpoints  
-    Flags:  
-        1. keys-file *file path* - Proving system file  
-        2. Optional: json-logging *0/1* - Enables json logging  
-        3. Optional: prover-address *address* - Address for the prover server, defaults to localhost:3001  
-        4. Optional: metrics-address *address* - Address for the metrics server, defaults to localhost:9998  
+   Flags:
+   1. keys-file _file path_ - Proving system file
+   2. Optional: json-logging _0/1_ - Enables json logging
+   3. Optional: prover-address _address_ - Address for the prover server, defaults to localhost:3001
+   4. Optional: metrics-address _address_ - Address for the metrics server, defaults to localhost:9998
 5. prove - Reads a prover system file, generates and returns proof based on prover parameters  
-    Flags:  
-        1. keys-file *file path* - Proving system file  
+   Flags:
+   1. keys-file _file path_ - Proving system file
 6. verify - Takes a hash of all public inputs and verifies it with a prover system  
-    Flags:  
-        1. keys-file *file path* - Proving system file  
-        2. input-hash *hash* - Hash of all public inputs  
+   Flags:
+   1. keys-file _file path_ - Proving system file
+   2. input-hash _hash_ - Hash of all public inputs
 7. r1cs - Builds an r1cs and writes it to a file  
-    Flags:  
-        1. output *file path* - File to be written to  
-        2. tree-depth *n* - Depth of a tree  
-        3. batch-size *n* - Batch size for Merkle tree updates
+   Flags:
+   1. output _file path_ - File to be written to
+   2. tree-depth _n_ - Depth of a tree
+   3. batch-size _n_ - Batch size for Merkle tree updates
 8. extract-circuit - Transpiles the circuit from gnark to Lean
-    Flags:  
-        1. output *file path* - File to be writen to
-        2. tree-depth *n* - Merkle tree depth  
-        3. batch-size *n* - Batch size for Merkle tree updates
+   Flags:
+   1. output _file path_ - File to be writen to 2. tree-depth _n_ - Merkle tree depth
+   2. batch-size _n_ - Batch size for Merkle tree updates
+9. convert-to-raw - Converts a compressed proving system into an uncompressed one with better read performance
+   Flags:
+   1. input _file path_ - Input proving system
+   2. output _file path_ - Output proving system
 
 ## Benchmarks
 
 Batch size: `100`
 Tree depth: `20`
+
 ```
 DBG prover done backend=groth16 curve=BN254 nbConstraints=6370011 took=11094.363542
 ```
 
 ## Running
+
 ```shell
 go build .
 gnark-mbu --keys-file path/to/keys/file
 ```
 
 ## Docker
+
 ```shell
 docker build -t semaphore-mtb .
 
@@ -86,6 +94,7 @@ docker run -it \
 ```
 
 Or in docker compose
+
 ```yaml
 semaphore-mtb:
     # Path to the repo root directory
@@ -104,14 +113,14 @@ docker compose up -d
 
 ## Contributing
 
-We welcome your pull requests! But also consider the following:  
+We welcome your pull requests! But also consider the following:
 
-1. Fork this repo from `master` branch.  
-2. If you added code that should be tested, please add tests.  
-3. If you changed the CLI flags, please update this readme in your PR.  
-4. Ensure that CI tests suite passes.  
+1. Fork this repo from `master` branch.
+2. If you added code that should be tested, please add tests.
+3. If you changed the CLI flags, please update this readme in your PR.
+4. Ensure that CI tests suite passes.
 
 When you submit code changes, your submissions are understood to be under the same MIT License that covers the project.  
-Feel free to contact the maintainers if that's a concern.  
+Feel free to contact the maintainers if that's a concern.
 
-Report bugs using github issues. 
+Report bugs using github issues.
