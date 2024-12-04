@@ -56,7 +56,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					written, err := system.WriteTo(file)
+					written, err := system.WriteRawTo(file)
 					if err != nil {
 						return err
 					}
@@ -148,7 +148,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					written, err := system.WriteTo(file)
+					written, err := system.WriteRawTo(file)
 					if err != nil {
 						return err
 					}
