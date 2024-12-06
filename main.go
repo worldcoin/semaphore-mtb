@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"time"
 
 	"worldcoin/gnark-mbu/logging"
 	"worldcoin/gnark-mbu/prover"
@@ -289,12 +290,20 @@ func main() {
 						return fmt.Errorf("invalid mode: %s", mode)
 					}
 
-					logging.Logger().Info().Msg("Reading proving system from file")
+					logging.Logger().Info().Msg("Loading proving system from file")
+					start := time.Now()
 					ps, err := prover.ReadSystemFromFile(keys)
 					if err != nil {
 						return err
 					}
-					logging.Logger().Info().Uint32("treeDepth", ps.TreeDepth).Uint32("batchSize", ps.BatchSize).Msg("Read proving system")
+					duration := time.Since(start)
+					logging.Logger().
+						Info().
+						Uint32("treeDepth", ps.TreeDepth).
+						Uint32("batchSize", ps.BatchSize).
+						Dur("duration", duration).
+						Msg("Proving system loaded")
+
 					config := server.Config{
 						ProverAddress:  context.String("prover-address"),
 						MetricsAddress: context.String("metrics-address"),
