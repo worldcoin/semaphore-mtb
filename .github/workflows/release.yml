@@ -2,7 +2,7 @@ name: Release
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 jobs:
   create_release:
@@ -12,7 +12,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.20.3
+          go-version-file: "./go.mod"
       - name: Build artifacts
         run: |
           for cfgstr in "darwin amd64" "darwin arm64" "linux amd64" "windows amd64"; do
