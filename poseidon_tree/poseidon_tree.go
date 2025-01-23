@@ -1,4 +1,4 @@
-package main
+package poseidon_tree
 
 import (
 	"github.com/iden3/go-iden3-crypto/poseidon"

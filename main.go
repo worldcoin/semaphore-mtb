@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"worldcoin/gnark-mbu/logging"
+	"worldcoin/gnark-mbu/poseidon_tree"
 	"worldcoin/gnark-mbu/prover"
 	"worldcoin/gnark-mbu/server"
 
@@ -226,7 +227,7 @@ func main() {
 
 					if mode == server.InsertionMode {
 						params := prover.InsertionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon_tree.NewTree(treeDepth)
 
 						params.StartIndex = 0
 						params.PreRoot = tree.Root()
@@ -241,7 +242,7 @@ func main() {
 						r, err = json.Marshal(&params)
 					} else if mode == server.DeletionMode {
 						params := prover.DeletionParameters{}
-						tree := NewTree(treeDepth)
+						tree := poseidon_tree.NewTree(treeDepth)
 
 						params.DeletionIndices = make([]uint32, batchSize)
 						params.IdComms = make([]big.Int, batchSize)
@@ -293,6 +294,73 @@ func main() {
 					logging.Logger().Info().Msg("Loading proving system from file")
 					start := time.Now()
 					ps, err := prover.ReadSystemFromFile(keys)
+					if err != nil {
+						return err
+					}
+					duration := time.Since(start)
+					logging.Logger().
+						Info().
+						Uint32("treeDepth", ps.TreeDepth).
+						Uint32("batchSize", ps.BatchSize).
+						Dur("duration", duration).
+						Msg("Proving system loaded")
+
+					config := server.Config{
+						ProverAddress:  context.String("prover-address"),
+						MetricsAddress: context.String("metrics-address"),
+						Mode:           mode,
+					}
+					instance := server.Run(&config, ps)
+					sigint := make(chan os.Signal, 1)
+					signal.Notify(sigint, os.Interrupt)
+					<-sigint
+					logging.Logger().Info().Msg("Received sigint, shutting down")
+					instance.RequestStop()
+					logging.Logger().Info().Msg("Waiting for server to close")
+					instance.AwaitStop()
+					return nil
+				},
+			},
+			{
+				Name: "start-from-s3",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
+					&cli.BoolFlag{Name: "json-logging", Usage: "enable JSON logging", Required: false},
+					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
+					&cli.StringFlag{Name: "metrics-address", Usage: "address for the metrics server", Value: "localhost:9998", Required: false},
+					&cli.StringFlag{Name: "s3-region", Usage: "s3 region of bucket", EnvVars: []string{"S3_REGION"}, DefaultText: "us-east1"},
+					&cli.StringFlag{Name: "s3-bucket", Usage: "s3 bucket name", EnvVars: []string{"S3_BUCKET"}, Required: true},
+					&cli.StringFlag{Name: "s3-object-key", Usage: "s3 object key (path)", EnvVars: []string{"S3_OBJECT_KEY"}, Required: true},
+					&cli.IntFlag{Name: "s3-concurrency", Usage: "number of concurrent connections to download from s3", EnvVars: []string{"S3_CONCURRENCY"}, DefaultText: "8"},
+					&cli.Int64Flag{Name: "s3-part-mibs", Usage: "size of part to download from s3", EnvVars: []string{"S3_PART_MIBS"}, DefaultText: "64"},
+				},
+				Action: func(context *cli.Context) error {
+					if context.Bool("json-logging") {
+						logging.SetJSONOutput()
+					}
+					region := context.String("s3-region")
+					bucket := context.String("s3-bucket")
+					objectKey := context.String("s3-object-key")
+					concurrency := context.Int("s3-concurrency")
+					partMibs := context.Int64("s3-part-mibs")
+					mode := context.String("mode")
+
+					if mode != server.DeletionMode && mode != server.InsertionMode {
+						return fmt.Errorf("invalid mode: %s", mode)
+					}
+
+					logging.Logger().
+						Info().
+						Str("region", region).
+						Str("bucket", bucket).
+						Str("objectKey", objectKey).
+						Str("objectKey", objectKey).
+						Int("concurrency", concurrency).
+						Int64("partMibs", partMibs).
+						Msg("Loading proving system from S3")
+
+					start := time.Now()
+					ps, err := prover.ReadSystemFromS3(region, bucket, objectKey, concurrency, partMibs)
 					if err != nil {
 						return err
 					}
