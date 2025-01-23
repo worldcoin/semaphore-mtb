@@ -321,6 +321,60 @@ func main() {
 				},
 			},
 			{
+				Name: "start-from-s3",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},
+					&cli.BoolFlag{Name: "json-logging", Usage: "enable JSON logging", Required: false},
+					&cli.StringFlag{Name: "prover-address", Usage: "address for the prover server", Value: "localhost:3001", Required: false},
+					&cli.StringFlag{Name: "metrics-address", Usage: "address for the metrics server", Value: "localhost:9998", Required: false},
+					&cli.StringFlag{Name: "s3-region", Usage: "insertion/deletion", EnvVars: []string{"S3_REGION"}, DefaultText: "us-east1"},
+					&cli.StringFlag{Name: "s3-bucket", Usage: "insertion/deletion", EnvVars: []string{"S3_BUCKET"}, Required: true},
+					&cli.StringFlag{Name: "s3-object-key", Usage: "insertion/deletion", EnvVars: []string{"S3_BUCKET"}, Required: true},
+				},
+				Action: func(context *cli.Context) error {
+					if context.Bool("json-logging") {
+						logging.SetJSONOutput()
+					}
+					region := context.String("s3-region")
+					bucket := context.String("s3-bucket")
+					objectKey := context.String("s3-object-key")
+					mode := context.String("mode")
+
+					if mode != server.DeletionMode && mode != server.InsertionMode {
+						return fmt.Errorf("invalid mode: %s", mode)
+					}
+
+					logging.Logger().Info().Msg("Loading proving system from file")
+					start := time.Now()
+					ps, err := prover.ReadSystemFromS3(region, bucket, objectKey)
+					if err != nil {
+						return err
+					}
+					duration := time.Since(start)
+					logging.Logger().
+						Info().
+						Uint32("treeDepth", ps.TreeDepth).
+						Uint32("batchSize", ps.BatchSize).
+						Dur("duration", duration).
+						Msg("Proving system loaded")
+
+					config := server.Config{
+						ProverAddress:  context.String("prover-address"),
+						MetricsAddress: context.String("metrics-address"),
+						Mode:           mode,
+					}
+					instance := server.Run(&config, ps)
+					sigint := make(chan os.Signal, 1)
+					signal.Notify(sigint, os.Interrupt)
+					<-sigint
+					logging.Logger().Info().Msg("Received sigint, shutting down")
+					instance.RequestStop()
+					logging.Logger().Info().Msg("Waiting for server to close")
+					instance.AwaitStop()
+					return nil
+				},
+			},
+			{
 				Name: "prove",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "mode", Usage: "insertion/deletion", EnvVars: []string{"MTB_MODE"}, DefaultText: "insertion"},

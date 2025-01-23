@@ -3,15 +3,20 @@ package prover
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"io"
 	"math/big"
 	"os"
 
 	"worldcoin/gnark-mbu/logging"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 )
@@ -386,6 +391,42 @@ func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
 		}
 	}()
 	bufferedReader := bufio.NewReaderSize(file, 4*1024*1024) // 4MB buffer
+	_, err = ps.UnsafeReadFrom(bufferedReader)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func ReadSystemFromS3(bucketName, region, objectKey string) (ps *ProvingSystem, err error) {
+	ps = new(ProvingSystem)
+
+	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return
+	}
+
+	client := s3.NewFromConfig(awsConfig)
+	if err != nil {
+		return
+	}
+
+	var partMiBs int64 = 64
+	downloader := manager.NewDownloader(client, func(d *manager.Downloader) {
+		d.PartSize = partMiBs * 1024 * 1024
+		d.Concurrency = 10
+	})
+
+	buff := manager.NewWriteAtBuffer([]byte{})
+	_, err = downloader.Download(context.TODO(), buff, &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectKey),
+	})
+	if err != nil {
+		return
+	}
+
+	bufferedReader := bytes.NewReader(buff.Bytes())
 	_, err = ps.UnsafeReadFrom(bufferedReader)
 	if err != nil {
 		return
