@@ -329,7 +329,7 @@ func main() {
 					&cli.StringFlag{Name: "metrics-address", Usage: "address for the metrics server", Value: "localhost:9998", Required: false},
 					&cli.StringFlag{Name: "s3-region", Usage: "insertion/deletion", EnvVars: []string{"S3_REGION"}, DefaultText: "us-east1"},
 					&cli.StringFlag{Name: "s3-bucket", Usage: "insertion/deletion", EnvVars: []string{"S3_BUCKET"}, Required: true},
-					&cli.StringFlag{Name: "s3-object-key", Usage: "insertion/deletion", EnvVars: []string{"S3_BUCKET"}, Required: true},
+					&cli.StringFlag{Name: "s3-object-key", Usage: "insertion/deletion", EnvVars: []string{"S3_OBJECT_KEY"}, Required: true},
 				},
 				Action: func(context *cli.Context) error {
 					if context.Bool("json-logging") {
