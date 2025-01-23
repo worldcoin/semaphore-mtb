@@ -398,7 +398,7 @@ func ReadSystemFromFile(path string) (ps *ProvingSystem, err error) {
 	return
 }
 
-func ReadSystemFromS3(bucketName, region, objectKey string) (ps *ProvingSystem, err error) {
+func ReadSystemFromS3(region, bucket, objectKey string) (ps *ProvingSystem, err error) {
 	ps = new(ProvingSystem)
 
 	awsConfig, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
@@ -419,7 +419,7 @@ func ReadSystemFromS3(bucketName, region, objectKey string) (ps *ProvingSystem, 
 
 	buff := manager.NewWriteAtBuffer([]byte{})
 	_, err = downloader.Download(context.TODO(), buff, &s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(bucket),
 		Key:    aws.String(objectKey),
 	})
 	if err != nil {
