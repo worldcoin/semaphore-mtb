@@ -11,37 +11,38 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+  workflow_dispatch:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 600
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Install Elan
-      run: |
-        curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y -v --default-toolchain leanprover/lean4:nightly-2023-07-12
-        echo "LAKE_VERSION=$(~/.elan/bin/lake --version)" >> $GITHUB_ENV
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: formal-verification/lake-packages
-        key: "${{ env.LAKE_VERSION }}"
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version-file: './go.mod'
-    - name: Build
-      run: go build
-    - name: Test
-      run: go test
-    - name: Export circuit
-      run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean --tree-depth 30 --batch-size 4
-    - name: Build lean project
-      run: |
-        cd formal-verification
-        ulimit -s 65520
-        ~/.elan/bin/lake exe cache get
-        ~/.elan/bin/lake build
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Elan
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y -v --default-toolchain leanprover/lean4:nightly-2023-07-12
+          echo "LAKE_VERSION=$(~/.elan/bin/lake --version)" >> $GITHUB_ENV
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: formal-verification/lake-packages
+          key: "${{ env.LAKE_VERSION }}"
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: "./go.mod"
+      - name: Build
+        run: go build
+      - name: Test
+        run: go test
+      - name: Export circuit
+        run: ./gnark-mbu extract-circuit --output=formal-verification/FormalVerification.lean --tree-depth 30 --batch-size 4
+      - name: Build lean project
+        run: |
+          cd formal-verification
+          ulimit -s 65520
+          ~/.elan/bin/lake exe cache get
+          ~/.elan/bin/lake build
